@@ -1,6 +1,7 @@
 from __future__ import annotations
  
 import argparse
+from datetime import UTC, datetime
 from pathlib import Path
  
 from .columns import CATALOG
@@ -16,23 +17,14 @@ def run(disease: str, year: int, selected_columns: list[str] | None = None) -> N
     bronze_df = fetch_sinan(disease, year)
     if bronze_df.empty:
         raise RuntimeError("PySUS retornou um DataFrame vazio")
- 
+
     bronze = write_bronze(bronze_df, disease, year)
-    silver = (
-        BASE_DIR / "silver" / "sinan" / f"disease={disease.lower()}"
-        / f"year={year}" / "data.parquet"
-    )
-    transform_file(bronze, silver, year)
- 
-    gold = (
-        BASE_DIR / "gold" / "sinan" / f"disease={disease.lower()}"
-        / f"year={year}" / "gold_cases.parquet"
-    )
-    aggregate_file(silver, gold, selected_columns)
+    silver = transform_file(bronze, disease, year)
+    gold = aggregate_file(silver, disease, year, selected_columns)
+
     print(f"Bronze: {bronze}")
     print(f"Silver: {silver}")
     print(f"Gold: {gold}")
- 
  
 def main() -> None:
     parser = argparse.ArgumentParser(description="Pipeline Medallion do SINAN")

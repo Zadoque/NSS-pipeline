@@ -5,8 +5,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from .atomic_io import write_parquet_atomic
+from .atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, present_keys, required_keys, resolve_dedup_strategy
+from datetime import UTC, datetime
+
+BASE_DIR = Path("/data")
 
 UF_CODES = {
     "11": "RO", "12": "AC", "13": "AM", "14": "RR", "15": "PA", "16": "AP",
@@ -69,10 +72,34 @@ def transform(df: pd.DataFrame, year: int) -> pd.DataFrame:
     return out
 
 
-def transform_file(source: Path, destination: Path, year: int) -> Path:
+def transform_file(source: Path, disease: str, year: int) -> Path:
     df = pd.read_parquet(source)
+    len_before = len(df)
+
     result = transform(df, year)
-    return write_parquet_atomic(result, destination)
+    len_after = len(result)
+
+    now = datetime.now(UTC)
+    batch_id = now.strftime("%Y%m%dT%H%M%SZ")
+    directory = (
+        BASE_DIR / "silver" / "sinan" / f"disease={disease.lower()}"
+        / f"source_year={year}" / f"ingestion_date={now.date()}" / f"batch_id={batch_id}"
+    )
+    parquet = directory / "data.parquet"
+    write_parquet_atomic(result, parquet)          
+
+    metadata = {
+        "disease": disease.upper(),
+        "source_year": year,
+        "batch_id": batch_id,
+        "ingested_at": now.isoformat(),
+        "rows": len_after,                          
+        "dropped_rows": len_before - len_after,
+        "columns": list(result.columns),             
+    }
+
+    write_json_atomic(metadata, directory / "metadata.json")
+    return parquet
 
 
 if __name__ == "__main__":

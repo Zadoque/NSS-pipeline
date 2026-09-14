@@ -1,11 +1,12 @@
 from __future__ import annotations
- 
+
 from pathlib import Path
  
 import pandas as pd
  
-from .atomic_io import write_parquet_atomic
+from .atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, validate_keys
+from datetime import UTC, datetime
  
 MUNICIPIOS_RJ = {
     "3301009": "Campos dos Goytacazes",
@@ -13,7 +14,8 @@ MUNICIPIOS_RJ = {
     "3302205": "Itaperuna",
     "3302403": "Macaé",
 }
- 
+
+BASE_DIR = Path("/data")
  
 def aggregate(
     df: pd.DataFrame,
@@ -62,11 +64,35 @@ def aggregate(
  
 def aggregate_file(
     source: Path,
-    destination: Path,
+    disease: str,
+    year: int,
     selected_columns: list[str] | None = None,
     municipios: dict[str, str] | None = None,
 ) -> Path:
     df = pd.read_parquet(source)
+    len_before = len(df)
+
     result = aggregate(df, selected_columns, municipios)
-    return write_parquet_atomic(result, destination)
- 
+    len_after = len(result)
+
+    now = datetime.now(UTC)
+    batch_id = now.strftime("%Y%m%dT%H%M%SZ")
+    directory = (
+        BASE_DIR / "gold" / "sinan" / f"disease={disease.lower()}"
+        / f"source_year={year}" / f"ingestion_date={now.date()}" / f"batch_id={batch_id}"
+    )
+    parquet = directory / "data.parquet"
+    write_parquet_atomic(result, parquet)          
+
+    metadata = {
+        "disease": disease.upper(),
+        "source_year": year,
+        "batch_id": batch_id,
+        "ingested_at": now.isoformat(),
+        "rows": len_after,
+        "dropped_rows": len_before - len_after,     
+        "columns": list(result.columns),
+    }
+
+    write_json_atomic(metadata, directory / "metadata.json")
+    return parquet
