@@ -15,14 +15,11 @@ class ColumnSpec:
     dedup_key: bool = False     
     transform: Optional[Callable[[pd.Series], pd.Series]] = None
 
-
 def _to_date(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, errors="coerce")
 
-
 def _zfill_municip(series: pd.Series) -> pd.Series:
     return series.astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
-
 
 def _zfill_uf(series: pd.Series) -> pd.Series:
     return series.astype("string").str.replace(r"\.0$", "", regex=True).str.zfill(2)
@@ -30,7 +27,6 @@ def _zfill_uf(series: pd.Series) -> pd.Series:
 
 def _clean_id(series: pd.Series) -> pd.Series:
     return series.astype("string").str.replace(r"\.0$", "", regex=True)
-
 
 CATALOG: dict[str, ColumnSpec] = {
     "data_notificacao": ColumnSpec(
@@ -55,17 +51,14 @@ CATALOG: dict[str, ColumnSpec] = {
     "ano_nascimento": ColumnSpec("Ano de nascimento", "ANO_NASC", groupable=True),
 }
 
-
 def required_keys() -> list[str]:
     return [key for key, spec in CATALOG.items() if spec.required]
-
 
 def dedup_key_columns() -> list[str]:
     cols = [spec.source_column for spec in CATALOG.values() if spec.dedup_key]
     if not cols:
         raise RuntimeError("Nenhuma coluna marcada como dedup_key no catálogo")
     return cols
-
 
 def resolve_dedup_strategy(available_columns: set[str]) -> tuple[list[str], bool]:
     primary = dedup_key_columns()
@@ -79,10 +72,8 @@ def resolve_dedup_strategy(available_columns: set[str]) -> tuple[list[str], bool
     ]
     return fallback, False
 
-
 def present_keys(available_columns: set[str]) -> list[str]:
     return [key for key, spec in CATALOG.items() if spec.source_column in available_columns]
-
 
 def validate_keys(selected_keys: list[str]) -> list[str]:
     keys = list(selected_keys or [])
