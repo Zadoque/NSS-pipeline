@@ -71,36 +71,33 @@ def transform(df: pd.DataFrame, year: int) -> pd.DataFrame:
     out = out.drop_duplicates(subset=dedup_cols, keep="last")
     return out
 
-
-def transform_file(source: Path, disease: str, year: int) -> Path:
+def transform_file(source: Path, disease: str, year: int, run_at: datetime | None = None) -> Path:
     df = pd.read_parquet(source)
     len_before = len(df)
 
     result = transform(df, year)
     len_after = len(result)
 
-    now = datetime.now(UTC)
+    now = run_at or datetime.now(UTC)
     batch_id = now.strftime("%Y%m%dT%H%M%SZ")
     directory = (
         BASE_DIR / "silver" / "sinan" / f"disease={disease.lower()}"
         / f"source_year={year}" / f"ingestion_date={now.date()}" / f"batch_id={batch_id}"
     )
     parquet = directory / "data.parquet"
-    write_parquet_atomic(result, parquet)          
+    write_parquet_atomic(result, parquet)
 
     metadata = {
         "disease": disease.upper(),
         "source_year": year,
         "batch_id": batch_id,
         "ingested_at": now.isoformat(),
-        "rows": len_after,                          
+        "rows": len_after,
         "dropped_rows": len_before - len_after,
-        "columns": list(result.columns),             
+        "columns": list(result.columns),
     }
-
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet
-
 
 if __name__ == "__main__":
     import argparse

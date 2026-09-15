@@ -24,8 +24,8 @@ def fetch_sinan(disease: str, year: int) -> pd.DataFrame:
     return result
  
  
-def write_bronze(df: pd.DataFrame, disease: str, year: int) -> Path:
-    now = datetime.now(UTC)
+def write_bronze(df: pd.DataFrame, disease: str, year: int, run_at: datetime | None = None) -> Path:
+    now = run_at or datetime.now(UTC)
     batch_id = now.strftime("%Y%m%dT%H%M%SZ")
     directory = (
         BASE_DIR / "bronze" / "sinan" / f"disease={disease.lower()}"
@@ -33,7 +33,7 @@ def write_bronze(df: pd.DataFrame, disease: str, year: int) -> Path:
     )
     parquet = directory / "data.parquet"
     write_parquet_atomic(df, parquet)
- 
+
     metadata = {
         "disease": disease.upper(),
         "source_year": year,
@@ -45,7 +45,6 @@ def write_bronze(df: pd.DataFrame, disease: str, year: int) -> Path:
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet
- 
  
 def main() -> None:
     parser = argparse.ArgumentParser(description="Baixa SINAN via PySUS para a camada Bronze")
