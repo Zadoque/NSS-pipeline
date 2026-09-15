@@ -98,6 +98,7 @@ def aggregate_file(
     year: int,
     selected_columns: list[str] | None = None,
     municipios: dict[str, str] | None = None,
+    run_at: datetime | None = None,
 ) -> Path:
     disease = disease.upper()
 
@@ -110,7 +111,7 @@ def aggregate_file(
     result = aggregate(df, disease, selected_columns, municipios)
     len_after = len(result)
 
-    now = datetime.now(UTC)
+    now = run_at or datetime.now(UTC)
     batch_id = now.strftime("%Y%m%dT%H%M%SZ")
     directory = (
         BASE_DIR / "gold" / "sinan" / f"disease={disease.lower()}"
@@ -128,6 +129,5 @@ def aggregate_file(
         "dropped_rows": len_before - len_after,
         "columns": list(result.columns),
     }
-
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet

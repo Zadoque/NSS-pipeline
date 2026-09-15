@@ -14,13 +14,15 @@ BASE_DIR = Path("/data")
  
 def run(disease: str, year: int, selected_columns: list[str] | None = None) -> None:
     disease = disease.upper()
+    run_at = datetime.now(UTC)          
+
     bronze_df = fetch_sinan(disease, year)
     if bronze_df.empty:
         raise RuntimeError("PySUS retornou um DataFrame vazio")
 
-    bronze = write_bronze(bronze_df, disease, year)
-    silver = transform_file(bronze, disease, year)
-    gold = aggregate_file(silver, disease, year, selected_columns)
+    bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
+    silver = transform_file(bronze, disease, year, run_at=run_at)
+    gold = aggregate_file(silver, disease, year, selected_columns, run_at=run_at)
 
     print(f"Bronze: {bronze}")
     print(f"Silver: {silver}")
