@@ -41,7 +41,6 @@ def main() -> None:
     selected = [c.strip() for c in args.columns.split(",") if c.strip()]
     run(args.disease, args.year, selected)
  
- 
 if __name__ == "__main__":
     main()
  
