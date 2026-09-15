@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
  
 import pandas as pd
@@ -64,7 +65,33 @@ def aggregate(
 
     sort_cols = ["disease", "year", "month", "cd_uf", "cd_mun", *extra_group_cols]
     return result.sort_values(sort_cols).reset_index(drop=True) 
- 
+
+def _read_source_metadata(source: Path) -> dict:
+    metadata_path = source.with_name("metadata.json")
+    if not metadata_path.exists():
+        raise FileNotFoundError(
+            f"metadata.json não encontrado ao lado de {source}; "
+            "não é possível validar a origem antes de agregar para Gold."
+        )
+    return json.loads(metadata_path.read_text(encoding="utf-8"))
+
+def _validate_source_matches(source_metadata: dict, disease: str, year: int, source: Path) -> None:
+    source_disease = source_metadata.get("disease")
+    source_year = source_metadata.get("source_year")
+
+    if source_disease != disease:
+        raise ValueError(
+            f"Inconsistência detectada ao gerar Gold: solicitado disease={disease!r}, "
+            f"mas a Silver de origem ({source}) foi gerada para disease={source_disease!r}. "
+            "Abortando para evitar misturar doenças na mesma agregação."
+        )
+    if source_year != year:
+        raise ValueError(
+            f"Inconsistência detectada ao gerar Gold: solicitado year={year!r}, "
+            f"mas a Silver de origem ({source}) foi gerada para source_year={source_year!r}. "
+            "Abortando para evitar misturar anos na mesma agregação."
+        )
+
 def aggregate_file(
     source: Path,
     disease: str,
@@ -72,10 +99,15 @@ def aggregate_file(
     selected_columns: list[str] | None = None,
     municipios: dict[str, str] | None = None,
 ) -> Path:
+    disease = disease.upper()
+
+    source_metadata = _read_source_metadata(source)
+    _validate_source_matches(source_metadata, disease, year, source)
+
     df = pd.read_parquet(source)
     len_before = len(df)
 
-    result = aggregate(df, disease,selected_columns, municipios)
+    result = aggregate(df, disease, selected_columns, municipios)
     len_after = len(result)
 
     now = datetime.now(UTC)
@@ -85,15 +117,15 @@ def aggregate_file(
         / f"source_year={year}" / f"ingestion_date={now.date()}" / f"batch_id={batch_id}"
     )
     parquet = directory / "data.parquet"
-    write_parquet_atomic(result, parquet)          
+    write_parquet_atomic(result, parquet)
 
     metadata = {
-        "disease": disease.upper(),
+        "disease": disease,
         "source_year": year,
         "batch_id": batch_id,
         "ingested_at": now.isoformat(),
         "rows": len_after,
-        "dropped_rows": len_before - len_after,     
+        "dropped_rows": len_before - len_after,
         "columns": list(result.columns),
     }
 
