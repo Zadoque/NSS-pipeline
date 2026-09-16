@@ -1,6 +1,10 @@
-data/
 __pycache__/
 *.py[cod]
 .venv/
+venv/
 .env
-.DS_Store
+.idea/
+.vscode/
+data/
+*.parquet
+*.log
