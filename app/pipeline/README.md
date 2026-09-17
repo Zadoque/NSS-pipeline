@@ -221,10 +221,6 @@ Itens já identificados e ainda não resolvidos, para não serem esquecidos:
   replace por partição `disease`/`year`) numa tabela do Postgres, já que o
   SINAN atualiza registros retroativamente e a carga precisa refletir o
   estado mais recente, não apenas fazer `append`.
-- **`batch_id` independente por camada.** Bronze, Silver e Gold geram seu
-  próprio timestamp de batch. Isso dificulta correlacionar os três artefatos
-  de uma mesma execução — vale considerar gerar um único `batch_id` em
-  `run()` e propagá-lo às três camadas.
 - **`year` filtrado por `DT_NOTIFIC`, não por `NU_ANO`.** O SINAN também
   expõe um "ano epidemiológico" (`NU_ANO`), que pode divergir do ano
   calendário perto da virada do ano. Vale confirmar com quem define a regra
