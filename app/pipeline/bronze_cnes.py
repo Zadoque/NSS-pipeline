@@ -58,7 +58,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Baixa dados do CNES via api de Dados Abertos")
     parser.add_argument("--code", required=True, help="Código CNES do município")
     args = parser.parse_args()
-    
+
+    #Ajustar o limite, quanto menor mais dados
     df = fetch_estabelecimentos(args.code, 10)
     if df.empty:
         raise RuntimeError("PySUS retornou um DataFrame vazio")

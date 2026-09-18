@@ -24,6 +24,9 @@ def _zfill_municip(series: pd.Series) -> pd.Series:
 def _zfill_uf(series: pd.Series) -> pd.Series:
     return series.astype("string").str.replace(r"\.0$", "", regex=True).str.zfill(2)
 
+def _zfill_unidade(series: pd.Series) -> pd.Series:
+    return series.astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+
 
 def _clean_id(series: pd.Series) -> pd.Series:
     return series.astype("string").str.replace(r"\.0$", "", regex=True)
@@ -41,6 +44,9 @@ CATALOG: dict[str, ColumnSpec] = {
     "notificacao_id": ColumnSpec(
         "Identificador da notificação", "NU_NOTIFIC",
         dedup_key=True, transform=_clean_id,
+    ),
+    "unidade_notificacao": ColumnSpec(
+        "Unidade de notificação", "ID_UNIDADE", groupable=True, transform=_zfill_unidade
     ),
 
     "semana_notificacao": ColumnSpec("Semana epidemiológica", "SEM_NOT", groupable=True),
