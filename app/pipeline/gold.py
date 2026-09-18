@@ -23,6 +23,7 @@ def aggregate(
     disease: str,
     selected_columns: list[str] | None = None,
     municipios: dict[str, str] | None = None,
+    cnes_lookup: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     selected_columns = validate_keys(selected_columns)
     municipios = municipios if municipios is not None else MUNICIPIOS_RJ
@@ -61,7 +62,12 @@ def aggregate(
         .rename(columns={"NM_UF": "nm_uf"})
     )
 
-    result.insert(0, "disease", disease)   # <- coluna nova, primeira posição
+    if "ID_UNIDADE" in group_cols and cnes_lookup is not None:
+        result = result.merge(
+            cnes_lookup, how="left", left_on="ID_UNIDADE", right_on="cd_unidade"
+        ).drop(columns=["cd_unidade"])
+
+    result.insert(0, "disease", disease)
 
     sort_cols = ["disease", "year", "month", "cd_uf", "cd_mun", *extra_group_cols]
     return result.sort_values(sort_cols).reset_index(drop=True) 
@@ -92,6 +98,15 @@ def _validate_source_matches(source_metadata: dict, disease: str, year: int, sou
             "Abortando para evitar misturar anos na mesma agregação."
         )
 
+def _latest_cnes_lookup() -> pd.DataFrame | None:
+    cnes_dir = BASE_DIR / "silver" / "cnes"
+    if not cnes_dir.exists():
+        return None
+    batches = sorted(cnes_dir.glob("batch_id=*/data.parquet"))
+    if not batches:
+        return None
+    return pd.read_parquet(batches[-1])
+
 def aggregate_file(
     source: Path,
     disease: str,
@@ -108,7 +123,9 @@ def aggregate_file(
     df = pd.read_parquet(source)
     len_before = len(df)
 
-    result = aggregate(df, disease, selected_columns, municipios)
+    cnes_lookup = _latest_cnes_lookup()
+
+    result = aggregate(df, disease, selected_columns, municipios, cnes_lookup=cnes_lookup)
     len_after = len(result)
 
     now = run_at or datetime.now(UTC)
