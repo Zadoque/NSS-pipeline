@@ -2,3 +2,5 @@ pandas
 pyarrow
 PySUS
 requests
+alembic
+psycopg2-binary
