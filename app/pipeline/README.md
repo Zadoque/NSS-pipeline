@@ -3,8 +3,10 @@
 Pipeline de dados em Python responsável por ingerir, limpar e agregar dados de
 notificação compulsória do **SINAN** (Sistema de Informação de Agravos de
 Notificação), via [PySUS](https://pysus.readthedocs.io/), seguindo a
-arquitetura **Medallion (Bronze → Silver → Gold)**. O resultado alimenta um
-dashboard de sala de situação de saúde.
+arquitetura **Medallion (Bronze → Silver → Gold)**. Os casos são enriquecidos
+com o cadastro de unidades de saúde do **CNES**, obtido via
+[API de Dados Abertos do Ministério da Saúde](https://apidadosabertos.saude.gov.br).
+O resultado alimenta um dashboard de sala de situação de saúde.
 
 Este repositório cobre **apenas a pipeline**.
 
@@ -16,6 +18,7 @@ Este repositório cobre **apenas a pipeline**.
 - [Fonte de dados e doenças suportadas](#fonte-de-dados-e-doenças-suportadas)
 - [Estrutura de diretórios e partições](#estrutura-de-diretórios-e-partições)
 - [Catálogo de colunas](#catálogo-de-colunas)
+- [Enriquecimento com CNES (unidades de saúde)](#enriquecimento-com-cnes-unidades-de-saúde)
 - [Como rodar](#como-rodar)
 - [Metadata e auditoria de execução](#metadata-e-auditoria-de-execução)
 - [Limitações conhecidas e roadmap](#limitações-conhecidas-e-roadmap)
@@ -27,29 +30,43 @@ Este repositório cobre **apenas a pipeline**.
 
 ```
 PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold ─▶ (planejado) PostgreSQL ─▶ Backend Java
-                 (cru)     (limpo)   (agregado)
+                 (cru)     (limpo)     ▲
+                                       │ join (unidade de notificação)
+                                       │
+API Dados Abertos (CNES) ─▶ Bronze ─▶ Silver
+                             (cru)    (lookup de unidades)
 ```
 
 | Camada | O que contém | Formato | Idempotência |
 |---|---|---|---|
-| **Bronze** | Dado bruto retornado pelo PySUS, sem nenhuma transformação | Parquet | Append-only — cada execução gera um novo `batch_id`, nada é sobrescrito |
-| **Silver** | Dado limpo, tipado, deduplicado e filtrado pelo ano de referência | Parquet | Reprocessável a qualquer momento a partir da Bronze |
-| **Gold** | Casos agregados por doença/ano/mês/UF/município (+ dimensões opcionais) | Parquet | Reprocessável a qualquer momento a partir da Silver |
+| **Bronze** | Dado bruto retornado pela fonte (PySUS ou API do CNES), sem nenhuma transformação | Parquet | Append-only — cada execução gera um novo `batch_id`, nada é sobrescrito |
+| **Silver** | Dado limpo, tipado, deduplicado e filtrado pelo ano de referência (SINAN) ou consolidado por município (CNES) | Parquet | Reprocessável a qualquer momento a partir da Bronze |
+| **Gold** | Casos agregados por doença/ano/mês/UF/município (+ dimensões opcionais, incluindo unidade de notificação enriquecida via CNES) | Parquet | Reprocessável a qualquer momento a partir da Silver |
 
 Cada camada só lê da camada imediatamente anterior — nenhuma etapa pula ou
-acessa uma camada não adjacente.
+acessa uma camada não adjacente. O CNES é uma **dimensão** com ciclo de vida
+próprio (ingerido separadamente do fluxo por doença) — a Gold apenas lê o
+lookup mais recente da Silver do CNES no momento da agregação.
 
 ### Por que Medallion?
 
 - **Bronze** preserva o dado exatamente como veio da fonte, permitindo
   reprocessar tudo do zero se uma regra de limpeza mudar, sem precisar baixar
-  do PySUS de novo.
+  de novo.
 - **Silver** já resolve problemas de qualidade e schema variável entre anos
   do SINAN, mas ainda é granular (uma linha por notificação) — útil para
   análises que não cabem nos agregados da Gold.
 - **Gold** é o formato pronto para consumo do dashboard: pequeno, agregado,
   autodescritivo (contém `disease`, `year`, etc. como colunas, não só no
   caminho do arquivo).
+
+### Rastreabilidade de execução (`batch_id` compartilhado)
+
+Em cada execução de `run.py`, um único timestamp (`run_at`) é gerado uma vez
+e propagado para Bronze, Silver e Gold do SINAN. Isso garante que os três
+artefatos de uma mesma execução compartilhem o mesmo `batch_id`, facilitando
+correlacionar rapidamente "essa Gold veio dessa Silver, que veio dessa
+Bronze" sem precisar comparar timestamps próximos.
 
 ---
 
@@ -80,8 +97,8 @@ código da doença é passado como está definido pelo próprio SINAN/PySUS:
 
 ## Estrutura de diretórios e partições
 
-Cada execução grava um `batch_id` (timestamp `%Y%m%dT%H%M%SZ`) próprio por
-camada, particionado no estilo Hive:
+Cada execução grava um `batch_id` (timestamp `%Y%m%dT%H%M%SZ`) particionado
+no estilo Hive:
 
 ```
 /data
@@ -91,10 +108,21 @@ camada, particionado no estilo Hive:
 ├── silver/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
 │   ├── data.parquet
 │   └── metadata.json
-└── gold/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
-    ├── data.parquet
+├── gold/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
+│   ├── data.parquet
+│   └── metadata.json
+├── bronze/cnes/municipio={codigo_ibge}/ingestion_date={data}/batch_id={batch}/
+│   ├── data.parquet
+│   └── metadata.json
+└── silver/cnes/batch_id={batch}/
+    ├── data.parquet          # lookup consolidado de todos os municípios de interesse
     └── metadata.json
 ```
+
+Bronze e Silver do SINAN compartilham o mesmo `batch_id` de uma execução
+(veja [Rastreabilidade de execução](#rastreabilidade-de-execução-batch_id-compartilhado)).
+O CNES tem ciclo de ingestão independente, sem `source_year`/`disease`, já
+que o cadastro de unidades não varia por doença nem por ano de notificação.
 
 Todo `data.parquet` é gravado de forma atômica (escrita em arquivo temporário
 + `os.replace`), evitando arquivos parciais/corrompidos em caso de falha no
@@ -127,10 +155,13 @@ entrada define:
 | `evolucao` | `EVOLUCAO` | | ✅ |
 | `sexo` | `CS_SEXO` | | ✅ |
 | `ano_nascimento` | `ANO_NASC` | | ✅ |
+| `unidade_notificacao` | `ID_UNIDADE` | | ✅ |
 
 Colunas marcadas como `groupable` podem ser passadas via `--columns` na CLI
 para virarem dimensões extras na Gold (além de doença/ano/mês/UF/município,
-que já são sempre incluídas).
+que já são sempre incluídas). `unidade_notificacao` é especial: quando
+selecionada, a Gold também tenta enriquecer o resultado com nome/tipo da
+unidade via join com o CNES (veja a seção seguinte).
 
 **Deduplicação de notificações**: a chave primária ideal é `NU_NOTIFIC`
 (`notificacao_id`). Como esse campo não existe em todos os anos/datasets do
@@ -139,6 +170,71 @@ correspondência exata entre todas as colunas presentes — e emite um
 `UserWarning` avisando disso, já que essa estratégia é mais fraca (duas
 notificações distintas, porém idênticas em todos os campos capturados, seriam
 tratadas como duplicata).
+
+---
+
+## Enriquecimento com CNES (unidades de saúde)
+
+O SINAN registra a unidade de notificação (`ID_UNIDADE`) apenas como código
+— o **CNES** (Cadastro Nacional de Estabelecimentos de Saúde). Nome, razão
+social e tipo do estabelecimento não vêm do SINAN nem dos arquivos
+históricos de CNES disponíveis via PySUS (que trazem apenas dados
+operacionais/estruturais, sem nome ou endereço). Essas informações são
+obtidas separadamente, via a
+[API de Dados Abertos do Ministério da Saúde](https://apidadosabertos.saude.gov.br/cnes/estabelecimentos).
+
+### Por que é uma ingestão separada
+
+O CNES é tratado como uma **dimensão** com ciclo de vida próprio, não como
+parte do fluxo por doença/ano:
+
+- O cadastro de estabelecimentos muda devagar (mês a mês, no máximo), ao
+  contrário dos dados de notificação, que são reprocessados com frequência.
+- Acoplar essa chamada de API externa (que já se mostrou instável em
+  algumas execuções) dentro do fluxo crítico do SINAN arriscaria travar uma
+  execução de doença por uma falha momentânea numa fonte não relacionada.
+- Várias Golds de doenças diferentes podem reaproveitar o mesmo lookup do
+  CNES sem reingeri-lo a cada execução.
+
+### Como rodar a ingestão do CNES
+
+```bash
+docker compose run --rm --entrypoint python pipeline -m app.pipeline.run_cnes
+```
+
+Isso itera sobre os municípios definidos em `MUNICIPIOS_RJ` (`gold.py`),
+busca os estabelecimentos de cada um via API, grava a Bronze por município e
+consolida tudo em uma única Silver de lookup
+(`silver/cnes/batch_id={batch}/data.parquet`), sem duplicatas de `cd_unidade`.
+
+Essa ingestão é **manual e independente** do `run.py` principal — não há
+agendamento automático definido ainda (veja
+[Limitações conhecidas](#limitações-conhecidas-e-roadmap)).
+
+### Como o join acontece na Gold
+
+Quando `unidade_notificacao` é passada em `--columns`, `aggregate_file` lê o
+**Silver do CNES mais recente disponível** (`_latest_cnes_lookup()`, que
+escolhe o `batch_id` mais alto por ordenação lexicográfica do timestamp) e
+faz um `left join` entre `ID_UNIDADE` (SINAN) e `cd_unidade` (CNES),
+trazendo `nm_unidade`, `razao_social_unidade` e `tp_unidade` para a Gold.
+
+```bash
+docker compose run --rm pipeline --disease DENG --year 2026 --columns="unidade_notificacao"
+```
+
+Se nenhuma Silver do CNES existir ainda (`run_cnes.py` nunca foi executado),
+`_latest_cnes_lookup()` retorna `None` e a Gold é gerada normalmente, apenas
+sem as colunas de enriquecimento — a pipeline do SINAN nunca falha por
+ausência da dimensão do CNES.
+
+**Cuidados conhecidos:**
+- **Nem todo `ID_UNIDADE` vai casar** com o CNES (unidade desativada, código
+  incorreto na notificação, notificação fora de estabelecimento formal). O
+  `left join` garante que isso vira nulo, não quebra o pipeline — mas o
+  consumidor final (dashboard) precisa tratar essa ausência.
+- **O lookup é um snapshot**: uma unidade muito recente pode não aparecer
+  ainda se o CNES não tiver sido reingerido desde sua criação.
 
 ---
 
@@ -162,6 +258,13 @@ Com dimensões extras selecionadas:
 docker compose run --rm pipeline --disease CHIK --year 2026 --columns="sexo,evolucao"
 ```
 
+Com enriquecimento de unidade de saúde (requer ter rodado `run_cnes.py`
+pelo menos uma vez antes):
+
+```bash
+docker compose run --rm pipeline --disease DENG --year 2026 --columns="unidade_notificacao"
+```
+
 ### CLI (`run.py`)
 
 ```bash
@@ -177,6 +280,15 @@ python -m app.pipeline.run --disease <CODIGO_SINAN> --year <ANO> [--columns "cha
 O pipeline executa as três camadas em sequência (Bronze → Silver → Gold) e
 imprime o caminho final de cada parquet gerado.
 
+### CLI (`run_cnes.py`)
+
+```bash
+python -m app.pipeline.run_cnes
+```
+
+Sem argumentos — usa `MUNICIPIOS_RJ` como escopo padrão. Ingere a Bronze por
+município e consolida a Silver de lookup do CNES.
+
 ### Executando camadas isoladamente
 
 `silver.py` também pode ser chamado de forma isolada, útil para reprocessar
@@ -184,6 +296,12 @@ uma Silver a partir de uma Bronze já existente:
 
 ```bash
 python -m app.pipeline.silver --source <bronze.parquet> --destination <silver.parquet> --year <ano>
+```
+
+`silver_cnes.py` também pode transformar uma Bronze do CNES isoladamente:
+
+```bash
+python -m app.pipeline.silver_cnes --source <bronze_cnes.parquet> --municipio <codigo_ibge>
 ```
 
 ---
@@ -245,6 +363,18 @@ Itens já identificados e ainda não resolvidos, para não serem esquecidos:
   de controle (`disease`, `year`, `batch_id`, `layer`, `status`) facilitaria
   saber o que já foi processado/carregado, especialmente quando a carga no
   Postgres for implementada.
+- **Ingestão do CNES sem agendamento.** `run_cnes.py` é executado
+  manualmente hoje. Vale definir uma cadência (ex.: mensal) e automatizá-la,
+  já que a Gold sempre usa o lookup mais recente disponível — se ele nunca
+  for atualizado, unidades novas nunca aparecerão no enriquecimento.
+- **Municípios de interesse hardcoded em `gold.py` (`MUNICIPIOS_RJ`)**,
+  reutilizados também pelo `run_cnes.py`. Se a lista de municípios da sala
+  de situação crescer, vale mover para um arquivo de configuração externo.
+- **API do CNES sem SLA conhecido.** Já foram observadas falhas
+  transitórias de DNS/conexão nessa API durante o desenvolvimento. A
+  ingestão usa retry com backoff (`urllib3.util.Retry`, incluindo `connect`)
+  para absorver instabilidades pontuais, mas não há alerta automatizado caso
+  a fonte fique indisponível por mais tempo.
 
 ---
 
@@ -252,12 +382,15 @@ Itens já identificados e ainda não resolvidos, para não serem esquecidos:
 
 ```
 app/pipeline/
-├── sinan.py       # Ingestão via PySUS -> Bronze
-├── silver.py      # Limpeza, tipagem, deduplicação -> Silver
-├── gold.py         # Agregação por doença/tempo/geografia -> Gold
-├── columns.py      # Catálogo declarativo de colunas do SINAN
-├── atomic_io.py    # Escrita atômica de parquet/json
-└── run.py          # Orquestrador da pipeline completa (CLI)
+├── sinan.py        # Ingestão via PySUS -> Bronze (SINAN)
+├── silver.py        # Limpeza, tipagem, deduplicação -> Silver (SINAN)
+├── gold.py           # Agregação por doença/tempo/geografia + join com CNES -> Gold
+├── columns.py        # Catálogo declarativo de colunas do SINAN
+├── bronze_cnes.py    # Ingestão via API de Dados Abertos -> Bronze (CNES)
+├── silver_cnes.py    # Limpeza do cadastro de estabelecimentos -> Silver (CNES)
+├── run_cnes.py        # Orquestrador da ingestão do CNES (todos os municípios)
+├── atomic_io.py       # Escrita atômica de parquet/json
+└── run.py             # Orquestrador da pipeline completa do SINAN (CLI)
 ```
 
 | Módulo | Responsabilidade |
@@ -265,9 +398,12 @@ app/pipeline/
 | `sinan.py` | Baixa dados via PySUS e grava a camada Bronze com metadata de ingestão |
 | `silver.py` | Valida colunas obrigatórias, aplica transformações, filtra por ano, deduplica e grava a Silver |
 | `columns.py` | Define quais colunas do SINAN existem, como são limpas, e quais podem ser usadas como dimensão |
-| `gold.py` | Filtra por municípios de interesse, agrega casos por período/geografia/dimensões extras e grava a Gold |
+| `gold.py` | Filtra por municípios de interesse, agrega casos por período/geografia/dimensões extras, enriquece com o CNES quando aplicável, e grava a Gold |
+| `bronze_cnes.py` | Consulta a API de Dados Abertos por município e grava a Bronze do CNES |
+| `silver_cnes.py` | Limpa e normaliza o cadastro de estabelecimentos (código, nome, tipo, município) |
+| `run_cnes.py` | Itera sobre os municípios de interesse, ingere e consolida a Silver de lookup do CNES |
 | `atomic_io.py` | Utilitário genérico de escrita atômica, usado por todas as camadas |
-| `run.py` | Ponto de entrada CLI que encadeia as três camadas |
+| `run.py` | Ponto de entrada CLI que encadeia Bronze → Silver → Gold do SINAN com `batch_id` compartilhado |
 
 ---
 
@@ -276,4 +412,5 @@ app/pipeline/
 - Python 3.12+
 - [PySUS](https://pypi.org/project/PySUS/)
 - pandas / pyarrow (leitura e escrita de Parquet)
+- requests (consumo da API de Dados Abertos do CNES)
 - Docker + Docker Compose (execução via container)
