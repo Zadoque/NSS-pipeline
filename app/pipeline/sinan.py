@@ -13,15 +13,18 @@ BASE_DIR = Path("/data")
  
  
 def fetch_sinan(disease: str, year: int) -> pd.DataFrame:
-    result = pysus.ftp.sinan(
-        disease=disease.upper(),
-        year=year,
-        as_dataframe=True,
-        show_progress=True,
-    )
-    if not isinstance(result, pd.DataFrame):
-        raise TypeError(f"PySUS retornou tipo inesperado: {type(result)!r}")
-    return result
+    try:
+        result = pysus.ftp.sinan(
+            disease=disease.upper(),
+            year=year,
+            as_dataframe=True,
+            show_progress=True,
+        )
+        if not isinstance(result, pd.DataFrame):
+            raise TypeError(f"PySUS retornou tipo inesperado: {type(result)!r}")
+        return result
+    except Exception as e:
+        raise RuntimeError(f"Erro ao baixar SINAN via PySUS (disease={disease}, year={year})") from e
  
  
 def write_bronze(df: pd.DataFrame, disease: str, year: int, run_at: datetime | None = None) -> Path:
