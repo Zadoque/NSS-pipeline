@@ -5,6 +5,11 @@ from typing import Callable, Optional
 
 import pandas as pd
 
+CANONICAL_GOLD_COLUMNS: list[str] = [
+    "unidade_notificacao",
+    "classificacao_final",
+    "evolucao",
+]
 
 @dataclass(frozen=True)
 class ColumnSpec:
