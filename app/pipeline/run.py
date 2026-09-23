@@ -4,10 +4,10 @@ import argparse
 from datetime import UTC, datetime
 from pathlib import Path
  
-from .columns import CATALOG
-from .gold import aggregate_file
-from .sinan import fetch_sinan, write_bronze 
-from .silver import transform_file
+from .sinan.columns import CATALOG
+from .sinan.gold import aggregate_file
+from .sinan.bronze import fetch_sinan, write_bronze
+from .sinan.silver import transform_file
  
 BASE_DIR = Path("/data")
  

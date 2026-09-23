@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 
 import pandas as pd
 
-from .columns import CANONICAL_GOLD_COLUMNS
-from .gold import aggregate_file
+from .sinan.columns import CANONICAL_GOLD_COLUMNS
+from .sinan.gold import aggregate_file
 from .load import get_engine, load_gold_to_postgres
-from .silver import transform_file
-from .sinan import fetch_sinan, write_bronze
+from .sinan.silver import transform_file
+from .sinan.bronze import fetch_sinan, write_bronze
 
 
 def run_load(disease: str, year: int) -> None:
@@ -23,8 +23,6 @@ def run_load(disease: str, year: int) -> None:
     bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
     silver = transform_file(bronze, disease, year, run_at=run_at)
 
-    # Grão fixo (CANONICAL_GOLD_COLUMNS), não o --columns livre da CLI —
-    # ver README-db.md, seção "Como crescer o schema no futuro".
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS, run_at=run_at
     )

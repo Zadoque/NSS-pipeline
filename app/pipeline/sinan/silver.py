@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .atomic_io import write_json_atomic, write_parquet_atomic
+from ..atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, present_keys, required_keys, resolve_dedup_strategy
 from datetime import UTC, datetime
 

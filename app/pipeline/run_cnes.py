@@ -6,9 +6,9 @@ from pathlib import Path
 import pandas as pd
 
 from .atomic_io import write_json_atomic, write_parquet_atomic
-from .bronze_cnes import fetch_estabelecimentos, write_bronze_cnes
-from .silver_cnes import transform_cnes
-from .gold import MUNICIPIOS_RJ
+from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
+from .cnes.silver import transform_cnes
+from .sinan.gold import MUNICIPIOS_RJ
 
 BASE_DIR = Path("/data")
 
