@@ -2,12 +2,15 @@
 
 Este documento descreve o banco PostgreSQL que serve como camada de
 **serving** para o backend Java: os dados já limpos e agregados pela
-pipeline (Gold, em Parquet) são carregados aqui, num schema relacional
-pronto para consulta pelo dashboard.
+pipeline (Gold) são carregados aqui, num schema relacional pronto para
+consulta pelo dashboard.
 
 > A pipeline (Python) é dona deste schema e de suas migrations. O backend
 > Java, em repositório separado, apenas se conecta e consome — não
 > versiona nem altera este schema.
+
+Este arquivo vive em `migrations/README.md`; `alembic.ini` fica na **raiz
+do repositório** (não aqui dentro — ver [Rodando migrations](#rodando-migrations)).
 
 ---
 
@@ -19,6 +22,7 @@ pronto para consulta pelo dashboard.
 - [Setup local](#setup-local)
 - [Rodando migrations](#rodando-migrations)
 - [Criando novas migrations](#criando-novas-migrations)
+- [A carga (load.py / run_load.py)](#a-carga-loadpy--run_loadpy)
 - [Conectando o backend Java](#conectando-o-backend-java)
 - [Como crescer o schema no futuro](#como-crescer-o-schema-no-futuro)
 - [Limitações conhecidas e roadmap](#limitações-conhecidas-e-roadmap)
@@ -28,18 +32,24 @@ pronto para consulta pelo dashboard.
 ## Onde isso se encaixa na arquitetura
 
 ```
-PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold (Parquet) ─▶ load.py* ─▶ PostgreSQL ─▶ Backend Java
+PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold (grão fixo) ─▶ load.py ─▶ PostgreSQL ─▶ Backend Java
                                         ▲
                                         │ join
 API Dados Abertos (CNES) ─▶ Bronze ─▶ Silver
 ```
 
-\* `load.py` ainda não implementado — veja
-[Limitações conhecidas](#limitações-conhecidas-e-roadmap).
+O Postgres é alimentado só pela **Gold** (já agregada), nunca pela Silver
+(dado granular). Dentro do código, isso corresponde a:
 
-O Postgres não é alimentado diretamente pela Silver (dado granular, linha a
-linha) — só pela Gold (já agregada), pelos mesmos motivos de volume e
-granularidade discutidos para o Parquet.
+```
+app/pipeline/
+├── sinan/          # bronze.py, silver.py, gold.py, columns.py
+├── cnes/           # bronze.py, silver.py
+├── load.py          # upsert da Gold no Postgres
+├── run.py            # CLI: pipeline SINAN (Parquet apenas, exploratório)
+├── run_cnes.py         # CLI: ingestão do CNES
+└── run_load.py           # CLI: pipeline SINAN + carga no Postgres
+```
 
 ---
 
@@ -73,7 +83,9 @@ sentinela (`'0000000'` / `'NI'`) para os casos em que o dado de origem não
 tem aquela informação. Isso existe porque o Postgres não trata dois `NULL`
 como iguais em uma `UNIQUE constraint` — se o FK pudesse ser `NULL`, o
 upsert (`ON CONFLICT`) do fato criaria linhas duplicadas a cada execução em
-vez de atualizar a existente.
+vez de atualizar a existente. As linhas sentinela são seedadas pela
+migration `0001` com descrição curada, e o `load.py` nunca as sobrescreve
+(ver [A carga](#a-carga-loadpy--run_loadpy)).
 
 ---
 
@@ -89,12 +101,12 @@ vez de atualizar a existente.
 | `analytics.fato_casos` | Fato | `id` (surrogate) + `UNIQUE` composta | Casos agregados por doença/ano/mês/município/unidade/classificação/evolução |
 
 A `UNIQUE constraint` de `fato_casos` (`disease_codigo, ano, mes, cd_mun,
-cd_unidade, cd_classificacao, cd_evolucao`) é a chave usada pelo futuro
-`load.py` no `ON CONFLICT` do upsert — necessária porque o SINAN atualiza
+cd_unidade, cd_classificacao, cd_evolucao`) é a chave usada pelo `load.py`
+no `ON CONFLICT` do upsert — necessária porque o SINAN atualiza
 notificações retroativamente, então recarregar a Gold de um mesmo período
 deve **atualizar** a linha existente, não duplicá-la.
 
-DDL completo: [`migrations/versions/0001_cria_schema_analytics.py`](./migrations/versions/0001_cria_schema_analytics.py).
+DDL completo: [`versions/0001_cria_schema_analytics.py`](./versions/0001_cria_schema_analytics.py).
 
 ---
 
@@ -105,9 +117,9 @@ DDL completo: [`migrations/versions/0001_cria_schema_analytics.py`](./migrations
 ```
 alembic
 psycopg2-binary
+sqlalchemy
 ```
-no `requirements.txt`, e o serviço `db` no `docker-compose.yml` (ver
-`docker-compose.yml` deste projeto).
+no `requirements.txt`, e o serviço `db` no `docker-compose.yml`.
 
 ### 2. Variáveis de ambiente
 
@@ -130,9 +142,10 @@ docker compose ps          # confirme que "db" está healthy
 
 ## Rodando migrations
 
-`alembic.ini` fica na **raiz do repositório** (não dentro de `migrations/`
-— é a convenção padrão do Alembic, já que `script_location` em
-`alembic.ini` é resolvido relativo à posição do próprio arquivo).
+`alembic.ini` fica na **raiz do repositório**, não dentro desta pasta —
+`script_location` em `alembic.ini` é resolvido relativo à posição do
+próprio arquivo, e a convenção do Alembic é `alembic.ini` na raiz do
+projeto com `script_location = migrations` apontando pra cá.
 
 ```bash
 docker compose run --rm --entrypoint alembic pipeline upgrade head
@@ -156,8 +169,8 @@ Nunca edite uma migration já aplicada — sempre uma nova:
 docker compose run --rm --entrypoint alembic pipeline revision -m "descrição da mudança"
 ```
 
-Edite o arquivo gerado em `migrations/versions/` (as migrations deste
-projeto são SQL puro via `op.execute(...)`, sem ORM), depois:
+Edite o arquivo gerado em `versions/` (as migrations deste projeto são SQL
+puro via `op.execute(...)`, sem ORM), depois:
 
 ```bash
 docker compose run --rm --entrypoint alembic pipeline upgrade head
@@ -169,6 +182,37 @@ carregado):
 ```bash
 docker compose run --rm --entrypoint alembic pipeline downgrade -1
 ```
+
+---
+
+## A carga (`load.py` / `run_load.py`)
+
+`run_load.py` roda a pipeline SINAN completa (Bronze → Silver → Gold) com
+um **grão fixo** de dimensões (`CANONICAL_GOLD_COLUMNS`, definido em
+`sinan/columns.py`), diferente do `--columns` livre usado por `run.py`
+para exploração em Parquet. Isso existe porque o schema relacional do
+banco não pode variar entre execuções, ao contrário do Parquet — ver
+[Como crescer o schema](#como-crescer-o-schema-no-futuro) para a
+justificativa completa.
+
+```bash
+docker compose run --rm --entrypoint python pipeline -m app.pipeline.run_load --disease DENG --year 2026
+```
+
+**Como o upsert é estruturado:** `load.py._prepare_fact_frame()` é a
+única função que decide os valores finais de `cd_unidade`,
+`cd_classificacao` e `cd_evolucao` (normalizando string vazia e `NaN`
+igualmente, e aplicando o "não informado" quando ausente). Todas as
+funções de upsert de dimensão leem esses valores já normalizados a partir
+do mesmo dataframe — nunca recalculam a partir da Gold crua. Isso existe
+para eliminar uma classe inteira de bug (violação de FK por divergência
+entre a lógica de dimensão e a lógica de fato); se notar uma FK falhando
+de novo no futuro, o primeiro lugar a checar é se algum código novo
+passou a derivar uma coluna de código fora dessa função central.
+
+Ordem do upsert (dimensões antes do fato, por causa das FKs):
+`dim_doenca → dim_municipio → dim_unidade_saude → dim_classificacao →
+dim_evolucao → fato_casos`.
 
 ---
 
@@ -196,23 +240,32 @@ Regra de decisão ao adicionar algo novo:
 
 | Situação | O que fazer |
 |---|---|
-| Um eixo novo para fatiar o dado que já existe (ex.: faixa etária) | Nova dimensão + FK em `fato_casos` |
+| Um eixo novo para fatiar o dado que já existe (ex.: faixa etária) | Nova dimensão + FK em `fato_casos`, e adicionar a chave correspondente em `CANONICAL_GOLD_COLUMNS` |
 | Uma métrica com granularidade diferente (ex.: ocupação de leitos por dia) | Novo fato, reaproveitando dimensões existentes |
 | Um campo que só existe para algumas doenças/categorias (ex.: sintomas) | Fato "estreito" separado (uma linha por combinação, não uma coluna por campo) — evita colunas `NULL` em massa em `fato_casos` |
 | Uma dimensão precisa manter histórico de mudanças (ex.: nome de unidade mudou e isso importa para casos antigos) | Slowly Changing Dimension (SCD Tipo 2) — ainda não implementado, avaliar quando o requisito aparecer |
 
 Toda dimensão nova deve nascer com uma linha "não informado" desde a
 migration que a cria, seguindo o mesmo padrão já usado nas dimensões
-existentes.
+existentes, e `load.py` deve derivá-la a partir do dataframe normalizado
+central (`_prepare_fact_frame`), nunca de uma cópia paralela da lógica.
 
 ---
 
 ## Limitações conhecidas e roadmap
 
-- **`load.py` (Gold → Postgres) ainda não implementado.** As tabelas já
-  existem; falta o script que lê o Parquet da Gold e faz upsert
-  (dimensões primeiro, fato depois, usando a `UNIQUE constraint` como
-  chave de conflito).
+- **Descrição de `dim_classificacao`/`dim_evolucao` é placeholder.**
+  `load.py` insere `"Código X (ver dicionário SINAN)"` para códigos ainda
+  não vistos — `CLASSI_FIN` e `EVOLUCAO` variam por doença e por versão
+  da ficha do SINAN, então não há um dicionário universal seguro para
+  preencher automaticamente. Precisa ser complementado manualmente
+  (UPDATE ou migration) por alguém que consulte o dicionário oficial da
+  doença/ano em questão.
+- **`dim_unidade_saude.cd_mun` não é populado.** O `codigo_municipio`
+  retornado pela API do CNES tem 6 dígitos; `dim_municipio.cd_mun` usa o
+  padrão IBGE de 7 dígitos do SINAN. Converter exige calcular o dígito
+  verificador (não é um simples zero à esquerda) — pendente de
+  implementação cuidadosa.
 - **Sem SCD nas dimensões.** `dim_unidade_saude` reflete o cadastro mais
   recente ingerido — não preserva o estado histórico de uma unidade que
   mudou de nome/tipo.
@@ -221,5 +274,6 @@ existentes.
   container próprio) ainda não decidida.
 - **Grão de `fato_casos` é fixo hoje** (doença/ano/mês/município/unidade/
   classificação/evolução) — não reflete toda a flexibilidade de
-  `--columns` que a Gold em Parquet permite. Se o dashboard precisar de
-  mais dimensões (sexo, faixa etária), isso exige nova migration.
+  `--columns` que a Gold em Parquet permite via `run.py`. Se o dashboard
+  precisar de mais dimensões (sexo, faixa etária), isso exige nova
+  migration + atualizar `CANONICAL_GOLD_COLUMNS`.
