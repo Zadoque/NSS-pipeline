@@ -8,3 +8,6 @@ venv/
 data/
 *.parquet
 *.log
+.pytest_cache/
+.coverage
+htmlcov/

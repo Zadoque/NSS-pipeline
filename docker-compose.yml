@@ -4,6 +4,7 @@ services:
     volumes:
       - ./data:/data
       - ./app:/app/app
+      - ./tests:/app/tests
     entrypoint: ["python", "-m", "app.pipeline.run"]
     depends_on:
       db:
