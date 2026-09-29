@@ -85,6 +85,21 @@ def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: st
     else:
         df["cd_evolucao"] = CODIGO_NAO_INFORMADO
 
+    # Novas dimensões adicionadas em CANONICAL_GOLD_COLUMNS
+    df["cd_sexo"] = (
+        _clean_code_series(df["CS_SEXO"], "I") if "CS_SEXO" in df.columns else "I"
+    )
+    df["semana_notif"] = (
+        pd.to_numeric(df["SEM_NOT"], errors="coerce").fillna(0).astype("int16")
+        if "SEM_NOT" in df.columns
+        else 0
+    )
+    df["ano_nascimento"] = (
+        pd.to_numeric(df["ANO_NASC"], errors="coerce").fillna(0).astype("int16")
+        if "ANO_NASC" in df.columns
+        else 0
+    )
+
     return df
 
 
@@ -177,6 +192,9 @@ def upsert_fato_casos(engine: Engine, fact_df: pd.DataFrame) -> None:
             "cd_unidade",
             "cd_classificacao",
             "cd_evolucao",
+            "cd_sexo",
+            "semana_notif",
+            "ano_nascimento",
             "cases_total",
             "batch_id",
         ]
@@ -194,6 +212,9 @@ def upsert_fato_casos(engine: Engine, fact_df: pd.DataFrame) -> None:
             "cd_unidade",
             "cd_classificacao",
             "cd_evolucao",
+            "cd_sexo",
+            "semana_notif",
+            "ano_nascimento",
         ],
     )
 

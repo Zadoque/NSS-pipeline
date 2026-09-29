@@ -9,6 +9,9 @@ CANONICAL_GOLD_COLUMNS: list[str] = [
     "unidade_notificacao",
     "classificacao_final",
     "evolucao",
+    "sexo",
+    "ano_nascimento",
+    "semana_notificacao",
 ]
 
 @dataclass(frozen=True)

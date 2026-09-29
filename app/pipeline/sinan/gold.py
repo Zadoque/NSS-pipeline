@@ -14,6 +14,7 @@ MUNICIPIOS_RJ = {
     "3305000": "São João da Barra",
     "3302205": "Itaperuna",
     "3302403": "Macaé",
+    #"3304557": "Rio de Janeiro",
 }
 
 BASE_DIR = Path("/data")
