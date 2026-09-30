@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import pytest
 
 from app.pipeline.sinan.gold import aggregate
@@ -15,13 +16,16 @@ def _silver_minima(**overrides) -> pd.DataFrame:
         "SG_UF_NOT": ["33", "33", "33"],
         "NM_UF": ["Rio de Janeiro", "Rio de Janeiro", "Rio de Janeiro"],
         "CS_SEXO": ["F", "M", "F"],
+        "ANO_NASC": [2000, 1990, 1985],
+        "SEM_NOT": [202601, 202602, 202603],
     }
     base.update(overrides)
     return pd.DataFrame(base)
 
 
-def test_aggregate_levanta_erro_quando_falta_coluna_obrigatoria():
-    df = _silver_minima().drop(columns=["NM_UF"])
+@pytest.mark.parametrize("coluna", ["NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"])
+def test_aggregate_levanta_erro_quando_falta_coluna_obrigatoria(coluna):
+    df = _silver_minima().drop(columns=[coluna])
     with pytest.raises(ValueError, match="Colunas Silver ausentes"):
         aggregate(df, disease="DENG", municipios=MUNICIPIOS_TESTE)
 
@@ -39,14 +43,13 @@ def test_aggregate_soma_casos_por_mes_e_municipio():
     result = aggregate(df, disease="DENG", municipios=MUNICIPIOS_TESTE)
 
     # As duas primeiras linhas (município 1234567, ambas em janeiro/2026)
-    # devem virar uma linha só com cases_total = 2. A terceira linha, de
-    # município fora do recorte, não aparece.
-    assert len(result) == 1
-    row = result.iloc[0]
-    assert row["cases_total"] == 2
-    assert row["year"] == 2026
-    assert row["month"] == 1
-    assert row["cd_mun"] == "1234567"
+    # têm ANO_NASC e SEM_NOT distintos — cada uma vira uma linha própria.
+    # A terceira linha, de município fora do recorte, não aparece.
+    assert len(result) == 2
+    assert result["cases_total"].sum() == 2
+    assert (result["year"] == 2026).all()
+    assert (result["month"] == 1).all()
+    assert (result["cd_mun"] == "1234567").all()
 
 
 def test_aggregate_inclui_disease_como_primeira_coluna():
@@ -66,3 +69,4 @@ def test_aggregate_com_dimensao_extra_abre_grupos_por_sexo():
     assert len(result) == 2
     assert "CS_SEXO" in result.columns
     assert set(result["CS_SEXO"]) == {"F", "M"}
+

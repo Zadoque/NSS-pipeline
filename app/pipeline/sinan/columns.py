@@ -57,12 +57,12 @@ CATALOG: dict[str, ColumnSpec] = {
         "Unidade de notificação", "ID_UNIDADE", groupable=True, transform=_zfill_unidade
     ),
 
-    "semana_notificacao": ColumnSpec("Semana epidemiológica", "SEM_NOT", groupable=True),
+    "semana_notificacao": ColumnSpec("Semana epidemiológica", "SEM_NOT", required=True, groupable=True),
     "ano_notificacao": ColumnSpec("Ano de notificação", "NU_ANO", groupable=True),
     "classificacao_final": ColumnSpec("Classificação final", "CLASSI_FIN", groupable=True),
     "evolucao": ColumnSpec("Evolução do caso", "EVOLUCAO", groupable=True),
-    "sexo": ColumnSpec("Sexo", "CS_SEXO", groupable=True),
-    "ano_nascimento": ColumnSpec("Ano de nascimento", "ANO_NASC", groupable=True),
+    "sexo": ColumnSpec("Sexo", "CS_SEXO", required=True, groupable=True),
+    "ano_nascimento": ColumnSpec("Ano de nascimento", "ANO_NASC", required=True, groupable=True),
 }
 
 def required_keys() -> list[str]:
