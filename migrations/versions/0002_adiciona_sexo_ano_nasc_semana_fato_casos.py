@@ -25,8 +25,11 @@ def upgrade() -> None:
             FROM information_schema.table_constraints tc
             WHERE tc.table_schema    = 'analytics'
               AND tc.table_name      = 'fato_casos'
-              AND tc.constraint_type = 'UNIQUE';
-            EXECUTE 'ALTER TABLE analytics.fato_casos DROP CONSTRAINT ' || _cname;
+              AND tc.constraint_type = 'UNIQUE'
+            LIMIT 1;
+            IF _cname IS NOT NULL THEN
+                EXECUTE 'ALTER TABLE analytics.fato_casos DROP CONSTRAINT ' || quote_ident(_cname);
+            END IF;
         END $$;
     """)
 
