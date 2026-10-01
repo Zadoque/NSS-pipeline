@@ -34,7 +34,7 @@ def postgres_engine():
     # anteriores.
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA IF EXISTS analytics CASCADE"))
-        conn.execute(text("DELETE FROM alembic_version"))
+        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
 
     # env.py lê DATABASE_URL do ambiente, não do Config do Alembic —
     # setar aqui garante que a migration rode contra o banco de TESTE,
