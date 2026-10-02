@@ -13,7 +13,14 @@ from app.pipeline.sinan.columns import (
 
 
 def test_required_keys_inclui_campos_obrigatorios():
-    assert set(required_keys()) == {"data_notificacao", "municipio", "uf"}
+    assert set(required_keys()) == {
+        "data_notificacao",
+        "municipio",
+        "uf",
+        "sexo",
+        "ano_nascimento",
+        "semana_notificacao",
+    }
 
 
 def test_validate_keys_aceita_chaves_conhecidas():

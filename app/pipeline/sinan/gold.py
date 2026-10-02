@@ -30,7 +30,7 @@ def aggregate(
     municipios = municipios if municipios is not None else MUNICIPIOS_RJ
     disease = disease.upper()
 
-    required = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF"}
+    required = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Colunas Silver ausentes para Gold: {sorted(missing)}")
@@ -45,7 +45,7 @@ def aggregate(
     work["cd_mun"] = work["ID_MUNICIP"].astype("string").str.zfill(7)
     work = work[work["cd_mun"].isin(municipios)]
 
-    base_cols = ["disease", "year", "month", "cd_uf", "nm_uf", "cd_mun", "nm_mun"]
+    base_cols = ["disease", "year", "month", "cd_uf", "nm_uf", "cd_mun", "nm_mun", "sex", "birth_year", "not_week"]
     if work.empty:
         return pd.DataFrame(columns=base_cols + extra_group_cols + ["cases_total"])
 
@@ -53,8 +53,11 @@ def aggregate(
     work["month"] = work["DT_NOTIFIC"].dt.month.astype("int64")
     work["cd_uf"] = work["SG_UF_NOT"].astype("string").str.zfill(2)
     work["nm_mun"] = work["cd_mun"].map(municipios)
+    work["sex"] = work["CS_SEXO"].astype("string")
+    work["birth_year"] = pd.to_numeric(work["ANO_NASC"], errors="coerce").astype("Int64")
+    work["not_week"] = pd.to_numeric(work["SEM_NOT"], errors="coerce").astype("Int64")
 
-    group_cols = ["year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", *extra_group_cols]
+    group_cols = ["year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex", "birth_year", "not_week", *extra_group_cols]
 
     result = (
         work.groupby(group_cols, dropna=False)
@@ -70,7 +73,7 @@ def aggregate(
 
     result.insert(0, "disease", disease)
 
-    sort_cols = ["disease", "year", "month", "cd_uf", "cd_mun", *extra_group_cols]
+    sort_cols = ["disease", "year", "month", "cd_uf", "cd_mun", "sex", "birth_year", "not_week", *extra_group_cols]
     return result.sort_values(sort_cols).reset_index(drop=True) 
 
 def _read_source_metadata(source: Path) -> dict:

@@ -3,9 +3,13 @@ from __future__ import annotations
 import os
 
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import pytest
+# pyrefly: ignore [missing-import]
 from alembic import command
+# pyrefly: ignore [missing-import]
 from alembic.config import Config
+# pyrefly: ignore [missing-import]
 from sqlalchemy import create_engine, text
 
 from app.pipeline.load import load_gold_to_postgres
@@ -30,7 +34,7 @@ def postgres_engine():
     # anteriores.
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA IF EXISTS analytics CASCADE"))
-        conn.execute(text("DELETE FROM alembic_version"))
+        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
 
     # env.py lê DATABASE_URL do ambiente, não do Config do Alembic —
     # setar aqui garante que a migration rode contra o banco de TESTE,

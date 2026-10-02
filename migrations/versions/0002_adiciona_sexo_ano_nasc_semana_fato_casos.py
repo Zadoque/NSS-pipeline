@@ -8,6 +8,7 @@ e atualiza o UNIQUE constraint para refletir a nova granularidade.
 """
 from typing import Sequence, Union
 
+# pyrefly: ignore [missing-import]
 from alembic import op
 
 revision: str = "0002"
