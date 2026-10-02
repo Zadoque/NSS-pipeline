@@ -9,7 +9,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from .atomic_io import write_json_atomic, write_parquet_atomic
+from ..atomic_io import write_json_atomic, write_parquet_atomic
 
 API_BASE = "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos"
 BASE_DIR = Path("/data")

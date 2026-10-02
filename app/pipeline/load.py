@@ -90,7 +90,9 @@ def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: st
         _clean_code_series(df["CS_SEXO"], "I") if "CS_SEXO" in df.columns else "I"
     )
     df["semana_notif"] = (
-        pd.to_numeric(df["SEM_NOT"], errors="coerce").fillna(0).astype("int16")
+        pd.to_numeric(df["SEM_NOT"], errors="coerce")
+        .fillna(0)
+        .astype("int32")
         if "SEM_NOT" in df.columns
         else 0
     )

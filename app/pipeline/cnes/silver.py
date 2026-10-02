@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .atomic_io import write_json_atomic, write_parquet_atomic
+from ..atomic_io import write_json_atomic, write_parquet_atomic
 
 BASE_DIR = Path("/data")
 
