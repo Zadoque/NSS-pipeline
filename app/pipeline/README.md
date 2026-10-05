@@ -334,11 +334,10 @@ caminho estiver apontando para o batch errado).
 
 Itens já identificados e ainda não resolvidos, para não serem esquecidos:
 
-- **Carga no PostgreSQL ainda não implementada.** A Gold hoje só é
-  persistida em Parquet. Está planejado um `load.py` que faça upsert (ou
-  replace por partição `disease`/`year`) numa tabela do Postgres, já que o
-  SINAN atualiza registros retroativamente e a carga precisa refletir o
-  estado mais recente, não apenas fazer `append`.
+- **Carga no PostgreSQL disponível via `run_load.py`.** A publicação substitui
+  transacionalmente o recorte doença/ano/municípios após validar o total contra
+  a Silver. Resultados vazios são bloqueados por padrão. Veja os comandos e
+  cuidados em [`migrations/README.md`](../../migrations/README.md).
 - **`year` filtrado por `DT_NOTIFIC`, não por `NU_ANO`.** O SINAN também
   expõe um "ano epidemiológico" (`NU_ANO`), que pode divergir do ano
   calendário perto da virada do ano. Vale confirmar com quem define a regra

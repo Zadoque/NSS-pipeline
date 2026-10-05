@@ -45,7 +45,7 @@ O Postgres é alimentado só pela **Gold** (já agregada), nunca pela Silver
 app/pipeline/
 ├── sinan/          # bronze.py, silver.py, gold.py, columns.py
 ├── cnes/           # bronze.py, silver.py
-├── load.py          # upsert da Gold no Postgres
+├── load.py          # publicação transacional de snapshots da Gold
 ├── run.py            # CLI: pipeline SINAN (Parquet apenas, exploratório)
 ├── run_cnes.py         # CLI: ingestão do CNES
 └── run_load.py           # CLI: pipeline SINAN + carga no Postgres
@@ -82,8 +82,8 @@ dim_evolucao ───────┘
 sentinela (`'0000000'` / `'NI'`) para os casos em que o dado de origem não
 tem aquela informação. Isso existe porque o Postgres não trata dois `NULL`
 como iguais em uma `UNIQUE constraint` — se o FK pudesse ser `NULL`, o
-upsert (`ON CONFLICT`) do fato criaria linhas duplicadas a cada execução em
-vez de atualizar a existente. As linhas sentinela são seedadas pela
+chave única do fato permitiria grupos repetidos com dimensões ausentes.
+As linhas sentinela são seedadas pela
 migration `0001` com descrição curada, e o `load.py` nunca as sobrescreve
 (ver [A carga](#a-carga-loadpy--run_loadpy)).
 
@@ -99,12 +99,13 @@ migration `0001` com descrição curada, e o `load.py` nunca as sobrescreve
 | `analytics.dim_classificacao` | Dimensão | `codigo` | Classificação final do caso (`CLASSI_FIN`) |
 | `analytics.dim_evolucao` | Dimensão | `codigo` | Evolução do caso (`EVOLUCAO`) |
 | `analytics.fato_casos` | Fato | `id` (surrogate) + `UNIQUE` composta | Casos agregados por doença/ano/mês/município/unidade/classificação/evolução |
+| `analytics.pipeline_publications` | Controle | Doença/ano/município/batch | Histórico das publicações concluídas, incluindo municípios com zero notificações |
 
-A `UNIQUE constraint` de `fato_casos` (`disease_codigo, ano, mes, cd_mun,
-cd_unidade, cd_classificacao, cd_evolucao`) é a chave usada pelo `load.py`
-no `ON CONFLICT` do upsert — necessária porque o SINAN atualiza
-notificações retroativamente, então recarregar a Gold de um mesmo período
-deve **atualizar** a linha existente, não duplicá-la.
+A `UNIQUE constraint` de `fato_casos` inclui doença, ano, mês, município,
+unidade, classificação, evolução, sexo, semana e ano de nascimento (migration
+`0002`). Ela protege o grão final. A publicação substitui todos os fatos do
+recorte declarado, permitindo remover grupos que desapareceram após revisões.
+`semana_notif` armazena o código `AAAASS` em `INTEGER` desde a migration `0003`.
 
 DDL completo: [`versions/0001_cria_schema_analytics.py`](./versions/0001_cria_schema_analytics.py).
 
@@ -157,7 +158,8 @@ Confirme que as tabelas foram criadas:
 docker compose exec db psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "\dt analytics.*"
 ```
 
-Deve listar as 6 tabelas descritas em [Tabelas](#tabelas).
+Deve listar as tabelas descritas em [Tabelas](#tabelas), incluindo
+`pipeline_publications` após a migration `0004`.
 
 ---
 
@@ -199,7 +201,7 @@ justificativa completa.
 docker compose run --rm --entrypoint python pipeline -m app.pipeline.run_load --disease DENG --year 2026
 ```
 
-**Como o upsert é estruturado:** `load.py._prepare_fact_frame()` é a
+**Como a publicação é estruturada:** `load.py._prepare_fact_frame()` é a
 única função que decide os valores finais de `cd_unidade`,
 `cd_classificacao` e `cd_evolucao` (normalizando string vazia e `NaN`
 igualmente, e aplicando o "não informado" quando ausente). Todas as
@@ -210,9 +212,51 @@ entre a lógica de dimensão e a lógica de fato); se notar uma FK falhando
 de novo no futuro, o primeiro lugar a checar é se algum código novo
 passou a derivar uma coluna de código fora dessa função central.
 
-Ordem do upsert (dimensões antes do fato, por causa das FKs):
-`dim_doenca → dim_municipio → dim_unidade_saude → dim_classificacao →
-dim_evolucao → fato_casos`.
+`load_gold_to_postgres()` exige ano, lista completa de municípios, horário
+original de extração, confirmação de ingestão concluída e total esperado de
+notificações. O orquestrador calcula esse total a partir da Silver no recorte,
+independentemente da Gold. A carga valida os campos e o total antes de escrever,
+reagrupando dimensões que convergem para a mesma sentinela após normalização.
+
+Em uma única transação, a carga adquire um bloqueio por doença/ano, verifica
+se existe publicação mais recente, faz upsert das dimensões, remove os fatos
+somente da doença/ano/municípios declarados, insere o snapshot novo e confere
+os totais. Finalmente registra a publicação por município. Falhas revertem
+também as dimensões e a exclusão. Outros anos, doenças e municípios são preservados.
+As Golds anteriores continuam nos arquivos; a tabela de fatos serve o estado atual.
+O `id` dos fatos pode mudar a cada publicação; consumidores devem identificar
+grupos pelas dimensões, sem depender da estabilidade desse identificador.
+
+Uma Gold vazia é bloqueada por padrão. Para um zero verificado na origem:
+
+```bash
+docker compose run --rm --entrypoint python pipeline -m app.pipeline.run_load --disease DENG --year 2026 --allow-empty
+```
+
+Esse argumento permite limpar somente o recorte, não a tabela inteira. A
+ingestão Bronze e a Silver ainda precisam conter notificações válidas fora
+do recorte; uma origem globalmente vazia continua bloqueada. Não use o argumento
+para contornar falhas de extração. A conclusão do download e a conferência
+Silver/Gold não comprovam que a base publicada pela fonte esteja completa;
+quedas inesperadas de volume e atrasos ainda precisam de monitoramento.
+
+Após atualizar o código, reconstrua a imagem e aplique as migrations antes
+de executar a carga:
+
+```bash
+docker compose build pipeline
+docker compose run --rm --entrypoint alembic pipeline upgrade head
+```
+
+Para executar os testes (em banco dedicado com nome terminado em `_test`):
+
+```bash
+docker compose run --rm --entrypoint python pipeline -m pytest -m "not integration"
+docker compose run --rm --entrypoint python pipeline -m pytest -m integration
+```
+
+Os testes de integração recriam o schema `analytics` do banco de testes.
+Esse banco precisa existir antes da execução.
 
 ---
 
