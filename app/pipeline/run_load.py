@@ -6,13 +6,13 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
-from .sinan.gold import aggregate_file
+from .sinan.gold import MUNICIPIOS_RJ, aggregate_file
 from .load import get_engine, load_gold_to_postgres
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 
 
-def run_load(disease: str, year: int) -> None:
+def run_load(disease: str, year: int, *, allow_empty: bool = False) -> None:
     disease = disease.upper()
     run_at = datetime.now(UTC)
 
@@ -23,20 +23,34 @@ def run_load(disease: str, year: int) -> None:
     bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
     silver = transform_file(bronze, disease, year, run_at=run_at)
 
+    municipios = dict(MUNICIPIOS_RJ)
+    silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
+    if silver_scope.empty:
+        raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
+    expected_cases_total = int(silver_scope["ID_MUNICIP"].isin(municipios).sum())
+
     gold_path = aggregate_file(
-        silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS, run_at=run_at
+        silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
+        municipios=municipios, run_at=run_at,
     )
 
     gold_df = pd.read_parquet(gold_path)
     batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
 
     engine = get_engine()
-    load_gold_to_postgres(engine, gold_df, disease, batch_id)
+    try:
+        load_gold_to_postgres(
+            engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
+            expected_cases_total=expected_cases_total, snapshot_complete=True,
+            source_extracted_at=run_at, allow_empty=allow_empty,
+        )
+    finally:
+        engine.dispose()
 
     print(f"Bronze: {bronze}")
     print(f"Silver: {silver}")
     print(f"Gold:   {gold_path}")
-    print(f"Postgres: carregado (disease={disease}, year={year}, batch_id={batch_id}, rows={len(gold_df)})")
+    print(f"Postgres: snapshot publicado (disease={disease}, year={year}, batch_id={batch_id}, cases={expected_cases_total})")
 
 
 def main() -> None:
@@ -45,8 +59,10 @@ def main() -> None:
     )
     parser.add_argument("--disease", required=True, help="Ex.: DENG, TOXC, ZIKA")
     parser.add_argument("--year", required=True, type=int)
+    parser.add_argument("--allow-empty", action="store_true",
+                        help="Permite publicar zero no recorte; usar após validar a ausência na origem")
     args = parser.parse_args()
-    run_load(args.disease, args.year)
+    run_load(args.disease, args.year, allow_empty=args.allow_empty)
 
 
 if __name__ == "__main__":
