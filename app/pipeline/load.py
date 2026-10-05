@@ -195,6 +195,27 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
         if col not in subset.columns:
             subset[col] = None
 
+    # O CNES não encontrado no snapshot SINAN pode deixar os atributos
+    # descritivos como NaN (float) após o merge pandas. NaN não é um NULL
+    # PostgreSQL válido para SMALLINT e acaba sendo rejeitado pelo driver
+    # como "smallint out of range". Normalize o código para inteiro ou
+    # NULL antes de enviar os parâmetros ao banco.
+    subset["tp_unidade"] = pd.to_numeric(
+        subset["tp_unidade"], errors="coerce"
+    )
+    invalid_type = subset["tp_unidade"].notna() & (
+        (subset["tp_unidade"] % 1 != 0)
+        | ~subset["tp_unidade"].between(-32768, 32767)
+    )
+    if invalid_type.any():
+        raise ValueError("tp_unidade contém código inteiro fora da faixa SMALLINT")
+    subset["tp_unidade"] = (
+        subset["tp_unidade"]
+        .astype("Int64")
+        .astype(object)
+        .where(lambda values: pd.notna(values), None)
+    )
+
     rows = subset[["cd_unidade", *db_cols]].to_dict(orient="records")
     _upsert(conn, "analytics.dim_unidade_saude", rows, conflict_cols=["cd_unidade"])
 
