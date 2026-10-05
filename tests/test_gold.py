@@ -70,3 +70,33 @@ def test_aggregate_com_dimensao_extra_abre_grupos_por_sexo():
     assert "CS_SEXO" in result.columns
     assert set(result["CS_SEXO"]) == {"F", "M"}
 
+
+def test_aggregate_cnes_nao_duplica_colunas_territoriais_nem_cria_sufixos():
+    df = _silver_minima(
+        ID_UNIDADE=["0729884.0", "0729884.0", "9999999"],
+    )
+    cnes_lookup = pd.DataFrame(
+        {
+            "cd_unidade": ["0729884"],
+            "nm_unidade": ["UBS DEMO"],
+            "razao_social_unidade": ["UBS DEMO LTDA"],
+            "tp_unidade": [2],
+            "notification_district_id": ["CG_DIST_SEDE"],
+            "notification_neighborhood_id": ["CG_LOC_SEDE_CENTRO"],
+            "notification_territory_status": ["NOTIFICATION_NEIGHBORHOOD"],
+        }
+    )
+
+    result = aggregate(
+        df,
+        disease="DENG",
+        selected_columns=["unidade_notificacao"],
+        municipios=MUNICIPIOS_TESTE,
+        cnes_lookup=cnes_lookup,
+    )
+
+    assert not any(column.endswith(("_x", "_y")) for column in result.columns)
+    assert result["ID_UNIDADE"].eq("0729884").any()
+    assert result["notification_district_id"].eq("CG_DIST_SEDE").any()
+    assert result["notification_neighborhood_id"].eq("CG_LOC_SEDE_CENTRO").any()
+    assert result["nm_unidade"].eq("UBS DEMO").any()

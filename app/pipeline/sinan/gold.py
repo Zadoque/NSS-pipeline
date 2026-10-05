@@ -74,6 +74,7 @@ def age_band(
 
 BASE_DIR = Path("/data")
 GoldTarget = Literal["ad_hoc", "serving"]
+CNES_METADATA_COLUMNS = ["nm_unidade", "razao_social_unidade", "tp_unidade"]
 
 
 def gold_root(target: GoldTarget) -> Path:
@@ -139,6 +140,10 @@ def aggregate(
             if mapped in work:
                 work = work.drop(columns=[mapped])
         work["notification_territory_status"] = work["notification_territory_status"].fillna("UNMAPPED_NOTIFICATION_UNIT")
+        if "ID_UNIDADE" in work:
+            # O Gold usa sempre o mesmo formato do código CNES. Isso evita
+            # que valores como 0729884.0 deixem de casar com o lookup.
+            work["ID_UNIDADE"] = work["_cd_unidade"]
         work = work.drop(columns=["_cd_unidade", "cd_unidade"])
     else:
         for column in territory_cols:
@@ -170,9 +175,27 @@ def aggregate(
     )
 
     if "ID_UNIDADE" in group_cols and cnes_lookup is not None:
-        result = result.merge(
-            cnes_lookup, how="left", left_on="ID_UNIDADE", right_on="cd_unidade"
-        ).drop(columns=["cd_unidade"])
+        # O território já foi associado antes do groupby. Reunir o lookup
+        # completo aqui repetia essas colunas e fazia o Pandas criar _x/_y.
+        # Neste segundo passo entram somente os metadados necessários para a
+        # dimensão de unidade de saúde.
+        metadata_columns = [
+            column
+            for column in CNES_METADATA_COLUMNS
+            if column in cnes_lookup.columns and column not in result.columns
+        ]
+        if metadata_columns:
+            metadata_lookup = cnes_lookup[["cd_unidade", *metadata_columns]].copy()
+            metadata_lookup["cd_unidade"] = metadata_lookup["cd_unidade"].astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+            metadata_lookup = metadata_lookup.drop_duplicates(subset=["cd_unidade"], keep="last")
+            result["_cd_unidade"] = result["ID_UNIDADE"].astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+            result = result.merge(
+                metadata_lookup,
+                how="left",
+                left_on="_cd_unidade",
+                right_on="cd_unidade",
+                validate="many_to_one",
+            ).drop(columns=["_cd_unidade", "cd_unidade"])
 
     result.insert(0, "disease", disease)
 
