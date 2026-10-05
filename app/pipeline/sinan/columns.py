@@ -63,6 +63,8 @@ CATALOG: dict[str, ColumnSpec] = {
     "evolucao": ColumnSpec("Evolução do caso", "EVOLUCAO", groupable=True),
     "sexo": ColumnSpec("Sexo", "CS_SEXO", required=True, groupable=True),
     "ano_nascimento": ColumnSpec("Ano de nascimento", "ANO_NASC", required=True, groupable=True),
+    "idade_sinan": ColumnSpec("Idade codificada SINAN", "NU_IDADE_N"),
+    "tipo_idade": ColumnSpec("Unidade da idade SINAN", "TP_IDADE"),
 }
 
 def required_keys() -> list[str]:

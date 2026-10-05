@@ -17,6 +17,60 @@ MUNICIPIOS_RJ = {
     #"3304557": "Rio de Janeiro",
 }
 
+
+def decode_sinan_age_years(
+    encoded_age: pd.Series,
+    separate_type: pd.Series | None = None,
+) -> pd.Series:
+    """Converte a idade codificada do SINAN em anos.
+
+    Na forma ``NU_IDADE_N``, o primeiro dígito é a unidade: 1 hora, 2 dia,
+    3 mês e 4 ano; os três dígitos restantes são o valor. Alguns layouts
+    antigos expõem a unidade separadamente em ``TP_IDADE``. Valores ausentes,
+    inválidos ou sentinelas não são convertidos em zero.
+    """
+    raw = encoded_age.astype("string").str.extract(r"(\d+)")[0]
+    numeric = pd.to_numeric(raw, errors="coerce")
+    unit = raw.str[0]
+    value = pd.to_numeric(raw.str[1:], errors="coerce")
+    if separate_type is not None:
+        separate = separate_type.astype("string").str.extract(r"([1-4])")[0]
+        use_separate = separate.notna()
+        unit = unit.mask(use_separate, separate)
+        value = value.mask(use_separate, numeric)
+    years = pd.Series(pd.NA, index=encoded_age.index, dtype="Float64")
+    years = years.mask(unit.eq("1"), value / (24 * 365.25))
+    years = years.mask(unit.eq("2"), value / 365.25)
+    years = years.mask(unit.eq("3"), value / 12)
+    years = years.mask(unit.eq("4"), value)
+    return years
+
+
+def age_band(
+    year: pd.Series,
+    birth_year: pd.Series,
+    encoded_age: pd.Series | None = None,
+    separate_type: pd.Series | None = None,
+) -> pd.Series:
+    """Deriva faixa usando a idade codificada SINAN, com fallback controlado."""
+    age = decode_sinan_age_years(encoded_age, separate_type) if encoded_age is not None else pd.Series(pd.NA, index=year.index, dtype="Float64")
+    fallback = year.astype("Int64") - birth_year.astype("Int64")
+    age = age.fillna(fallback.astype("Float64"))
+    conditions = [
+        age.lt(1), age.between(1, 4), age.between(5, 9), age.between(10, 14),
+        age.between(15, 19), age.between(20, 39), age.between(40, 59),
+        age.between(60, 64), age.between(65, 69), age.between(70, 74),
+        age.between(75, 79), age.ge(80),
+    ]
+    labels = [
+        "LT1", "01_04", "05_09", "10_14", "15_19", "20_39",
+        "40_59", "60_64", "65_69", "70_74", "75_79", "80_PLUS",
+    ]
+    result = pd.Series(pd.NA, index=year.index, dtype="string")
+    for condition, label in zip(conditions, labels):
+        result = result.mask(condition.fillna(False), label)
+    return result
+
 BASE_DIR = Path("/data")
  
 def aggregate(
@@ -42,8 +96,38 @@ def aggregate(
     ]
 
     work = df.copy()
-    work["cd_mun"] = work["ID_MUNICIP"].astype("string").str.zfill(7)
+    raw_municipality = work["ID_MUNICIP"].astype("string").str.extract(r"(\d+)")[0]
+    ibge_by_sinan_prefix = {code[:6]: code for code in municipios}
+    work["cd_mun"] = raw_municipality.map(ibge_by_sinan_prefix).fillna(raw_municipality.str.zfill(7))
     work = work[work["cd_mun"].isin(municipios)]
+
+    # O total municipal continua sendo o universo completo. O vínculo
+    # intramunicipal só existe quando ID_UNIDADE encontra CNES e sua posição
+    # cai numa geometria oficial; ausência nunca vira zero.
+    territory_cols = [
+        "notification_district_id",
+        "notification_neighborhood_id",
+        "notification_territory_status",
+    ]
+    if cnes_lookup is not None and "cd_unidade" in cnes_lookup:
+        lookup = cnes_lookup.copy()
+        lookup["cd_unidade"] = lookup["cd_unidade"].astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+        join_cols = ["cd_unidade", *[c for c in territory_cols if c in lookup.columns]]
+        work["_cd_unidade"] = work.get("ID_UNIDADE", pd.Series(pd.NA, index=work.index)).astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+        work = work.merge(
+            lookup[join_cols].rename(columns={column: f"_mapped_{column}" for column in territory_cols if column in lookup}),
+            how="left", left_on="_cd_unidade", right_on="cd_unidade",
+        )
+        for column in territory_cols:
+            mapped = f"_mapped_{column}"
+            work[column] = work[mapped] if mapped in work else pd.NA
+            if mapped in work:
+                work = work.drop(columns=[mapped])
+        work["notification_territory_status"] = work["notification_territory_status"].fillna("UNMAPPED_NOTIFICATION_UNIT")
+        work = work.drop(columns=["_cd_unidade", "cd_unidade"])
+    else:
+        for column in territory_cols:
+            work[column] = "UNMAPPED_NOTIFICATION_UNIT" if column == "notification_territory_status" else pd.NA
 
     base_cols = ["disease", "year", "month", "cd_uf", "nm_uf", "cd_mun", "nm_mun", "sex", "birth_year", "not_week"]
     if work.empty:
@@ -55,9 +139,13 @@ def aggregate(
     work["nm_mun"] = work["cd_mun"].map(municipios)
     work["sex"] = work["CS_SEXO"].astype("string")
     work["birth_year"] = pd.to_numeric(work["ANO_NASC"], errors="coerce").astype("Int64")
+    work["age_band"] = age_band(
+        work["year"], work["birth_year"],
+        work.get("NU_IDADE_N"), work.get("TP_IDADE"),
+    )
     work["not_week"] = pd.to_numeric(work["SEM_NOT"], errors="coerce").astype("Int64")
 
-    group_cols = ["year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex", "birth_year", "not_week", *extra_group_cols]
+    group_cols = ["year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex", "age_band", "birth_year", "not_week", *extra_group_cols, *territory_cols]
 
     result = (
         work.groupby(group_cols, dropna=False)

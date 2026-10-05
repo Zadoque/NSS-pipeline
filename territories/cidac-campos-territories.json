@@ -1,0 +1,1362 @@
+{
+  "version": "2019-cidac-index-v1",
+  "source": "CIDAC 2019 - Perfil dos Bairros",
+  "municipalityCode": "3301009",
+  "municipalityName": "Campos dos Goytacazes",
+  "geometryStatus": "BLOCKED_REAL_VECTOR_SOURCE_MISSING",
+  "idConvention": "CG_DIST_<ASCII_SLUG> and CG_LOC_<ASCII_SLUG>_<ASCII_SLUG>",
+  "districts": [
+    {
+      "territoryId": "CG_DIST_SEDE",
+      "name": "Distrito Sede",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_SEDE_ALTO_DA_AREIA",
+          "name": "Alto da Areia",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CAJU",
+          "name": "Caju",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CAMBAIBA",
+          "name": "Cambaíba",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CAMPO_LIMPO",
+          "name": "Campo Limpo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CANTAGALO",
+          "name": "Cantagalo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CARVAO",
+          "name": "Carvão",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CENTRO",
+          "name": "Centro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CHACARA_JOAO_FERREIRA",
+          "name": "Chácara João Ferreira",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CHATUBA",
+          "name": "Chatuba",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_CODIN",
+          "name": "Codin",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_DONANA",
+          "name": "Donana",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_ESTANCIA_DA_PENHA",
+          "name": "Estância da Penha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_FAZENDINHA",
+          "name": "Fazendinha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_GOITACAZES",
+          "name": "Goitacazes",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_HORTO",
+          "name": "Horto",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_IPS",
+          "name": "IPS",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_ITERERE",
+          "name": "Itereré",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_AEROPORTO",
+          "name": "Jardim Aeroporto",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_BOA_VISTA_I",
+          "name": "Jardim Boa Vista I",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_BOA_VISTA_II",
+          "name": "Jardim Boa Vista II",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_CARIOCA",
+          "name": "Jardim Carioca",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_CEASA",
+          "name": "Jardim Ceasa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_FLAMBOYANT_I",
+          "name": "Jardim Flamboyant I",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_FLAMBOYANT_II",
+          "name": "Jardim Flamboyant II",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_GUARUS",
+          "name": "Jardim Guarus",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_MARIA_DE_QUEIROZ",
+          "name": "Jardim Maria de Queiroz",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_JARDIM_RESIDENCIAL_PLANICIE",
+          "name": "Jardim Residencial Planície",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_KM_9_KM_10",
+          "name": "Km 9 km 10",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_LAGOA_DAS_PEDRAS",
+          "name": "Lagoa das Pedras",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_LAPA",
+          "name": "Lapa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_MARTINS_LAGE",
+          "name": "Martins Lage",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_MATADOURO",
+          "name": "Matadouro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_MORRO_GRANDE",
+          "name": "Morro Grande",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_NOVA_CAMPOS",
+          "name": "Nova Campos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_NOVA_GOITACAZES",
+          "name": "Nova Goitacazes",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_NOVO_JOCKEY",
+          "name": "Novo Jockey",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ALBERTO_TORRES",
+          "name": "Parque Alberto Torres",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ALDEIA",
+          "name": "Parque Aldeia",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ALVORADA",
+          "name": "Parque Alvorada",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_AURORA",
+          "name": "Parque Aurora",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_AVENIDA_PELINCA",
+          "name": "Parque Avenida Pelinca",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_BANDEIRANTES",
+          "name": "Parque Bandeirantes",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_BARAO_DO_RIO_BRANCO",
+          "name": "Parque Barão do Rio Branco",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_BELA_VISTA",
+          "name": "Parque Bela Vista",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_BENTA_PEREIRA",
+          "name": "Parque Benta Pereira",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_BONSUCESSO",
+          "name": "Parque Bonsucesso",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_CALIFORNIA",
+          "name": "Parque Califórnia",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_CARLOS_LACERDA",
+          "name": "Parque Carlos Lacerda",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_CIDADE_LUZ",
+          "name": "Parque Cidade Luz",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_CONSELHEIRO_TOMAZ_COELHO",
+          "name": "Parque Conselheiro Tomaz Coelho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_CORRIENTES",
+          "name": "Parque Corrientes",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_DO_PRADO",
+          "name": "Parque do Prado",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_DOM_BOSCO",
+          "name": "Parque Dom Bosco",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_DOS_RODOVIARIOS",
+          "name": "Parque dos Rodoviários",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_DOUTOR_BEDA",
+          "name": "Parque Doutor Beda",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ELDORADO",
+          "name": "Parque Eldorado",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ESPLANADA",
+          "name": "Parque Esplanada",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_FAZENDA_GRANDE",
+          "name": "Parque Fazenda Grande",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_FAZENDINHA",
+          "name": "Parque Fazendinha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_FUNDAO",
+          "name": "Parque Fundão",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_GUARUS",
+          "name": "Parque Guarus",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_IMPERIAL",
+          "name": "Parque Imperial",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_JOAO_MARIA",
+          "name": "Parque João Maria",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_JOAO_SEIXAS",
+          "name": "Parque João Seixas",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_JOCKEY_CLUB",
+          "name": "Parque Jockey Club",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_JOSE_DO_PATROCINIO",
+          "name": "Parque José do Patrocínio",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_JULIAO_NOGUEIRA",
+          "name": "Parque Julião Nogueira",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_LEOPOLDINA",
+          "name": "Parque Leopoldina",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_NITEROI",
+          "name": "Parque Niterói",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_NOSSA_SENHORA_DO_ROSARIO",
+          "name": "Parque Nossa Senhora do Rosário",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_NOVA_BRASILIA",
+          "name": "Parque Nova Brasília",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_NOVO_MUNDO",
+          "name": "Parque Novo Mundo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_OLIVEIRA_BOTELHO",
+          "name": "Parque Oliveira Botelho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_PECUARIA",
+          "name": "Parque Pecuária",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_PRAZERES",
+          "name": "Parque Prazeres",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_PRESIDENTE_JUSCELINO",
+          "name": "Parque Presidente Juscelino",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_PRESIDENTE_VARGAS",
+          "name": "Parque Presidente Vargas",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_QUINZE_DE_NOVEMBRO",
+          "name": "Parque Quinze de Novembro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_RESIDENCIAL_DA_LAPA",
+          "name": "Parque Residencial da Lapa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_RIACHUELO",
+          "name": "Parque Riachuelo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ROSARIO",
+          "name": "Parque Rosário",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_RUI_BARBOSA",
+          "name": "Parque Rui Barbosa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SALO_BRAND",
+          "name": "Parque Salo Brand",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SANTA_ROSA",
+          "name": "Parque Santa Rosa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SANTO_AMARO",
+          "name": "Parque Santo Amaro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SANTO_ANTONIO",
+          "name": "Parque Santo Antônio",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_BENEDITO",
+          "name": "Parque São Benedito",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_CAETANO",
+          "name": "Parque São Caetano",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_CLEMENTE",
+          "name": "Parque São Clemente",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_DOMINGOS",
+          "name": "Parque São Domingos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_JOSE",
+          "name": "Parque São José",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_LINO",
+          "name": "Parque São Lino",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_MATHEUS",
+          "name": "Parque São Matheus",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_SALVADOR",
+          "name": "Parque São Salvador",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SAO_SILVESTRE",
+          "name": "Parque São Silvestre",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_SUMARE",
+          "name": "Parque Sumaré",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_TAMANDARE",
+          "name": "Parque Tamandaré",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_TARCISIO_MIRANDA",
+          "name": "Parque Tarcísio Miranda",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_TURF_CLUB",
+          "name": "Parque Turf Club",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_VERA_CRUZ",
+          "name": "Parque Vera Cruz",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_VICENTE_GONCALVES_DIAS",
+          "name": "Parque Vicente Gonçalves Dias",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_VISTA_ALEGRE",
+          "name": "Parque Vista Alegre",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PARQUE_ZUZA_MOTA",
+          "name": "Parque Zuza Mota",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PAUS_AMARELOS",
+          "name": "Paus Amarelos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PENHA",
+          "name": "Penha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_PONTO_DE_COQUEIRO",
+          "name": "Ponto de Coqueiro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_SANTA_CRUZ",
+          "name": "Santa Cruz",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_SANTOS_DUMONT_KM8",
+          "name": "Santos Dumont (Km8)",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_SAPUCAIA",
+          "name": "Sapucaia",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_SHOPPING_ESTRADA",
+          "name": "Shopping Estrada",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_TAPERA",
+          "name": "Tapera",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_TERRA_PROMETIDA",
+          "name": "Terra Prometida",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_URURAI",
+          "name": "Ururaí",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_USINA_SAO_JOAO",
+          "name": "Usina São João",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_VEIGA",
+          "name": "Veiga",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_VILA_DA_RAINHA",
+          "name": "Vila da Rainha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_VILA_INDUSTRIAL",
+          "name": "Vila Industrial",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        },
+        {
+          "territoryId": "CG_LOC_SEDE_VILA_MANHAES",
+          "name": "Vila Manhães",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SEDE"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_DORES_DE_MACABU",
+      "name": "Dores de Macabu",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_CEREJEIRA",
+          "name": "Cerejeira",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_DORES_DE_MACABU",
+          "name": "Dores de Macabu",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_GURIRI",
+          "name": "Guriri",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_MACACO",
+          "name": "Macaco",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_MATO_ESCURO",
+          "name": "Mato Escuro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_PLANICIE",
+          "name": "Planície",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_PONTA_DA_LAMA",
+          "name": "Ponta da Lama",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        },
+        {
+          "territoryId": "CG_LOC_DORES_DE_MACABU_QUILOMBO",
+          "name": "Quilombo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_DORES_DE_MACABU"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_IBITIOCA",
+      "name": "Ibitioca",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_IBITIOCA_IBITIOCA",
+          "name": "Ibitioca",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_IBITIOCA"
+        },
+        {
+          "territoryId": "CG_LOC_IBITIOCA_PERNAMBUCA",
+          "name": "Pernambuca",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_IBITIOCA"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_MORANGABA",
+      "name": "Morangaba",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_MORANGABA_CONCEICAO_DO_IMBE",
+          "name": "Conceição do Imbé",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MORANGABA"
+        },
+        {
+          "territoryId": "CG_LOC_MORANGABA_LAGOA_DE_CIMA",
+          "name": "Lagoa de Cima",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MORANGABA"
+        },
+        {
+          "territoryId": "CG_LOC_MORANGABA_MORANGABA",
+          "name": "Morangaba",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MORANGABA"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_MORRO_DO_COCO",
+      "name": "Morro do Coco",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_MORRO_DO_COCO_MORRO_DO_COCO",
+          "name": "Morro do Coco",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MORRO_DO_COCO"
+        },
+        {
+          "territoryId": "CG_LOC_MORRO_DO_COCO_SAO_LUIZ_DE_MUTUCA",
+          "name": "São Luiz de Mutuca",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MORRO_DO_COCO"
+        },
+        {
+          "territoryId": "CG_LOC_MORRO_DO_COCO_SESMARIA",
+          "name": "Sesmaria",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MORRO_DO_COCO"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_MUSSUREPE",
+      "name": "Mussurepe",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_BABOSA",
+          "name": "Babosa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_BAIXA_GRANDE",
+          "name": "Baixa Grande",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_FAROL_DE_SAO_TOME",
+          "name": "Farol de São Tomé",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_FAROLZINHO",
+          "name": "Farolzinho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_JARDIM_NOVO_FAROL",
+          "name": "Jardim Novo Farol",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_MARIA_DA_ROSA",
+          "name": "Maria da Rosa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_MARRECAS",
+          "name": "Marrecas",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_MUSSUREPE",
+          "name": "Mussurepe",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_SAO_BENTO",
+          "name": "São Bento",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_VILA_DO_SOL",
+          "name": "Vila do Sol",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        },
+        {
+          "territoryId": "CG_LOC_MUSSUREPE_XEXE",
+          "name": "Xexé",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_MUSSUREPE"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_SANTA_MARIA",
+      "name": "Santa Maria",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_SANTA_MARIA_MATA_DA_CRUZ",
+          "name": "Mata da Cruz",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTA_MARIA"
+        },
+        {
+          "territoryId": "CG_LOC_SANTA_MARIA_SANTA_MARIA",
+          "name": "Santa Maria",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTA_MARIA"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_SANTO_AMARO",
+      "name": "Santo Amaro",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_BARRA_VELHA",
+          "name": "Barra Velha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_BOA_VISTA",
+          "name": "Boa Vista",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_CABOIO",
+          "name": "Caboio",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_CANAL_DAS_FLECHAS",
+          "name": "Canal das Flechas",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_CANTO_DO_ENGENHO",
+          "name": "Canto do Engenho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_CORRENTEZA",
+          "name": "Correnteza",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_FURADINHO",
+          "name": "Furadinho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_LAGAMAR",
+          "name": "Lagamar",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_OLHOS_D_AGUA",
+          "name": "Olhos D'água",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_PITANGUEIRAS",
+          "name": "Pitangueiras",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_RETIRO",
+          "name": "Retiro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_SANTO_AMARO",
+          "name": "Santo Amaro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_SAO_MARTINHO",
+          "name": "São Martinho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_AMARO_VIEGAS",
+          "name": "Viegas",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_AMARO"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_SANTO_EDUARDO",
+      "name": "Santo Eduardo",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_SANTO_EDUARDO_CHAVE_DO_PARAISO",
+          "name": "Chave do Paraíso",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_EDUARDO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_EDUARDO_ESPIRITO_SANTINHO",
+          "name": "Espirito Santinho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_EDUARDO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_EDUARDO_MURUNDU",
+          "name": "Murundu",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_EDUARDO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_EDUARDO_PALMARES",
+          "name": "Palmares",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_EDUARDO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_EDUARDO_PIAO",
+          "name": "Pião",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_EDUARDO"
+        },
+        {
+          "territoryId": "CG_LOC_SANTO_EDUARDO_SANTO_EDUARDO",
+          "name": "Santo Eduardo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SANTO_EDUARDO"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_SAO_SEBASTIAO",
+      "name": "São Sebastião",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_ALTO_DO_ELISEU",
+          "name": "Alto do Eliseu",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_BARRA_DO_JACARE",
+          "name": "Barra do Jacaré",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_BEIRA_DO_TAI",
+          "name": "Beira do Taí",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_CAMPO_NOVO",
+          "name": "Campo Novo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_ESPINHO",
+          "name": "Espinho",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_LARGO_DO_GARCIA",
+          "name": "Largo do Garcia",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_MINEIROS",
+          "name": "Mineiros",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_MONTE_NEGRO",
+          "name": "Monte Negro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_POCO_GORDO",
+          "name": "Poço Gordo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_SAO_SEBASTIAO_DE_CAMPOS",
+          "name": "São Sebastião de Campos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_SATURNINO_BRAGA",
+          "name": "Saturnino Braga",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        },
+        {
+          "territoryId": "CG_LOC_SAO_SEBASTIAO_VENDA_NOVA",
+          "name": "Venda Nova",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SAO_SEBASTIAO"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_SERRINHA",
+      "name": "Serrinha",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_SERRINHA_SERRINHA",
+          "name": "Serrinha",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_SERRINHA"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_TOCOS",
+      "name": "Tócos",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_TOCOS_CARIOCA_DE_TOCOS",
+          "name": "Carioca de Tócos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        },
+        {
+          "territoryId": "CG_LOC_TOCOS_CAXIAS_DE_TOCOS",
+          "name": "Caxias de Tócos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        },
+        {
+          "territoryId": "CG_LOC_TOCOS_COQUEIRO_DE_TOCOS",
+          "name": "Coqueiro de Tócos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        },
+        {
+          "territoryId": "CG_LOC_TOCOS_MARCELO",
+          "name": "Marcelo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        },
+        {
+          "territoryId": "CG_LOC_TOCOS_PONTA_GROSSA",
+          "name": "Ponta Grossa",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        },
+        {
+          "territoryId": "CG_LOC_TOCOS_TOCOS",
+          "name": "Tócos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        },
+        {
+          "territoryId": "CG_LOC_TOCOS_VALA_DO_MATO",
+          "name": "Vala do Mato",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TOCOS"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_TRAVESSAO",
+      "name": "Travessão",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_BALANCA_RANGEL",
+          "name": "Balança Rangel",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_BREJO_GRANDE",
+          "name": "Brejo Grande",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_CAMPELO",
+          "name": "Campelo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_CANAA",
+          "name": "Canaã",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_CAXETA",
+          "name": "Caxeta",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_CAXIAS_DE_BALANCA_RANGEL",
+          "name": "Caxias de Balança Rangel",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_FAZENDA_COLEGIO",
+          "name": "Fazenda Colégio",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_GUANDU",
+          "name": "Guandú",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_MATUTU",
+          "name": "Matutu",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_MUNDEOS",
+          "name": "Mundeos",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_NOVA_CANAA",
+          "name": "Nova Canaã",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_RIBEIRO_DO_AMARO",
+          "name": "Ribeiro do Amaro",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_SANTA_ANA",
+          "name": "Santa Ana",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_SAO_DIOGO",
+          "name": "São Diogo",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_TRAVESSAO_ARRAIAL",
+          "name": "Travessão_ Arraial",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_TRAVESSAO_BARIRI",
+          "name": "Travessão_ Bariri",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_TRAVESSAO_KM13",
+          "name": "Travessão_km13",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_TRAVESSAO_KM15",
+          "name": "Travessão_km15",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_TRAVESSAO_TRAVESSAO",
+          "name": "Travessão_Travessão",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        },
+        {
+          "territoryId": "CG_LOC_TRAVESSAO_TRES_VENDAS",
+          "name": "Três Vendas",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_TRAVESSAO"
+        }
+      ]
+    },
+    {
+      "territoryId": "CG_DIST_VILA_NOVA",
+      "name": "Vila Nova",
+      "type": "DISTRICT",
+      "localities": [
+        {
+          "territoryId": "CG_LOC_VILA_NOVA_CONSELHEIRO_JOSINO",
+          "name": "Conselheiro Josino",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_VILA_NOVA"
+        },
+        {
+          "territoryId": "CG_LOC_VILA_NOVA_VILA_NOVA",
+          "name": "Vila Nova",
+          "type": "NEIGHBORHOOD_OR_LOCALITY",
+          "parentDistrictId": "CG_DIST_VILA_NOVA"
+        }
+      ]
+    }
+  ]
+}
