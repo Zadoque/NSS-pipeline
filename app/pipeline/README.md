@@ -80,6 +80,9 @@ código da doença é passado como está definido pelo próprio SINAN/PySUS:
 | `DENG` | Dengue |
 | `CHIK` | Chikungunya |
 | `ZIKA` | Zika |
+| `FMAC` | Febre maculosa |
+| `TOXC` | Toxoplasmose congênita |
+| `TOXG` | Toxoplasmose gestacional |
 | `TUBE` | Tuberculose |
 | `HANS` | Hanseníase |
 | `HEPA` | Hepatites virais |
@@ -131,6 +134,34 @@ que o cadastro de unidades não varia por doença nem por ano de notificação.
 Todo `data.parquet` é gravado de forma atômica (escrita em arquivo temporário
 + `os.replace`), evitando arquivos parciais/corrompidos em caso de falha no
 meio da escrita.
+
+### Atualizador diário SINAN
+
+O executor [`update_sinan.py`](./update_sinan.py) consulta o catálogo
+`pysus.ftp.sinan(..., download=False)` para cada série acompanhada, compara o
+tamanho em bytes do Parquet remoto com o cache em `source/sinan` e só baixa e
+executa Bronze → Silver → Gold Serving → PostgreSQL quando o arquivo mudou.
+O `manifest.json` registra o caminho remoto, os tamanhos, a data e o estado
+`UPDATED`/`UNCHANGED`.
+
+Para execução diária via cron ou scheduler externo:
+
+```bash
+docker compose run --rm --entrypoint python pipeline \
+  -m app.pipeline.update_sinan --years 2026
+```
+
+Por padrão são acompanhados `DENG`, `CHIK`, `ZIKA`, `FMAC`, `TOXC` e `TOXG`.
+É possível restringir o recorte:
+
+```bash
+docker compose run --rm --entrypoint python pipeline \
+  -m app.pipeline.update_sinan --diseases DENG,FMAC,TOXC --years 2026
+```
+
+O tamanho é o detector solicitado; uma alteração de conteúdo que preserve
+exatamente o mesmo tamanho não é detectada por essa política e deve ser
+tratada por uma auditoria/hash posterior.
 
 ---
 

@@ -12,11 +12,17 @@ from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 
 
-def run_load(disease: str, year: int, *, allow_empty: bool = False) -> None:
+def run_load(
+    disease: str,
+    year: int,
+    *,
+    allow_empty: bool = False,
+    source_path=None,
+) -> None:
     disease = disease.upper()
     run_at = datetime.now(UTC)
 
-    bronze_df = fetch_sinan(disease, year)
+    bronze_df = pd.read_parquet(source_path) if source_path is not None else fetch_sinan(disease, year)
     if bronze_df.empty:
         raise RuntimeError("PySUS retornou um DataFrame vazio")
 

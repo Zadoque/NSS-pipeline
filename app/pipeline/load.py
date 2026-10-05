@@ -21,6 +21,8 @@ DISEASE_NAMES: dict[str, str] = {
     "LEPT": "Leptospirose",
     "MENI": "Meningite",
     "FMAC": "Febre maculosa",
+    "TOXC": "Toxoplasmose congênita",
+    "TOXG": "Toxoplasmose gestacional",
 }
 
 UNIDADE_NAO_IDENTIFICADA = "0000000"
