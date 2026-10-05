@@ -34,6 +34,7 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(mocker, pipel
     assert options["allow_empty"] is False
     assert options["source_extracted_at"] == aggregate.call_args.kwargs["run_at"]
     assert aggregate.call_args.kwargs["municipios"] == MUNICIPIOS_RJ
+    assert aggregate.call_args.kwargs["target"] == "serving"
     engine.dispose.assert_called_once()
 
 

@@ -8,6 +8,7 @@ import pandas as pd
 from ..atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, validate_keys
 from datetime import UTC, datetime
+from typing import Literal
  
 MUNICIPIOS_RJ = {
     "3301009": "Campos dos Goytacazes",
@@ -72,6 +73,20 @@ def age_band(
     return result
 
 BASE_DIR = Path("/data")
+GoldTarget = Literal["ad_hoc", "serving"]
+
+
+def gold_root(target: GoldTarget) -> Path:
+    """Retorna a raiz física da Gold conforme o contrato de consumo.
+
+    ``ad_hoc`` é descartável e serve análises/reprocessamentos exploratórios.
+    ``serving`` é a publicação canônica consumida pelo carregamento/API.
+    Mantê-las em árvores diferentes impede que uma análise exploratória seja
+    confundida com o snapshot publicado.
+    """
+    if target not in {"ad_hoc", "serving"}:
+        raise ValueError(f"Destino Gold inválido: {target!r}")
+    return BASE_DIR / "gold" / target
  
 def aggregate(
     df: pd.DataFrame,
@@ -206,6 +221,7 @@ def aggregate_file(
     selected_columns: list[str] | None = None,
     municipios: dict[str, str] | None = None,
     run_at: datetime | None = None,
+    target: GoldTarget = "ad_hoc",
 ) -> Path:
     disease = disease.upper()
 
@@ -223,7 +239,7 @@ def aggregate_file(
     now = run_at or datetime.now(UTC)
     batch_id = now.strftime("%Y%m%dT%H%M%SZ")
     directory = (
-        BASE_DIR / "gold" / "sinan" / f"disease={disease.lower()}"
+        gold_root(target) / "sinan" / f"disease={disease.lower()}"
         / f"source_year={year}" / f"ingestion_date={now.date()}" / f"batch_id={batch_id}"
     )
     parquet = directory / "data.parquet"
@@ -237,6 +253,7 @@ def aggregate_file(
         "rows": len_after,
         "dropped_rows": len_before - len_after,
         "columns": list(result.columns),
+        "gold_target": target,
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet

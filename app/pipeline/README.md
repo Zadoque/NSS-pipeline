@@ -108,9 +108,13 @@ no estilo Hive:
 ├── silver/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
 │   ├── data.parquet
 │   └── metadata.json
-├── gold/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
-│   ├── data.parquet
-│   └── metadata.json
+├── gold/
+│   ├── ad_hoc/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
+│   │   ├── data.parquet
+│   │   └── metadata.json
+│   └── serving/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
+│       ├── data.parquet
+│       └── metadata.json
 ├── bronze/cnes/municipio={codigo_ibge}/ingestion_date={data}/batch_id={batch}/
 │   ├── data.parquet
 │   └── metadata.json
@@ -277,8 +281,12 @@ python -m app.pipeline.run --disease <CODIGO_SINAN> --year <ANO> [--columns "cha
 | `--year` | ✅ | Ano de referência (filtra por `DT_NOTIFIC`) |
 | `--columns` | | Chaves do catálogo separadas por vírgula, usadas como dimensões extras na Gold |
 
-O pipeline executa as três camadas em sequência (Bronze → Silver → Gold) e
-imprime o caminho final de cada parquet gerado.
+O comando `run.py` executa Bronze → Silver → Gold no destino `ad_hoc`, usado
+para análise ou reprocessamento exploratório. O comando `run_load.py` escreve
+no destino `serving`, que é a Gold canônica lida para publicação no PostgreSQL.
+Os dois destinos têm o mesmo contrato de colunas, mas nunca compartilham a
+árvore de saída; uma execução exploratória não pode sobrescrever ou ser
+confundida com um snapshot de serving.
 
 ### CLI (`run_cnes.py`)
 
@@ -318,7 +326,8 @@ Cada camada grava um `metadata.json` ao lado do `data.parquet`, contendo:
   "ingested_at": "2026-09-14T12:37:21+00:00",
   "rows": 1234,
   "dropped_rows": 56,
-  "columns": ["DT_NOTIFIC", "ID_MUNICIP", "..."]
+  "columns": ["DT_NOTIFIC", "ID_MUNICIP", "..."],
+  "gold_target": "ad_hoc"
 }
 ```
 

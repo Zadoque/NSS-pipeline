@@ -22,7 +22,9 @@ def run(disease: str, year: int, selected_columns: list[str] | None = None) -> N
 
     bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
     silver = transform_file(bronze, disease, year, run_at=run_at)
-    gold = aggregate_file(silver, disease, year, selected_columns, run_at=run_at)
+    gold = aggregate_file(
+        silver, disease, year, selected_columns, run_at=run_at, target="ad_hoc"
+    )
 
     print(f"Bronze: {bronze}")
     print(f"Silver: {silver}")
@@ -43,4 +45,3 @@ def main() -> None:
  
 if __name__ == "__main__":
     main()
- 
