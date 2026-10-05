@@ -52,6 +52,28 @@ def test_aggregate_soma_casos_por_mes_e_municipio():
     assert (result["cd_mun"] == "1234567").all()
 
 
+@pytest.mark.parametrize(
+    ("sinan_code", "ibge_code"),
+    [("330100", "3301009"), ("330220", "3302205"),
+     ("330240", "3302403"), ("330500", "3305000"),
+     ("0330100", "3301009")],
+)
+def test_aggregate_mapeia_codigo_sinan_para_ibge_canonico(sinan_code, ibge_code):
+    df = _silver_minima(ID_MUNICIP=[sinan_code] * 3)
+    result = aggregate(
+        df,
+        disease="DENG",
+        municipios={
+            "3301009": "Campos dos Goytacazes",
+            "3302205": "Itaperuna",
+            "3302403": "Macaé",
+            "3305000": "São João da Barra",
+        },
+    )
+    assert not result.empty
+    assert set(result["cd_mun"]) == {ibge_code}
+
+
 def test_aggregate_inclui_disease_como_primeira_coluna():
     df = _silver_minima()
     result = aggregate(df, disease="deng", municipios=MUNICIPIOS_TESTE)

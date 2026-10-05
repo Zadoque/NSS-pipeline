@@ -34,6 +34,13 @@ def test_transform_filtra_pelo_ano_de_notificacao():
     assert (result["DT_NOTIFIC"].dt.year == 2026).all()
 
 
+def test_transform_preserva_codigo_municipal_sinan_sem_inventar_zero():
+    result = transform(
+        _sinan_bruto(ID_MUNICIP=["330100", "330100", "330100"]), year=2026
+    )
+    assert set(result["ID_MUNICIP"]) == {"330100"}
+
+
 def test_transform_levanta_erro_quando_falta_coluna_obrigatoria():
     df = _sinan_bruto().drop(columns=["ID_MUNICIP"])
     with pytest.raises(ValueError, match="Colunas obrigatórias"):

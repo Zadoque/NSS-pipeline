@@ -113,8 +113,17 @@ def aggregate(
 
     work = df.copy()
     raw_municipality = work["ID_MUNICIP"].astype("string").str.extract(r"(\d+)")[0]
-    ibge_by_sinan_prefix = {code[:6]: code for code in municipios}
-    work["cd_mun"] = raw_municipality.map(ibge_by_sinan_prefix).fillna(raw_municipality.str.zfill(7))
+    # O SINAN normalmente entrega o código municipal sem o dígito
+    # verificador (seis dígitos), por exemplo 330100. Alguns arquivos ou
+    # transformações podem trazer zeros de preenchimento; remova-os apenas
+    # para a comparação. O valor publicado continua sendo o código IBGE
+    # canônico de sete dígitos.
+    municipality_key = raw_municipality.str.lstrip("0")
+    ibge_by_sinan_code = {
+        **{code[:6]: code for code in municipios},
+        **{code: code for code in municipios},
+    }
+    work["cd_mun"] = municipality_key.map(ibge_by_sinan_code).fillna(raw_municipality)
     work = work[work["cd_mun"].isin(municipios)]
 
     # O total municipal continua sendo o universo completo. O vínculo
