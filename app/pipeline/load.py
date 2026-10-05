@@ -31,6 +31,8 @@ _SENTINELAS = {UNIDADE_NAO_IDENTIFICADA, CODIGO_NAO_INFORMADO}
 FACT_KEY_COLUMNS = [
     "disease_codigo", "year", "month", "cd_mun", "cd_unidade",
     "cd_classificacao", "cd_evolucao", "cd_sexo", "semana_notif", "ano_nascimento",
+    "age_band", "notification_district_id", "notification_neighborhood_id",
+    "notification_territory_status",
 ]
 
 
@@ -118,6 +120,13 @@ def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: st
     df["ano_nascimento"] = (
         _integer_series(df[birth_column], birth_column, 0, 9999).astype("int16")
         if birth_column in df.columns else 0
+    )
+    df["age_band"] = _clean_code_series(df.get("age_band", pd.Series(pd.NA, index=df.index)), "NI")
+    df["notification_district_id"] = df.get("notification_district_id", pd.Series(pd.NA, index=df.index))
+    df["notification_neighborhood_id"] = df.get("notification_neighborhood_id", pd.Series(pd.NA, index=df.index))
+    df["notification_territory_status"] = _clean_code_series(
+        df.get("notification_territory_status", pd.Series(pd.NA, index=df.index)),
+        "UNMAPPED_NOTIFICATION_UNIT",
     )
 
     return df
@@ -257,7 +266,7 @@ def _validate_snapshot(
     for primary, alias in [("CS_SEXO", "sex"), ("SEM_NOT", "not_week"), ("ANO_NASC", "birth_year")]:
         if primary in gold_df.columns or alias in gold_df.columns:
             original_keys.append(primary if primary in gold_df.columns else alias)
-    original_keys += [c for c in ["ID_UNIDADE", "CLASSI_FIN", "EVOLUCAO"] if c in gold_df.columns]
+    original_keys += [c for c in ["ID_UNIDADE", "CLASSI_FIN", "EVOLUCAO", "age_band", "notification_district_id", "notification_neighborhood_id", "notification_territory_status"] if c in gold_df.columns]
     if gold_df.duplicated(subset=original_keys).any():
         raise ValueError("Gold possui chave de agregação duplicada")
     fact_df = _prepare_fact_frame(gold_df, disease_codigo, batch_id)
