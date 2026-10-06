@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import re
+import json
+from pathlib import Path
 from collections.abc import Sequence
 from datetime import UTC, datetime
 
@@ -244,7 +246,7 @@ def insert_fato_casos(conn: Connection, fact_df: pd.DataFrame) -> None:
     conn.execute(text(
         f"INSERT INTO analytics.fato_casos ({', '.join(columns)}) "
         f"VALUES ({', '.join(':' + column for column in columns)})"
-    ), frame.to_dict(orient="records"))
+    ), frame.astype(object).where(pd.notna(frame), None).to_dict(orient="records"))
 
 
 def _validate_snapshot(
@@ -293,6 +295,27 @@ def _validate_snapshot(
     if gold_df.duplicated(subset=original_keys).any():
         raise ValueError("Gold possui chave de agregação duplicada")
     fact_df = _prepare_fact_frame(gold_df, disease_codigo, batch_id)
+    district = fact_df["notification_district_id"]
+    neighborhood = fact_df["notification_neighborhood_id"]
+    for values in (district, neighborhood):
+        if values.dropna().astype(str).str.strip().str.lower().isin(["", "nan", "none", "null", "<na>"]).any():
+            raise ValueError("Identificador territorial inválido")
+    status = fact_df["notification_territory_status"]
+    valid = (
+        (status.isin(["UNMAPPED_NOTIFICATION_UNIT", "UNAVAILABLE"]) & district.isna() & neighborhood.isna())
+        | (status.eq("NOTIFICATION_DISTRICT_ONLY") & district.notna() & neighborhood.isna())
+        | (status.eq("NOTIFICATION_NEIGHBORHOOD") & district.notna() & neighborhood.notna())
+    )
+    if not valid.all():
+        raise ValueError("Status territorial incompatível com distrito/bairro")
+    assets = Path(__file__).resolve().parents[2] / "territories"
+    districts = {feature["properties"]["territoryId"] for feature in json.loads((assets / "campos-districts.geojson").read_text())["features"]}
+    parents = {feature["properties"]["territoryId"]: feature["properties"]["parentDistrictId"] for feature in json.loads((assets / "campos-neighborhoods.geojson").read_text())["features"]}
+    if not district.dropna().isin(districts).all() or not neighborhood.dropna().isin(parents).all():
+        raise ValueError("Identificador territorial fora do catálogo")
+    mapped_neighborhood = neighborhood.notna()
+    if not neighborhood[mapped_neighborhood].map(parents).eq(district[mapped_neighborhood]).all():
+        raise ValueError("Bairro não pertence ao distrito informado")
     fact_df["month"] = _integer_series(fact_df["month"], "month", 1, 12)
     fact_df["cases_total"] = _integer_series(fact_df["cases_total"], "cases_total", 1, 2147483647)
     for column, pattern in [("cd_unidade", r"\d{7}"), ("cd_uf", r"\d{2}"),
@@ -357,6 +380,16 @@ def load_gold_to_postgres(
         """), params).one()
         if published.groups_total != len(facts) or published.cases_total != expected_cases_total:
             raise RuntimeError("Totais publicados divergem do snapshot; transação revertida")
+        stored = pd.read_sql(_scope_statement("""
+            SELECT * FROM analytics.fato_casos
+            WHERE disease_codigo = :disease AND ano = :year AND cd_mun IN :municipios
+        """), conn, params=params).rename(columns={"ano": "year", "mes": "month"})
+        def canonical(frame):
+            columns = FACT_KEY_COLUMNS + ["cases_total", "batch_id"]
+            return sorted((tuple(None if pd.isna(value) else str(value) for value in row)
+                           for row in frame[columns].itertuples(index=False, name=None)), key=repr)
+        if canonical(stored) != canonical(facts):
+            raise RuntimeError("Dimensões publicadas divergem da Gold; transação revertida")
         totals = facts.groupby("cd_mun")["cases_total"].agg(["size", "sum"])
         rows = [{
             "disease_codigo": disease_codigo, "ano": year, "cd_mun": code,
