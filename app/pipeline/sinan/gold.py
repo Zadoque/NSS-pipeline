@@ -142,6 +142,7 @@ def aggregate(
         work = work.merge(
             lookup[join_cols].rename(columns={column: f"_mapped_{column}" for column in territory_cols if column in lookup}),
             how="left", left_on="_cd_unidade", right_on="cd_unidade",
+            validate="many_to_one",
         )
         for column in territory_cols:
             mapped = f"_mapped_{column}"
@@ -244,7 +245,12 @@ def _latest_cnes_lookup() -> pd.DataFrame | None:
     batches = sorted(cnes_dir.glob("batch_id=*/data.parquet"))
     if not batches:
         return None
-    return pd.read_parquet(batches[-1])
+    lookup = pd.read_parquet(batches[-1])
+    required = {"cd_unidade", "notification_district_id", "notification_neighborhood_id", "notification_territory_status"}
+    if lookup.empty or not required.issubset(lookup.columns) or lookup.cd_unidade.duplicated().any():
+        raise ValueError("Snapshot CNES vazio, duplicado ou sem enriquecimento territorial")
+    lookup.attrs["snapshot_path"] = str(batches[-1])
+    return lookup
 
 def aggregate_file(
     source: Path,
@@ -254,6 +260,7 @@ def aggregate_file(
     municipios: dict[str, str] | None = None,
     run_at: datetime | None = None,
     target: GoldTarget = "ad_hoc",
+    allow_unmapped: bool = False,
 ) -> Path:
     disease = disease.upper()
 
@@ -264,6 +271,8 @@ def aggregate_file(
     len_before = len(df)
 
     cnes_lookup = _latest_cnes_lookup()
+    if target == "serving" and cnes_lookup is None and not allow_unmapped:
+        raise ValueError("Publicação territorial exige snapshot CNES no mesmo volume; execute app.pipeline.run_cnes")
 
     result = aggregate(df, disease, selected_columns, municipios, cnes_lookup=cnes_lookup)
     len_after = len(result)
@@ -286,6 +295,8 @@ def aggregate_file(
         "dropped_rows": len_before - len_after,
         "columns": list(result.columns),
         "gold_target": target,
+        "cnes_snapshot": cnes_lookup.attrs.get("snapshot_path") if cnes_lookup is not None else None,
+        "territorial_enrichment": cnes_lookup is not None,
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet
