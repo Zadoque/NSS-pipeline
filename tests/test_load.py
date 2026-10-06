@@ -65,6 +65,28 @@ def test_prepare_fact_frame_preserva_cases_total():
     assert fact_df.loc[0, "cases_total"] == 42
 
 
+@pytest.mark.parametrize("value", [None, pd.NA, float("nan")])
+def test_insert_normalizes_null_after_grouping(value, mocker):
+    from app.pipeline.load import insert_fato_casos
+    _, facts, _ = _validate(_gold_minima(notification_district_id=[value], notification_neighborhood_id=[value]))
+    connection = mocker.Mock()
+    insert_fato_casos(connection, facts)
+    record = connection.execute.call_args.args[1][0]
+    assert record['notification_district_id'] is None
+    assert record['notification_neighborhood_id'] is None
+
+
+@pytest.mark.parametrize("value", ["NaN", "null", "None", "", "<NA>"])
+def test_rejects_textual_null(value):
+    with pytest.raises(ValueError, match="territorial"):
+        _validate(_gold_minima(notification_district_id=[value]))
+
+
+def test_rejects_inconsistent_territory_status():
+    with pytest.raises(ValueError, match="Status territorial"):
+        _validate(_gold_minima(notification_territory_status=["NOTIFICATION_NEIGHBORHOOD"]))
+
+
 def _validate(gold_df, **overrides):
     options = dict(year=2026, municipios=["3301009"], expected_cases_total=5,
                    snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
