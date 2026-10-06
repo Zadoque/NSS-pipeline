@@ -107,6 +107,25 @@ def test_load_gold_to_postgres_cria_linha_no_fato(postgres_engine):
     assert row.cases_total == 5
 
 
+def test_missing_territories_are_sql_null(postgres_engine):
+    _publish(postgres_engine, _gold_exemplo())
+    with postgres_engine.connect() as conn:
+        assert conn.execute(text("SELECT notification_district_id IS NULL AND notification_neighborhood_id IS NULL FROM analytics.fato_casos")).scalar_one()
+
+
+def test_dimension_corruption_rolls_back(postgres_engine, monkeypatch):
+    _publish(postgres_engine, _gold_exemplo(), batch_id="before")
+    original = load_module.insert_fato_casos
+    def corrupt(conn, facts):
+        original(conn, facts)
+        conn.execute(text("UPDATE analytics.fato_casos SET notification_district_id = 'NaN'"))
+    monkeypatch.setattr(load_module, "insert_fato_casos", corrupt)
+    with pytest.raises(RuntimeError, match="Dimensões"):
+        _publish(postgres_engine, _gold_exemplo(), batch_id="after")
+    with postgres_engine.connect() as conn:
+        assert conn.execute(text("SELECT batch_id FROM analytics.fato_casos")).scalar_one() == "before"
+
+
 def test_snapshot_substitui_contagem_em_vez_de_duplicar(postgres_engine):
     # Simula o SINAN "corrigindo" o número de um período já carregado
     # anteriormente (atualização retroativa) — não deve duplicar a linha.
