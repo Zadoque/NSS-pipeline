@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
  
 from ..atomic_io import write_json_atomic, write_parquet_atomic
+from ..metrics import publish_layer_metrics
 from .columns import CATALOG, validate_keys
 from datetime import UTC, datetime
 from typing import Literal
@@ -299,4 +300,8 @@ def aggregate_file(
         "territorial_enrichment": cnes_lookup is not None,
     }
     write_json_atomic(metadata, directory / "metadata.json")
+    publish_layer_metrics(
+        layer="gold", disease=disease, year=year, rows=len_after,
+        dropped_rows=len_before - len_after,
+    )
     return parquet
