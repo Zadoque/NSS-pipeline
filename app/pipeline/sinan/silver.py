@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..atomic_io import write_json_atomic, write_parquet_atomic
+from ..metrics import publish_layer_metrics
 from .columns import CATALOG, present_keys, required_keys, resolve_dedup_strategy
 from datetime import UTC, datetime
 
@@ -97,6 +98,10 @@ def transform_file(source: Path, disease: str, year: int, run_at: datetime | Non
         "columns": list(result.columns),
     }
     write_json_atomic(metadata, directory / "metadata.json")
+    publish_layer_metrics(
+        layer="silver", disease=disease, year=year, rows=len_after,
+        dropped_rows=len_before - len_after,
+    )
     return parquet
 
 if __name__ == "__main__":
