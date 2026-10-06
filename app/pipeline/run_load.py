@@ -6,17 +6,23 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
-from .sinan.gold import MUNICIPIOS_RJ, aggregate_file
+from .sinan.gold import MUNICIPIOS_RJ, aggregate_file, normalize_municipality_codes
 from .load import get_engine, load_gold_to_postgres
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 
 
-def run_load(disease: str, year: int, *, allow_empty: bool = False) -> None:
+def run_load(
+    disease: str,
+    year: int,
+    *,
+    allow_empty: bool = False,
+    source_path=None,
+) -> None:
     disease = disease.upper()
     run_at = datetime.now(UTC)
 
-    bronze_df = fetch_sinan(disease, year)
+    bronze_df = pd.read_parquet(source_path) if source_path is not None else fetch_sinan(disease, year)
     if bronze_df.empty:
         raise RuntimeError("PySUS retornou um DataFrame vazio")
 
@@ -27,11 +33,14 @@ def run_load(disease: str, year: int, *, allow_empty: bool = False) -> None:
     silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
     if silver_scope.empty:
         raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
-    expected_cases_total = int(silver_scope["ID_MUNICIP"].isin(municipios).sum())
+    expected_cases_total = int(
+        normalize_municipality_codes(silver_scope["ID_MUNICIP"], municipios)
+        .isin(municipios).sum()
+    )
 
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
-        municipios=municipios, run_at=run_at,
+        municipios=municipios, run_at=run_at, target="serving",
     )
 
     gold_df = pd.read_parquet(gold_path)

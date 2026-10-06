@@ -26,8 +26,16 @@ class ColumnSpec:
 def _to_date(series: pd.Series) -> pd.Series:
     return pd.to_datetime(series, errors="coerce")
 
-def _zfill_municip(series: pd.Series) -> pd.Series:
-    return series.astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+def _clean_municip(series: pd.Series) -> pd.Series:
+    """Preserva o código textual de seis dígitos usado pelo SINAN.
+
+    O código IBGE de sete dígitos é resolvido na Gold por um crosswalk
+    explícito. Aplicar ``zfill(7)`` aqui cria códigos artificiais como
+    ``0330100`` e impede o relacionamento com ``3301009``.
+    """
+    return series.astype("string").str.extract(r"(\d+)")[0].str.replace(
+        r"\.0$", "", regex=True
+    )
 
 def _zfill_uf(series: pd.Series) -> pd.Series:
     return series.astype("string").str.replace(r"\.0$", "", regex=True).str.zfill(2)
@@ -44,7 +52,7 @@ CATALOG: dict[str, ColumnSpec] = {
         "Data de notificação", "DT_NOTIFIC", required=True, transform=_to_date
     ),
     "municipio": ColumnSpec(
-        "Município", "ID_MUNICIP", required=True, transform=_zfill_municip
+        "Município", "ID_MUNICIP", required=True, transform=_clean_municip
     ),
     "uf": ColumnSpec(
         "UF de notificação", "SG_UF_NOT", required=True, transform=_zfill_uf
@@ -63,6 +71,8 @@ CATALOG: dict[str, ColumnSpec] = {
     "evolucao": ColumnSpec("Evolução do caso", "EVOLUCAO", groupable=True),
     "sexo": ColumnSpec("Sexo", "CS_SEXO", required=True, groupable=True),
     "ano_nascimento": ColumnSpec("Ano de nascimento", "ANO_NASC", required=True, groupable=True),
+    "idade_sinan": ColumnSpec("Idade codificada SINAN", "NU_IDADE_N"),
+    "tipo_idade": ColumnSpec("Unidade da idade SINAN", "TP_IDADE"),
 }
 
 def required_keys() -> list[str]:

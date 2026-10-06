@@ -52,6 +52,28 @@ def test_aggregate_soma_casos_por_mes_e_municipio():
     assert (result["cd_mun"] == "1234567").all()
 
 
+@pytest.mark.parametrize(
+    ("sinan_code", "ibge_code"),
+    [("330100", "3301009"), ("330220", "3302205"),
+     ("330240", "3302403"), ("330500", "3305000"),
+     ("0330100", "3301009")],
+)
+def test_aggregate_mapeia_codigo_sinan_para_ibge_canonico(sinan_code, ibge_code):
+    df = _silver_minima(ID_MUNICIP=[sinan_code] * 3)
+    result = aggregate(
+        df,
+        disease="DENG",
+        municipios={
+            "3301009": "Campos dos Goytacazes",
+            "3302205": "Itaperuna",
+            "3302403": "Macaé",
+            "3305000": "São João da Barra",
+        },
+    )
+    assert not result.empty
+    assert set(result["cd_mun"]) == {ibge_code}
+
+
 def test_aggregate_inclui_disease_como_primeira_coluna():
     df = _silver_minima()
     result = aggregate(df, disease="deng", municipios=MUNICIPIOS_TESTE)
@@ -70,3 +92,47 @@ def test_aggregate_com_dimensao_extra_abre_grupos_por_sexo():
     assert "CS_SEXO" in result.columns
     assert set(result["CS_SEXO"]) == {"F", "M"}
 
+
+def test_aggregate_cnes_nao_duplica_colunas_territoriais_nem_cria_sufixos():
+    df = _silver_minima(
+        ID_UNIDADE=["0729884.0", "0729884.0", "9999999"],
+    )
+    cnes_lookup = pd.DataFrame(
+        {
+            "cd_unidade": ["0729884"],
+            "nm_unidade": ["UBS DEMO"],
+            "razao_social_unidade": ["UBS DEMO LTDA"],
+            "tp_unidade": [2],
+            "notification_district_id": ["CG_DIST_SEDE"],
+            "notification_neighborhood_id": ["CG_LOC_SEDE_CENTRO"],
+            "notification_territory_status": ["NOTIFICATION_NEIGHBORHOOD"],
+        }
+    )
+
+    result = aggregate(
+        df,
+        disease="DENG",
+        selected_columns=["unidade_notificacao"],
+        municipios=MUNICIPIOS_TESTE,
+        cnes_lookup=cnes_lookup,
+    )
+
+    assert not any(column.endswith(("_x", "_y")) for column in result.columns)
+    assert result["ID_UNIDADE"].eq("0729884").any()
+    assert result["notification_district_id"].eq("CG_DIST_SEDE").any()
+    assert result["notification_neighborhood_id"].eq("CG_LOC_SEDE_CENTRO").any()
+    assert result["nm_unidade"].eq("UBS DEMO").any()
+
+
+def test_aggregate_rejeita_unidade_cnes_duplicada_antes_de_contar_casos():
+    silver = _silver_minima(ID_UNIDADE=["0729884", "0729884", "9999999"])
+    lookup = pd.DataFrame({
+        "cd_unidade": ["0729884", "0729884.0"],
+        "nm_unidade": ["Unidade A", "Unidade B"],
+    })
+
+    with pytest.raises(pd.errors.MergeError):
+        aggregate(
+            silver, "DENG", selected_columns=["unidade_notificacao"],
+            municipios=MUNICIPIOS_TESTE, cnes_lookup=lookup,
+        )

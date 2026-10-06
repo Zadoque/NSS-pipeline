@@ -12,8 +12,13 @@ BASE_DIR = Path("/data")
 
 
 def transform_cnes(df: pd.DataFrame) -> pd.DataFrame:
-    out = df[["codigo_cnes", "nome_fantasia", "nome_razao_social",
-              "codigo_municipio", "codigo_tipo_unidade"]].copy()
+    columns = [
+        "codigo_cnes", "nome_fantasia", "nome_razao_social",
+        "codigo_municipio", "codigo_tipo_unidade",
+        "bairro_estabelecimento", "latitude_estabelecimento_decimo_grau",
+        "longitude_estabelecimento_decimo_grau",
+    ]
+    out = df[[column for column in columns if column in df.columns]].copy()
 
     out["codigo_cnes"] = out["codigo_cnes"].astype("string").str.zfill(7)
     out["codigo_municipio"] = out["codigo_municipio"].astype("string")
@@ -24,6 +29,9 @@ def transform_cnes(df: pd.DataFrame) -> pd.DataFrame:
         "nome_fantasia": "nm_unidade",
         "nome_razao_social": "razao_social_unidade",
         "codigo_tipo_unidade": "tp_unidade",
+        "bairro_estabelecimento": "bairro_cnes",
+        "latitude_estabelecimento_decimo_grau": "latitude",
+        "longitude_estabelecimento_decimo_grau": "longitude",
     })
 
 

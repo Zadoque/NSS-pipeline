@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from app.pipeline import run_load as runner
+from app.pipeline.load import load_gold_to_postgres
 from app.pipeline.sinan.gold import MUNICIPIOS_RJ
 
 
@@ -19,11 +20,16 @@ def pipeline(mocker):
     return aggregate, engine, get_engine, load
 
 
-def test_orquestrador_declara_recorte_e_total_independente_da_gold(mocker, pipeline):
+@pytest.mark.parametrize("gold_cases_total", [1, 3, 5])
+def test_orquestrador_declara_recorte_e_total_independente_da_gold(
+    mocker, pipeline, gold_cases_total,
+):
     aggregate, engine, _, load = pipeline
     # O total esperado vem das notificações Silver, incluindo apenas o recorte.
-    silver = pd.DataFrame({"ID_MUNICIP": ["3301009", "3301009", "3302403", "9999999"]})
-    gold = pd.DataFrame({"cases_total": [3]})
+    silver = pd.DataFrame({
+        "ID_MUNICIP": ["330100", "3301009", "0330240", "9999999", None, "inválido"],
+    })
+    gold = pd.DataFrame({"cases_total": [gold_cases_total]})
     mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, gold])
     runner.run_load("deng", 2026)
     options = load.call_args.kwargs
@@ -34,6 +40,32 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(mocker, pipel
     assert options["allow_empty"] is False
     assert options["source_extracted_at"] == aggregate.call_args.kwargs["run_at"]
     assert aggregate.call_args.kwargs["municipios"] == MUNICIPIOS_RJ
+    assert aggregate.call_args.kwargs["target"] == "serving"
+    engine.dispose.assert_called_once()
+
+
+@pytest.mark.parametrize("gold_cases_total", [0, 1, 3])
+def test_orquestrador_bloqueia_total_divergente_antes_de_abrir_transacao(
+    mocker, pipeline, gold_cases_total,
+):
+    _, engine, _, load = pipeline
+    silver = pd.DataFrame({"ID_MUNICIP": ["330100", "3301009", "9999999"]})
+    gold = pd.DataFrame({
+        "year": [2026], "month": [1], "cd_mun": ["3301009"],
+        "nm_mun": ["Campos dos Goytacazes"], "cd_uf": ["33"],
+        "nm_uf": ["Rio de Janeiro"], "cases_total": [gold_cases_total],
+    })
+    if gold_cases_total == 0:
+        gold = gold.iloc[:0]
+    mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, gold])
+    # Executa a validação real; a conexão fictícia não deve abrir transação.
+    load.side_effect = load_gold_to_postgres
+
+    with pytest.raises(ValueError, match="diverge"):
+        runner.run_load("DENG", 2026, allow_empty=True)
+
+    assert load.call_args.kwargs["expected_cases_total"] == 2
+    engine.begin.assert_not_called()
     engine.dispose.assert_called_once()
 
 

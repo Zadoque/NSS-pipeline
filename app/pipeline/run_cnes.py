@@ -9,8 +9,10 @@ from .atomic_io import write_json_atomic, write_parquet_atomic
 from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
 from .cnes.silver import transform_cnes
 from .sinan.gold import MUNICIPIOS_RJ
+from .territory_mapping import enrich_cnes_territories
 
 BASE_DIR = Path("/data")
+TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 
 
 def run_cnes(municipios: dict[str, str] | None = None) -> Path:
@@ -24,7 +26,14 @@ def run_cnes(municipios: dict[str, str] | None = None) -> Path:
             raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
 
         write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
-        silvers.append(transform_cnes(bronze_df))
+        silver = transform_cnes(bronze_df)
+        if cod_municipio == "3301009":
+            silver = enrich_cnes_territories(silver, TERRITORY_ASSETS_DIR)
+        else:
+            silver["notification_district_id"] = pd.NA
+            silver["notification_neighborhood_id"] = pd.NA
+            silver["notification_territory_status"] = "UNAVAILABLE"
+        silvers.append(silver)
 
     consolidated = pd.concat(silvers, ignore_index=True).drop_duplicates(
         subset=["cd_unidade"], keep="last"
