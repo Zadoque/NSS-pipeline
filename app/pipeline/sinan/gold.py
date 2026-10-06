@@ -8,7 +8,9 @@ import pandas as pd
 from ..atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, validate_keys
 from datetime import UTC, datetime
+from .metrics_exporter import export_layer_metrics
 from typing import Literal
+
  
 MUNICIPIOS_RJ = {
     "3301009": "Campos dos Goytacazes",
@@ -296,4 +298,7 @@ def aggregate_file(
         "gold_target": target,
     }
     write_json_atomic(metadata, directory / "metadata.json")
+
+    export_layer_metrics(layer="gold", disease=disease, year=year, rows=len_after, dropped_rows=len_before - len_after)
+    
     return parquet

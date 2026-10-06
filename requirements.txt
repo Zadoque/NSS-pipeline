@@ -2,7 +2,7 @@ pandas
 pyarrow
 PySUS
 requests
-shapely
 alembic
 psycopg2-binary
 sqlalchemy
+prometheus-client

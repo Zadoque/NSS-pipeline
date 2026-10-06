@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from datetime import UTC, datetime
 from pathlib import Path
+from .metrics_exporter import export_layer_metrics
  
 import pandas as pd
 import pysus
@@ -47,6 +48,9 @@ def write_bronze(df: pd.DataFrame, disease: str, year: int, run_at: datetime | N
         "source": "PySUS SINAN",
     }
     write_json_atomic(metadata, directory / "metadata.json")
+
+    export_layer_metrics(layer="bronze", disease=disease, year=year, rows=len(df), dropped_rows=0)
+    
     return parquet
  
 def main() -> None:
