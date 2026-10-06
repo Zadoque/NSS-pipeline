@@ -6,8 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY requirements.txt requirements-dev.txt ./
-RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 COPY app ./app
 COPY territories ./territories
