@@ -31,6 +31,7 @@ O caminho síncrono definitivo da aplicação é mantido fora deste repositório
 │       └── sinan.py
 ├── Dockerfile
 ├── docker-compose.yml
+├── requirements.in
 └── requirements.txt
 ```
 
@@ -60,6 +61,20 @@ python -m app.pipeline.run --disease CHIK --year 2026 --columns "sexo,evolucao"
 - PySUS
 - pandas
 - pyarrow
+
+`requirements.in` contém as dependências diretas e `requirements.txt` é o
+lockfile com versões e hashes usados pela imagem de produção. Atualize-o com
+`pip-compile --generate-hashes --output-file=requirements.txt requirements.in`;
+o Docker instala somente o lockfile com `--require-hashes`.
+
+## Métricas de execução
+
+Quando `PROMETHEUS_PUSHGATEWAY_URL` estiver definido, cada publicação bem
+sucedida de Bronze, Silver ou Gold envia `nss_pipeline_layer_rows`,
+`nss_pipeline_layer_dropped_rows` e
+`nss_pipeline_layer_last_success_unixtime` ao Pushgateway. A indisponibilidade
+do monitoramento é registrada em log, mas não interrompe uma publicação de
+dados já validada.
 
 ## Repositórios relacionados
 
