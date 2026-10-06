@@ -77,6 +77,24 @@ GoldTarget = Literal["ad_hoc", "serving"]
 CNES_METADATA_COLUMNS = ["nm_unidade", "razao_social_unidade", "tp_unidade"]
 
 
+def normalize_municipality_codes(
+    series: pd.Series, municipios: dict[str, str],
+) -> pd.Series:
+    """Resolve códigos SINAN para o IBGE canônico do recorte.
+
+    Aceita seis ou sete dígitos e zeros de preenchimento. Códigos fora
+    do crosswalk são preservados para que o filtro do recorte os exclua.
+    A mesma regra é usada pela Gold e pela contagem independente da Silver.
+    """
+    raw = series.astype("string").str.extract(r"(\d+)")[0]
+    municipality_key = raw.str.lstrip("0")
+    ibge_by_sinan_code = {
+        **{code[:6]: code for code in municipios},
+        **{code: code for code in municipios},
+    }
+    return municipality_key.map(ibge_by_sinan_code).fillna(raw)
+
+
 def gold_root(target: GoldTarget) -> Path:
     """Retorna a raiz física da Gold conforme o contrato de consumo.
 
@@ -112,18 +130,7 @@ def aggregate(
     ]
 
     work = df.copy()
-    raw_municipality = work["ID_MUNICIP"].astype("string").str.extract(r"(\d+)")[0]
-    # O SINAN normalmente entrega o código municipal sem o dígito
-    # verificador (seis dígitos), por exemplo 330100. Alguns arquivos ou
-    # transformações podem trazer zeros de preenchimento; remova-os apenas
-    # para a comparação. O valor publicado continua sendo o código IBGE
-    # canônico de sete dígitos.
-    municipality_key = raw_municipality.str.lstrip("0")
-    ibge_by_sinan_code = {
-        **{code[:6]: code for code in municipios},
-        **{code: code for code in municipios},
-    }
-    work["cd_mun"] = municipality_key.map(ibge_by_sinan_code).fillna(raw_municipality)
+    work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
     work = work[work["cd_mun"].isin(municipios)]
 
     # O total municipal continua sendo o universo completo. O vínculo
@@ -142,6 +149,7 @@ def aggregate(
         work = work.merge(
             lookup[join_cols].rename(columns={column: f"_mapped_{column}" for column in territory_cols if column in lookup}),
             how="left", left_on="_cd_unidade", right_on="cd_unidade",
+            validate="many_to_one",
         )
         for column in territory_cols:
             mapped = f"_mapped_{column}"

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
-from .sinan.gold import MUNICIPIOS_RJ, aggregate_file
+from .sinan.gold import MUNICIPIOS_RJ, aggregate_file, normalize_municipality_codes
 from .load import get_engine, load_gold_to_postgres
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
@@ -33,6 +33,10 @@ def run_load(
     silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
     if silver_scope.empty:
         raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
+    expected_cases_total = int(
+        normalize_municipality_codes(silver_scope["ID_MUNICIP"], municipios)
+        .isin(municipios).sum()
+    )
 
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
@@ -40,10 +44,6 @@ def run_load(
     )
 
     gold_df = pd.read_parquet(gold_path)
-    # O Gold já aplicou o crosswalk SINAN (6 dígitos) -> IBGE (7 dígitos).
-    # Usá-lo aqui evita comparar diretamente 330100 com 3301009 e publicar
-    # zero apesar de existirem notificações no município monitorado.
-    expected_cases_total = int(gold_df["cases_total"].sum()) if not gold_df.empty else 0
     batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
 
     engine = get_engine()

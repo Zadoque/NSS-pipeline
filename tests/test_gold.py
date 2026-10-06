@@ -122,3 +122,17 @@ def test_aggregate_cnes_nao_duplica_colunas_territoriais_nem_cria_sufixos():
     assert result["notification_district_id"].eq("CG_DIST_SEDE").any()
     assert result["notification_neighborhood_id"].eq("CG_LOC_SEDE_CENTRO").any()
     assert result["nm_unidade"].eq("UBS DEMO").any()
+
+
+def test_aggregate_rejeita_unidade_cnes_duplicada_antes_de_contar_casos():
+    silver = _silver_minima(ID_UNIDADE=["0729884", "0729884", "9999999"])
+    lookup = pd.DataFrame({
+        "cd_unidade": ["0729884", "0729884.0"],
+        "nm_unidade": ["Unidade A", "Unidade B"],
+    })
+
+    with pytest.raises(pd.errors.MergeError):
+        aggregate(
+            silver, "DENG", selected_columns=["unidade_notificacao"],
+            municipios=MUNICIPIOS_TESTE, cnes_lookup=lookup,
+        )
