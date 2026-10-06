@@ -8,6 +8,7 @@ import pandas as pd
 import pysus
  
 from ..atomic_io import write_json_atomic, write_parquet_atomic
+from ..metrics import publish_layer_metrics
  
 BASE_DIR = Path("/data")
  
@@ -47,6 +48,7 @@ def write_bronze(df: pd.DataFrame, disease: str, year: int, run_at: datetime | N
         "source": "PySUS SINAN",
     }
     write_json_atomic(metadata, directory / "metadata.json")
+    publish_layer_metrics(layer="bronze", disease=disease, year=year, rows=len(df))
     return parquet
  
 def main() -> None:
@@ -59,8 +61,7 @@ def main() -> None:
     if df.empty:
         raise RuntimeError("PySUS retornou um DataFrame vazio")
     print(write_bronze(df, args.disease, args.year))
- 
- 
+
 if __name__ == "__main__":
     main()
  
