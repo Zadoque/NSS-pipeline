@@ -44,9 +44,11 @@ def test_aggregate_file_grava_ad_hoc_e_serving_em_arvores_distintas(
         source, "DENG", 2026, municipios={"1234567": "Cidade Teste"}, run_at=run_at,
         target="ad_hoc",
     )
+    with pytest.raises(ValueError, match="exige snapshot CNES"):
+        gold.aggregate_file(source, "DENG", 2026, target="serving")
     serving = gold.aggregate_file(
         source, "DENG", 2026, municipios={"1234567": "Cidade Teste"}, run_at=run_at,
-        target="serving",
+        target="serving", allow_unmapped=True,
     )
 
     assert "/gold/ad_hoc/sinan/" in str(ad_hoc)
