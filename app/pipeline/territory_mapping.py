@@ -9,6 +9,7 @@ oficiais versionados em ``territories/``.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import pandas as pd
@@ -34,7 +35,10 @@ class TerritoryMapper:
 
     def classify(self, longitude: object, latitude: object) -> tuple[str | None, str | None, str]:
         try:
-            point = Point(float(longitude), float(latitude))
+            lon, lat = float(longitude), float(latitude)
+            if not math.isfinite(lon) or not math.isfinite(lat) or not (-180 <= lon <= 180 and -90 <= lat <= 90):
+                return None, None, UNMAPPED
+            point = Point(lon, lat)
         except (TypeError, ValueError):
             return None, None, UNMAPPED
 
