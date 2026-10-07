@@ -1,4 +1,5 @@
 from prometheus_client import CollectorRegistry, Gauge, pushadd_to_gateway
+from prometheus_client import Gauge
 
 PUSHGATEWAY_URL = "pushgateway:9091"
 
@@ -18,6 +19,12 @@ def export_layer_metrics(layer: str, disease: str, year: int, rows: int, dropped
         'Linhas descartadas/deduplicadas na camada',
         ['layer', 'disease', 'year'], 
         registry=registry
+    )
+
+    SINAN_CASOS_TOTAIS = Gauge(
+        'sinan_casos_totais',
+        'Total de casos notificados no SINAN por categoria',
+        ['municipio', 'agravo', 'sexo', 'classificacao']
     )
 
     # Preenche os rótulos e os valores

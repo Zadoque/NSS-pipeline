@@ -297,6 +297,11 @@ def aggregate_file(
         "columns": list(result.columns),
         "gold_target": target,
     }
+
+
+
+
+
     write_json_atomic(metadata, directory / "metadata.json")
 
     export_layer_metrics(layer="gold", disease=disease, year=year, rows=len_after, dropped_rows=len_before - len_after)
