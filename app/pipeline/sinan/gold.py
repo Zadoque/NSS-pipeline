@@ -9,6 +9,7 @@ from ..atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, validate_keys
 from datetime import UTC, datetime
 from .metrics_exporter import export_layer_metrics
+from .metrics_exporter import export_gold_business_metrics
 from typing import Literal
 
  
@@ -305,5 +306,6 @@ def aggregate_file(
     write_json_atomic(metadata, directory / "metadata.json")
 
     export_layer_metrics(layer="gold", disease=disease, year=year, rows=len_after, dropped_rows=len_before - len_after)
+    export_gold_business_metrics(df_gold=result, disease=disease, year=year)
     
     return parquet

@@ -2,24 +2,24 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "adbr7xt",
+    "name": "adcjkkk",
     "namespace": "default",
-    "uid": "02b7947d-90b6-4442-b853-08e356a65c68",
-    "resourceVersion": "1791383332690997",
-    "generation": 2,
-    "creationTimestamp": "2026-10-07T13:56:41Z",
+    "uid": "12d2ebdf-ca6e-4e9a-9abb-e04fcf011b20",
+    "resourceVersion": "1791574542108987",
+    "generation": 6,
+    "creationTimestamp": "2026-10-07T15:37:04Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "147863148879872"
+      "grafana.app/deprecatedInternalID": "173127129624576"
     },
     "annotations": {
-      "grafana.app/createdBy": "access-policy:service",
+      "grafana.app/createdBy": "user:cg0ik8iiu7caoa",
       "grafana.app/managedBy": "classic-file-provisioning",
       "grafana.app/managerId": "Default",
-      "grafana.app/sourceChecksum": "8361ee4618c86f0a842b14c55edd14bf",
-      "grafana.app/sourcePath": "/var/lib/grafana/dashboards/Data Dashboard-1.json",
-      "grafana.app/sourceTimestamp": "1791382218000",
-      "grafana.app/updatedBy": "access-policy:service",
-      "grafana.app/updatedTimestamp": "2026-10-07T14:28:52Z",
+      "grafana.app/sourceChecksum": "4fce5db91e18e48d3048d09054848170",
+      "grafana.app/sourcePath": "/var/lib/grafana/dashboards/Dashboard Epidemiológico.json",
+      "grafana.app/sourceTimestamp": "1791574055000",
+      "grafana.app/updatedBy": "user:cg0ik8iiu7caoa",
+      "grafana.app/updatedTimestamp": "2026-10-09T19:27:29Z",
       "grafana.app/folder": ""
     }
   },
@@ -61,67 +61,21 @@
                     "hidden": false,
                     "query": {
                       "datasource": {
-                        "name": "eg0ilal4jzpq8d"
+                        "name": "PBFA97CFB590B2093"
                       },
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "sinan_pipeline_rows{layer=\"bronze\"}",
+                        "expr": "sum(sinan_casos_totais)",
                         "instant": true,
-                        "legendFormat": "Bronze",
+                        "legendFormat": "Casos Totais",
                         "range": false
                       },
                       "version": "v0"
                     },
                     "refId": "A"
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "eg0ilal4jzpq8d"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": false,
-                        "expr": "sinan_pipeline_rows{layer=\"silver\"}",
-                        "instant": true,
-                        "legendFormat": "Silver",
-                        "range": false
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "B"
-                  }
-                },
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "eg0ilal4jzpq8d"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": false,
-                        "expr": "sinan_pipeline_rows{layer=\"gold\"}",
-                        "instant": true,
-                        "legendFormat": "Gold",
-                        "range": false
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "C"
                   }
                 }
               ],
@@ -132,36 +86,15 @@
           "description": "",
           "id": 1,
           "links": [],
-          "title": "Tratamento dos Dados em Cada Camada",
+          "title": "Total de Casos Notificados",
           "vizConfig": {
-            "group": "barchart",
+            "group": "stat",
             "kind": "VizConfig",
             "spec": {
               "fieldConfig": {
                 "defaults": {
                   "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "axisBorderShow": true,
-                    "axisCenteredZero": false,
-                    "axisColorMode": "text",
-                    "axisLabel": "",
-                    "axisPlacement": "auto",
-                    "fillOpacity": 80,
-                    "gradientMode": "none",
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    },
-                    "lineWidth": 1,
-                    "scaleDistribution": {
-                      "type": "linear"
-                    },
-                    "thresholdsStyle": {
-                      "mode": "off"
-                    }
+                    "mode": "thresholds"
                   },
                   "thresholds": {
                     "mode": "absolute",
@@ -180,26 +113,21 @@
                 "overrides": []
               },
               "options": {
-                "barRadius": 0,
-                "barWidth": 0.97,
-                "fullHighlight": false,
-                "groupWidth": 0.7,
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
                 "orientation": "auto",
-                "showValue": "auto",
-                "stacking": "none",
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
                 },
-                "xTickLabelRotation": 0,
-                "xTickLabelSpacing": 0
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
               }
             },
             "version": "13.2.2"
@@ -219,67 +147,149 @@
                     "hidden": false,
                     "query": {
                       "datasource": {
-                        "name": "eg0ilal4jzpq8d"
+                        "name": "PBFA97CFB590B2093"
                       },
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "sinan_pipeline_dropped_rows{layer=\"bronze\"}",
+                        "expr": "sum by (municipio) (sinan_casos_totais)",
+                        "format": "table",
                         "instant": true,
-                        "legendFormat": "Bronze",
+                        "interval": "",
+                        "legendFormat": "{{municipio}}",
                         "range": false
                       },
                       "version": "v0"
                     },
                     "refId": "A"
                   }
-                },
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
                 {
-                  "kind": "PanelQuery",
+                  "group": "sortBy",
+                  "kind": "Transformation",
                   "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "eg0ilal4jzpq8d"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "exemplar": false,
-                        "expr": "sinan_pipeline_dropped_rows{layer=\"silver\"}",
-                        "instant": true,
-                        "legendFormat": "Silver",
-                        "range": false
-                      },
-                      "version": "v0"
+                    "options": {
+                      "fields": {},
+                      "sort": [
+                        {
+                          "desc": false,
+                          "field": "Value"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "",
+          "id": 2,
+          "links": [],
+          "title": "Notificações por Município",
+          "vizConfig": {
+            "group": "barchart",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-reds"
+                  },
+                  "custom": {
+                    "axisBorderShow": true,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "fillOpacity": 100,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
                     },
-                    "refId": "B"
+                    "lineWidth": 0,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      }
+                    ]
                   }
                 },
+                "overrides": []
+              },
+              "options": {
+                "barRadius": 0.05,
+                "barWidth": 0.95,
+                "fullHighlight": false,
+                "groupWidth": 0.8,
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "orientation": "vertical",
+                "showValue": "auto",
+                "stacking": "none",
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                },
+                "xField": "municipio",
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 100
+              }
+            },
+            "version": "13.2.2"
+          }
+        }
+      },
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
                 {
                   "kind": "PanelQuery",
                   "spec": {
                     "hidden": false,
                     "query": {
                       "datasource": {
-                        "name": "eg0ilal4jzpq8d"
+                        "name": "PBFA97CFB590B2093"
                       },
                       "group": "prometheus",
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
                         "exemplar": false,
-                        "expr": "sinan_pipeline_dropped_rows{layer=\"gold\"}",
+                        "expr": "sort (sum by (sexo) (sinan_casos_totais))",
+                        "format": "table",
                         "instant": true,
-                        "legendFormat": "Gold",
+                        "legendFormat": "{{Sexo}}",
                         "range": false
                       },
                       "version": "v0"
                     },
-                    "refId": "C"
+                    "refId": "A"
                   }
                 }
               ],
@@ -288,9 +298,123 @@
             }
           },
           "description": "",
-          "id": 2,
+          "id": 3,
           "links": [],
-          "title": "Dados Descartados em Cada Camada",
+          "title": "Distribuição por Sexo",
+          "vizConfig": {
+            "group": "barchart",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "continuous-YlBl"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "fillOpacity": 100,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "lineWidth": 0,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "barRadius": 0.05,
+                "barWidth": 0.95,
+                "fullHighlight": false,
+                "groupWidth": 0.8,
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "orientation": "auto",
+                "showValue": "auto",
+                "stacking": "none",
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                },
+                "xField": "time",
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 100
+              }
+            },
+            "version": "13.2.2"
+          }
+        }
+      },
+      "panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "PBFA97CFB590B2093"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "exemplar": false,
+                        "expr": "sort (sum by (faixa_etaria) (sinan_casos_totais))",
+                        "format": "time_series",
+                        "instant": true,
+                        "legendFormat": "{{faixa_etaria}}",
+                        "range": false
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 4,
+          "links": [],
+          "title": "Distribuição por Faixa Etária",
           "vizConfig": {
             "group": "barchart",
             "kind": "VizConfig",
@@ -356,6 +480,7 @@
                   "mode": "single",
                   "sort": "none"
                 },
+                "xField": "Time",
                 "xTickLabelRotation": 0,
                 "xTickLabelSpacing": 0
               }
@@ -394,6 +519,32 @@
               "x": 12,
               "y": 0
             }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-3"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 8
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-4"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 8
+            }
           }
         ]
       }
@@ -430,7 +581,77 @@
       "timezone": "browser",
       "to": "now"
     },
-    "title": "Data Dashboard",
-    "variables": []
+    "title": "Dashboard Epidemiológico",
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "DENG",
+            "value": "DENG"
+          },
+          "definition": "label_values(sinan_casos_totais,disease)",
+          "hide": "dontHide",
+          "includeAll": false,
+          "label": "",
+          "multi": false,
+          "name": "disease",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "PBFA97CFB590B2093"
+            },
+            "group": "prometheus",
+            "kind": "DataQuery",
+            "spec": {
+              "qryType": 1,
+              "query": "label_values(sinan_casos_totais,disease)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "2025",
+            "value": "2025"
+          },
+          "definition": "label_values(sinan_casos_totais,year)",
+          "hide": "dontHide",
+          "includeAll": false,
+          "multi": false,
+          "name": "Ano",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "PBFA97CFB590B2093"
+            },
+            "group": "prometheus",
+            "kind": "DataQuery",
+            "spec": {
+              "qryType": 1,
+              "query": "label_values(sinan_casos_totais,year)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "disabled"
+        }
+      }
+    ]
   }
 }
