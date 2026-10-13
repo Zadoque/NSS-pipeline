@@ -1,5 +1,6 @@
-pandas
+pandas>=2.0
 pyarrow
+duckdb>=1.5,<2
 PySUS
 requests
 shapely
