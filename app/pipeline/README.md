@@ -330,12 +330,48 @@ município e consolida a Silver de lookup do CNES.
 
 ### Executando camadas isoladamente
 
-`silver.py` também pode ser chamado de forma isolada, útil para reprocessar
-uma Silver a partir de uma Bronze já existente:
+A Bronze do SINAN baixa o Parquet original para o cache em `source/sinan`
+e o copia atomicamente para o lote em `bronze/sinan`, sem criar um DataFrame.
+O total de registros e as colunas do `metadata.json` vêm do footer do Parquet.
+Os códigos e demais valores são preservados como recebidos da fonte.
+
+Para executar somente a Bronze:
 
 ```bash
-python -m app.pipeline.silver --source <bronze.parquet> --destination <silver.parquet> --year <ano>
+docker compose run --rm --no-deps --entrypoint python pipeline -m app.pipeline.sinan.bronze --disease DENG --year 2024
 ```
+
+Essa execução não processa a Silver nem a Gold.
+
+A Silver do SINAN lê apenas as colunas do catálogo, em lotes de 50 mil
+registros, e grava um Parquet intermediário. A deduplicação global usa DuckDB,
+com uma thread, limite padrão de `512MB` e diretório temporário para uso de
+disco. A última ocorrência de cada chave é mantida conforme a ordem original,
+inclusive quando as ocorrências estão em lotes diferentes. A regra de escolha
+da chave e seu fallback continuam sendo os definidos em `columns.py`.
+
+O limite se aplica ao DuckDB; pandas, Arrow e o processo Python também usam
+memória. Os temporários são removidos ao concluir ou falhar. A saída continua
+sendo um único `data.parquet`, publicado atomicamente após a conclusão.
+
+Depois de atualizar as dependências, reconstrua a imagem:
+
+```bash
+docker compose build pipeline
+```
+
+`sinan/silver.py` também pode ser chamado de forma isolada, útil para
+reprocessar uma Silver a partir de uma Bronze já existente:
+
+```bash
+python -m app.pipeline.sinan.silver --source <bronze.parquet> --disease DENG --year 2024 --batch-size 50000 --memory-limit 512MB
+```
+
+`--batch-size` e `--memory-limit` são opcionais. No Docker, use o caminho da
+Bronze dentro de `/data` e execute com `--entrypoint python` e
+`-m app.pipeline.sinan.silver`. O fluxo completo mantém os comandos existentes.
+As datas são interpretadas por registro para que sua conversão não dependa
+de qual registro aparece primeiro em cada lote. A Gold ainda lê toda a Silver.
 
 `silver_cnes.py` também pode transformar uma Bronze do CNES isoladamente:
 
@@ -367,6 +403,11 @@ antes de agregar uma Silver para Gold, a pipeline lê o `metadata.json` de
 origem e valida que `disease`/`year` batem com o que foi solicitado,
 abortando com erro claro em caso de inconsistência (por exemplo, se um
 caminho estiver apontando para o batch errado).
+
+Na Silver SINAN, `source_rows`, `invalid_date_rows`, `outside_year_rows` e
+`duplicate_rows` discriminam o total de entrada e os motivos de descarte.
+`dropped_rows` continua sendo a soma dos descartes. `batch_size` e
+`batches_processed` registram como a leitura foi dividida.
 
 ---
 
@@ -451,5 +492,6 @@ app/pipeline/
 - Python 3.12+
 - [PySUS](https://pypi.org/project/PySUS/)
 - pandas / pyarrow (leitura e escrita de Parquet)
+- DuckDB 1.5+ (deduplicação global da Silver SINAN com temporários em disco)
 - requests (consumo da API de Dados Abertos do CNES)
 - Docker + Docker Compose (execução via container)

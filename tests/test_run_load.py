@@ -10,7 +10,7 @@ from app.pipeline.sinan.gold import MUNICIPIOS_RJ
 
 @pytest.fixture
 def pipeline(mocker):
-    mocker.patch.object(runner, "fetch_sinan", return_value=pd.DataFrame({"row": [1]}))
+    mocker.patch.object(runner, "fetch_sinan", return_value=Path("source.parquet"))
     mocker.patch.object(runner, "write_bronze", return_value=Path("bronze.parquet"))
     mocker.patch.object(runner, "transform_file", return_value=Path("silver.parquet"))
     aggregate = mocker.patch.object(runner, "aggregate_file", return_value=Path("gold.parquet"))
@@ -86,6 +86,27 @@ def test_falha_de_ingestao_nao_abre_carga(pipeline, mocker):
         runner.run_load("DENG", 2026)
     get_engine.assert_not_called()
     load.assert_not_called()
+
+
+def test_cache_local_passa_para_bronze_sem_leitura_em_memoria(mocker, pipeline):
+    source = Path("cache.parquet")
+    silver = pd.DataFrame({"ID_MUNICIP": ["330100"]})
+    gold = pd.DataFrame({"cases_total": [1]})
+    read = mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, gold])
+
+    runner.run_load("DENG", 2024, source_path=source)
+
+    runner.fetch_sinan.assert_not_called()
+    assert runner.write_bronze.call_args.args == (source, "DENG", 2024)
+    assert read.call_args_list == [
+        mocker.call(Path("silver.parquet"), columns=["ID_MUNICIP"]),
+        mocker.call(Path("gold.parquet")),
+    ]
+    assert (
+        runner.write_bronze.call_args.kwargs["run_at"]
+        == runner.transform_file.call_args.kwargs["run_at"]
+        == runner.aggregate_file.call_args.kwargs["run_at"]
+    )
 
 
 def test_publicacao_vazia_explicita_e_falha_liberam_conexao(mocker, pipeline):

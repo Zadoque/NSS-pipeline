@@ -33,7 +33,6 @@ class RemoteSinanFile:
 
 
 def inspect_remote_file(disease: str, year: int) -> RemoteSinanFile:
-    """Consulta o catálogo FTP/PySUS sem baixar o conteúdo."""
     disease = disease.upper()
     files = pysus.ftp.sinan(disease=disease, year=year, download=False)
     parquet_files = [item for item in files if str(item.path).lower().endswith(".parquet")]
@@ -49,7 +48,6 @@ def inspect_remote_file(disease: str, year: int) -> RemoteSinanFile:
 
 
 def is_changed(remote: RemoteSinanFile) -> bool:
-    """Compara somente o tamanho, conforme a política de atualização."""
     try:
         return remote.local_path.stat().st_size != remote.size_bytes
     except FileNotFoundError:
@@ -57,7 +55,6 @@ def is_changed(remote: RemoteSinanFile) -> bool:
 
 
 def download_remote_file(remote: RemoteSinanFile) -> Path:
-    """Baixa o Parquet remoto atomicamente para o cache canônico local."""
     destination = remote.local_path
     destination.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(

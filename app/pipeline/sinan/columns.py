@@ -24,7 +24,8 @@ class ColumnSpec:
     transform: Optional[Callable[[pd.Series], pd.Series]] = None
 
 def _to_date(series: pd.Series) -> pd.Series:
-    return pd.to_datetime(series, errors="coerce")
+    # Infere por registro para que o resultado não dependa dos limites do lote.
+    return pd.to_datetime(series, format="mixed", errors="coerce")
 
 def _clean_municip(series: pd.Series) -> pd.Series:
     """Preserva o código textual de seis dígitos usado pelo SINAN.

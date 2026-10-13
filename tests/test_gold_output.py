@@ -49,8 +49,8 @@ def test_aggregate_file_grava_ad_hoc_e_serving_em_arvores_distintas(
         target="serving",
     )
 
-    assert "/gold/ad_hoc/sinan/" in str(ad_hoc)
-    assert "/gold/serving/sinan/" in str(serving)
+    assert "/gold/ad_hoc/sinan/" in ad_hoc.as_posix()
+    assert "/gold/serving/sinan/" in serving.as_posix()
     assert ad_hoc != serving
     assert json.loads(ad_hoc.with_name("metadata.json").read_text())["gold_target"] == "ad_hoc"
     assert json.loads(serving.with_name("metadata.json").read_text())["gold_target"] == "serving"

@@ -16,17 +16,14 @@ def run(disease: str, year: int, selected_columns: list[str] | None = None) -> N
     disease = disease.upper()
     run_at = datetime.now(UTC)          
 
-    bronze_df = fetch_sinan(disease, year)
-    if bronze_df.empty:
-        raise RuntimeError("PySUS retornou um DataFrame vazio")
-
-    bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
+    source = fetch_sinan(disease, year)
+    bronze = write_bronze(source, disease, year, run_at=run_at)
+    print(f"Bronze: {bronze}", flush=True)
     silver = transform_file(bronze, disease, year, run_at=run_at)
     gold = aggregate_file(
         silver, disease, year, selected_columns, run_at=run_at, target="ad_hoc"
     )
 
-    print(f"Bronze: {bronze}")
     print(f"Silver: {silver}")
     print(f"Gold: {gold}")
  

@@ -22,11 +22,9 @@ def run_load(
     disease = disease.upper()
     run_at = datetime.now(UTC)
 
-    bronze_df = pd.read_parquet(source_path) if source_path is not None else fetch_sinan(disease, year)
-    if bronze_df.empty:
-        raise RuntimeError("PySUS retornou um DataFrame vazio")
-
-    bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
+    source = source_path if source_path is not None else fetch_sinan(disease, year)
+    bronze = write_bronze(source, disease, year, run_at=run_at)
+    print(f"Bronze: {bronze}", flush=True)
     silver = transform_file(bronze, disease, year, run_at=run_at)
 
     municipios = dict(MUNICIPIOS_RJ)
@@ -56,7 +54,6 @@ def run_load(
     finally:
         engine.dispose()
 
-    print(f"Bronze: {bronze}")
     print(f"Silver: {silver}")
     print(f"Gold:   {gold_path}")
     print(f"Postgres: snapshot publicado (disease={disease}, year={year}, batch_id={batch_id}, cases={expected_cases_total})")
