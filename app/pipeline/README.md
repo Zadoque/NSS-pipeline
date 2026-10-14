@@ -371,7 +371,17 @@ python -m app.pipeline.sinan.silver --source <bronze.parquet> --disease DENG --y
 Bronze dentro de `/data` e execute com `--entrypoint python` e
 `-m app.pipeline.sinan.silver`. O fluxo completo mantém os comandos existentes.
 As datas são interpretadas por registro para que sua conversão não dependa
-de qual registro aparece primeiro em cada lote. A Gold ainda lê toda a Silver.
+de qual registro aparece primeiro em cada lote.
+
+A Gold também lê a Silver em lotes de 50 mil linhas, projetando somente as
+colunas necessárias. Cada lote é agregado pelas mesmas dimensões e seus
+`cases_total` são somados aos grupos já consolidados, incluindo grupos com
+valores nulos e o vínculo territorial do CNES. Somente combinações observadas
+de dimensões categóricas geram grupos. O resultado consolidado permanece em
+memória, por isso o consumo ainda depende da quantidade de grupos distintos.
+A gravação final continua atômica. `aggregate_file(..., batch_size=...)`
+permite ajustar o tamanho dos lotes; os comandos existentes usam o padrão.
+Os metadados da Gold registram `source_rows`, `batch_size` e `batches_processed`.
 
 `silver_cnes.py` também pode transformar uma Bronze do CNES isoladamente:
 
