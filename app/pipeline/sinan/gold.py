@@ -4,6 +4,8 @@ import json
 from pathlib import Path
  
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
  
 from ..atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, validate_keys
@@ -18,18 +20,10 @@ MUNICIPIOS_RJ = {
     #"3304557": "Rio de Janeiro",
 }
 
-
 def decode_sinan_age_years(
     encoded_age: pd.Series,
     separate_type: pd.Series | None = None,
 ) -> pd.Series:
-    """Converte a idade codificada do SINAN em anos.
-
-    Na forma ``NU_IDADE_N``, o primeiro dígito é a unidade: 1 hora, 2 dia,
-    3 mês e 4 ano; os três dígitos restantes são o valor. Alguns layouts
-    antigos expõem a unidade separadamente em ``TP_IDADE``. Valores ausentes,
-    inválidos ou sentinelas não são convertidos em zero.
-    """
     raw = encoded_age.astype("string").str.extract(r"(\d+)")[0]
     numeric = pd.to_numeric(raw, errors="coerce")
     unit = raw.str[0]
@@ -46,14 +40,12 @@ def decode_sinan_age_years(
     years = years.mask(unit.eq("4"), value)
     return years
 
-
 def age_band(
     year: pd.Series,
     birth_year: pd.Series,
     encoded_age: pd.Series | None = None,
     separate_type: pd.Series | None = None,
 ) -> pd.Series:
-    """Deriva faixa usando a idade codificada SINAN, com fallback controlado."""
     age = decode_sinan_age_years(encoded_age, separate_type) if encoded_age is not None else pd.Series(pd.NA, index=year.index, dtype="Float64")
     fallback = year.astype("Int64") - birth_year.astype("Int64")
     age = age.fillna(fallback.astype("Float64"))
@@ -73,19 +65,14 @@ def age_band(
     return result
 
 BASE_DIR = Path("/data")
+DEFAULT_BATCH_SIZE = 50_000
 GoldTarget = Literal["ad_hoc", "serving"]
 CNES_METADATA_COLUMNS = ["nm_unidade", "razao_social_unidade", "tp_unidade"]
-
+GOLD_REQUIRED_COLUMNS = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"}
 
 def normalize_municipality_codes(
     series: pd.Series, municipios: dict[str, str],
 ) -> pd.Series:
-    """Resolve códigos SINAN para o IBGE canônico do recorte.
-
-    Aceita seis ou sete dígitos e zeros de preenchimento. Códigos fora
-    do crosswalk são preservados para que o filtro do recorte os exclua.
-    A mesma regra é usada pela Gold e pela contagem independente da Silver.
-    """
     raw = series.astype("string").str.extract(r"(\d+)")[0]
     municipality_key = raw.str.lstrip("0")
     ibge_by_sinan_code = {
@@ -94,15 +81,7 @@ def normalize_municipality_codes(
     }
     return municipality_key.map(ibge_by_sinan_code).fillna(raw)
 
-
 def gold_root(target: GoldTarget) -> Path:
-    """Retorna a raiz física da Gold conforme o contrato de consumo.
-
-    ``ad_hoc`` é descartável e serve análises/reprocessamentos exploratórios.
-    ``serving`` é a publicação canônica consumida pelo carregamento/API.
-    Mantê-las em árvores diferentes impede que uma análise exploratória seja
-    confundida com o snapshot publicado.
-    """
     if target not in {"ad_hoc", "serving"}:
         raise ValueError(f"Destino Gold inválido: {target!r}")
     return BASE_DIR / "gold" / target
@@ -118,8 +97,7 @@ def aggregate(
     municipios = municipios if municipios is not None else MUNICIPIOS_RJ
     disease = disease.upper()
 
-    required = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"}
-    missing = required - set(df.columns)
+    missing = GOLD_REQUIRED_COLUMNS - set(df.columns)
     if missing:
         raise ValueError(f"Colunas Silver ausentes para Gold: {sorted(missing)}")
 
@@ -133,9 +111,6 @@ def aggregate(
     work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
     work = work[work["cd_mun"].isin(municipios)]
 
-    # O total municipal continua sendo o universo completo. O vínculo
-    # intramunicipal só existe quando ID_UNIDADE encontra CNES e sua posição
-    # cai numa geometria oficial; ausência nunca vira zero.
     territory_cols = [
         "notification_district_id",
         "notification_neighborhood_id",
@@ -158,8 +133,6 @@ def aggregate(
                 work = work.drop(columns=[mapped])
         work["notification_territory_status"] = work["notification_territory_status"].fillna("UNMAPPED_NOTIFICATION_UNIT")
         if "ID_UNIDADE" in work:
-            # O Gold usa sempre o mesmo formato do código CNES. Isso evita
-            # que valores como 0729884.0 deixem de casar com o lookup.
             work["ID_UNIDADE"] = work["_cd_unidade"]
         work = work.drop(columns=["_cd_unidade", "cd_unidade"])
     else:
@@ -185,17 +158,13 @@ def aggregate(
     group_cols = ["year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex", "age_band", "birth_year", "not_week", *extra_group_cols, *territory_cols]
 
     result = (
-        work.groupby(group_cols, dropna=False)
+        work.groupby(group_cols, dropna=False, observed=True)
         .size()
         .reset_index(name="cases_total")
         .rename(columns={"NM_UF": "nm_uf"})
     )
 
     if "ID_UNIDADE" in group_cols and cnes_lookup is not None:
-        # O território já foi associado antes do groupby. Reunir o lookup
-        # completo aqui repetia essas colunas e fazia o Pandas criar _x/_y.
-        # Neste segundo passo entram somente os metadados necessários para a
-        # dimensão de unidade de saúde.
         metadata_columns = [
             column
             for column in CNES_METADATA_COLUMNS
@@ -216,8 +185,12 @@ def aggregate(
 
     result.insert(0, "disease", disease)
 
+    return _sort_gold(result, extra_group_cols)
+
+
+def _sort_gold(result: pd.DataFrame, extra_group_cols: list[str]) -> pd.DataFrame:
     sort_cols = ["disease", "year", "month", "cd_uf", "cd_mun", "sex", "birth_year", "not_week", *extra_group_cols]
-    return result.sort_values(sort_cols).reset_index(drop=True) 
+    return result.sort_values(sort_cols).reset_index(drop=True)
 
 def _read_source_metadata(source: Path) -> dict:
     metadata_path = source.with_name("metadata.json")
@@ -254,6 +227,24 @@ def _latest_cnes_lookup() -> pd.DataFrame | None:
         return None
     return pd.read_parquet(batches[-1])
 
+def _gold_input_schema(source_schema: pa.Schema, keys: list[str]) -> pa.Schema:
+    needed = GOLD_REQUIRED_COLUMNS | {"ID_UNIDADE", "NU_IDADE_N", "TP_IDADE"}
+    needed.update(CATALOG[key].source_column for key in keys if CATALOG[key].groupable)
+    return pa.schema(
+        [field for field in source_schema if field.name in needed],
+        metadata=source_schema.metadata,
+    )
+
+
+def _merge_counts(total: pd.DataFrame, partial: pd.DataFrame) -> pd.DataFrame:
+    dimensions = [column for column in total.columns if column != "cases_total"]
+    combined = pd.concat([total, partial], ignore_index=True)
+    return (
+        combined.groupby(dimensions, dropna=False, observed=True)["cases_total"]
+        .sum().reset_index()[total.columns]
+    )
+
+
 def aggregate_file(
     source: Path,
     disease: str,
@@ -262,19 +253,13 @@ def aggregate_file(
     municipios: dict[str, str] | None = None,
     run_at: datetime | None = None,
     target: GoldTarget = "ad_hoc",
+    *,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> Path:
+    if batch_size <= 0:
+        raise ValueError("batch_size deve ser maior que zero")
+    selected_columns = validate_keys(selected_columns)
     disease = disease.upper()
-
-    source_metadata = _read_source_metadata(source)
-    _validate_source_matches(source_metadata, disease, year, source)
-
-    df = pd.read_parquet(source)
-    len_before = len(df)
-
-    cnes_lookup = _latest_cnes_lookup()
-
-    result = aggregate(df, disease, selected_columns, municipios, cnes_lookup=cnes_lookup)
-    len_after = len(result)
 
     now = run_at or datetime.now(UTC)
     batch_id = now.strftime("%Y%m%dT%H%M%SZ")
@@ -283,6 +268,37 @@ def aggregate_file(
         / f"source_year={year}" / f"ingestion_date={now.date()}" / f"batch_id={batch_id}"
     )
     parquet = directory / "data.parquet"
+
+    source_metadata = _read_source_metadata(source)
+    _validate_source_matches(source_metadata, disease, year, source)
+
+    cnes_lookup = _latest_cnes_lookup()
+    batches = 0
+    with pq.ParquetFile(source) as original:
+        schema = _gold_input_schema(original.schema_arrow, selected_columns)
+        empty = pa.Table.from_batches([], schema=schema).to_pandas()
+        result = aggregate(empty, disease, selected_columns, municipios, cnes_lookup=cnes_lookup)
+        len_before = original.metadata.num_rows
+        for batch in original.iter_batches(batch_size=batch_size, columns=schema.names):
+            partial = aggregate(
+                batch.to_pandas(), disease, selected_columns, municipios,
+                cnes_lookup=cnes_lookup,
+            )
+            batches += 1
+            if not partial.empty:
+                result = partial if result.empty else _merge_counts(result, partial)
+            del partial, batch
+            if batches % 10 == 0:
+                print(f"Gold: lotes={batches}, grupos={len(result)}", flush=True)
+
+    extra_group_cols = [
+        CATALOG[key].source_column for key in selected_columns
+        if CATALOG[key].groupable and CATALOG[key].source_column in schema.names
+    ]
+    result = _sort_gold(result, extra_group_cols)
+    len_after = len(result)
+
+
     write_parquet_atomic(result, parquet)
 
     metadata = {
@@ -294,6 +310,9 @@ def aggregate_file(
         "dropped_rows": len_before - len_after,
         "columns": list(result.columns),
         "gold_target": target,
+        "source_rows": len_before,
+        "batch_size": batch_size,
+        "batches_processed": batches,
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet
