@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -13,14 +14,19 @@ from .territory_mapping import enrich_cnes_territories
 
 BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
+logger = logging.getLogger(__name__)
 
 
 def run_cnes(municipios: dict[str, str] | None = None) -> Path:
     municipios = municipios if municipios is not None else MUNICIPIOS_RJ
+    if not municipios:
+        raise ValueError("Informe ao menos um município para a carga CNES")
     run_at = datetime.now(UTC)
+    logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []
     for cod_municipio in municipios:
+        logger.info("Processando CNES municipio=%s", cod_municipio)
         bronze_df = fetch_estabelecimentos(cod_municipio)
         if bronze_df.empty:
             raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
@@ -52,8 +58,14 @@ def run_cnes(municipios: dict[str, str] | None = None) -> Path:
         "columns": list(consolidated.columns),
     }
     write_json_atomic(metadata, directory / "metadata.json")
+    logger.info("CNES concluído: %s (linhas=%s)", parquet, len(consolidated))
     return parquet
 
 
 if __name__ == "__main__":
-    print(run_cnes())
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    try:
+        run_cnes()
+    except Exception:
+        logger.exception("Falha na pipeline CNES")
+        raise SystemExit(1) from None

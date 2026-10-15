@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from .sinan.source import RemoteSinanFile, download_remote_file, inspect_remote_
 
 TRACKED_DISEASES = ("DENG", "CHIK", "ZIKA", "FMAC", "TOXC", "TOXG")
 MANIFEST_PATH = Path("/data/source/sinan/manifest.json")
+logger = logging.getLogger(__name__)
 
 
 def _parse_years(raw: str | None) -> list[int]:
@@ -26,7 +28,15 @@ def _parse_years(raw: str | None) -> list[int]:
 def _load_manifest(path: Path) -> dict:
     if not path.exists():
         return {}
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Manifesto SINAN contém JSON inválido: {path}") from exc
+    if not isinstance(manifest, dict) or any(
+        not isinstance(value, dict) for value in manifest.values()
+    ):
+        raise ValueError(f"Manifesto SINAN deve conter um objeto por recorte: {path}")
+    return manifest
 
 
 def _save_manifest(path: Path, manifest: dict) -> None:
@@ -51,10 +61,6 @@ def update_one(remote: RemoteSinanFile, manifest: dict) -> str:
         return f"{key}: unchanged ({remote.size_bytes} bytes)"
 
     local_path = download_remote_file(remote)
-    # O arquivo remoto não vazio pode não conter notificações do município
-    # monitorado. Nesse caso o zero é validado pela origem e publicado como
-    # snapshot vazio; um arquivo remoto realmente vazio continua bloqueado
-    # pelo run_load.
     run_load(remote.disease, remote.year, source_path=local_path, allow_empty=True)
     manifest[key] = {
         "remotePath": remote.path,
@@ -72,13 +78,21 @@ def update(diseases: list[str], years: list[int], manifest_path: Path = MANIFEST
     results: list[str] = []
     for disease in diseases:
         for year in years:
-            remote = inspect_remote_file(disease, year)
-            results.append(update_one(remote, manifest))
-            _save_manifest(manifest_path, manifest)
+            logger.info("Verificando SINAN disease=%s year=%s", disease, year)
+            try:
+                remote = inspect_remote_file(disease, year)
+                result = update_one(remote, manifest)
+                _save_manifest(manifest_path, manifest)
+            except Exception:
+                logger.error("Falha na atualização SINAN disease=%s year=%s", disease, year)
+                raise
+            results.append(result)
+            logger.info("%s", result)
     return results
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Verifica e publica atualizações diárias do SINAN")
     parser.add_argument(
         "--diseases", default=",".join(TRACKED_DISEASES),
@@ -91,8 +105,13 @@ def main() -> None:
     unknown = sorted(set(diseases) - set(TRACKED_DISEASES))
     if unknown:
         raise SystemExit(f"Doenças não acompanhadas: {', '.join(unknown)}")
-    for result in update(diseases, _parse_years(args.years), args.manifest):
-        print(result)
+    if not diseases:
+        parser.error("Informe ao menos uma doença em --diseases")
+    try:
+        update(diseases, _parse_years(args.years), args.manifest)
+    except Exception:
+        logger.exception("Falha no atualizador SINAN (manifesto=%s)", args.manifest)
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":
