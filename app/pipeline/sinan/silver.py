@@ -103,8 +103,6 @@ def _silver_schema(source_schema: pa.Schema, keys: list[str]) -> pa.Schema:
         else:
             data_type = source_schema.field(spec.source_column).type
         fields.append(pa.field(spec.source_column, data_type))
-    # Preserva também os dtypes pandas (string e inteiros anuláveis) sem ler
-    # registros. Os tipos Arrow explícitos cobrem colunas vazias ou nulas.
     empty_source_schema = pa.schema(
         [source_schema.field(CATALOG[key].source_column) for key in keys],
         metadata=source_schema.metadata,
@@ -128,8 +126,6 @@ def _deduplicate_file(
 ) -> int:
     columns = ", ".join(f"data.{_quote_column(column)}" for column in schema.names)
     keys = ", ".join(_quote_column(column) for column in dedup_cols)
-    # Agrupa apenas as chaves e a posição, evitando ordenar todas as colunas
-    # para escolher keep="last". NULLs pertencem ao mesmo grupo.
     query = f"""
         WITH last_rows AS (
             SELECT max({_quote_column(SOURCE_ROW_COLUMN)}) AS {_quote_column(SOURCE_ROW_COLUMN)}
@@ -152,8 +148,6 @@ def _deduplicate_file(
         with relation.to_arrow_reader(batch_size=batch_size) as reader:
             with pq.ParquetWriter(destination, schema) as writer:
                 for batch in reader:
-                    # O DuckDB pode expor uma coluna totalmente nula como
-                    # INTEGER. Recupera o schema original antes de escrever.
                     arrays = [
                         pa.nulls(batch.num_rows) if pa.types.is_null(field.type)
                         else batch.column(index).cast(field.type)
