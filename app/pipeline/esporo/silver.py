@@ -8,7 +8,7 @@ from ..atomic_io import write_json_atomic, write_parquet_atomic
 BASE_DIR = Path("/data")
 
 #Inserir colunas desejadas aqui
-SELECTED_COLUMNS = ["ID da resposta", "Data da Notificação", "Municípío de Notificação",]
+SELECTED_COLUMNS = ["Data da Notificação", "Nome do animal:", "Espécie do animal", "Sexo do animal", "Idade do Animal", "Castrado"]
 
 def transform(source: Path) -> pd.DataFrame:
     df = pd.read_parquet(source)
