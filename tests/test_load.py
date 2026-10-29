@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from unittest.mock import call
 
 import pandas as pd
 import pytest
@@ -9,8 +10,18 @@ from app.pipeline.load import (
     CODIGO_NAO_INFORMADO,
     UNIDADE_NAO_IDENTIFICADA,
     _clean_code_series,
+    _integer_series,
     _prepare_fact_frame,
+    _scope_statement,
     _validate_snapshot,
+    _upsert,
+    get_engine,
+    insert_fato_casos,
+    upsert_dim_classificacao,
+    upsert_dim_doenca,
+    upsert_dim_evolucao,
+    upsert_dim_municipio,
+    upsert_dim_unidade_saude,
 )
 
 
@@ -68,9 +79,10 @@ def test_prepare_fact_frame_preserva_cases_total():
 def _validate(gold_df, **overrides):
     options = dict(year=2026, municipios=["3301009"], expected_cases_total=5,
                    snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
-                   allow_empty=False)
+                   allow_empty=False, batch_id="b1")
     options.update(overrides)
-    return _validate_snapshot(gold_df, "DENG", "b1", **options)
+    batch_id = options.pop("batch_id")
+    return _validate_snapshot(gold_df, "DENG", batch_id, **options)
 
 
 def test_semana_aaaass_e_preservada_sem_overflow():
@@ -134,3 +146,124 @@ def test_snapshot_vazio_exige_total_zero_e_permissao_explicita():
     assert scope == ["3301009"]
     with pytest.raises(ValueError, match="diverge"):
         _validate(_gold_minima().iloc[:0], expected_cases_total=5, allow_empty=True)
+
+
+def test_get_engine_requires_database_url(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    with pytest.raises(RuntimeError, match="DATABASE_URL"):
+        get_engine()
+
+
+def test_upsert_ignores_empty_rows_and_uses_do_nothing_for_only_key(mocker):
+    conn = mocker.Mock()
+
+    _upsert(conn, "analytics.dim_x", [], ["codigo"])
+    _upsert(conn, "analytics.dim_x", [{"codigo": "A"}], ["codigo"])
+
+    assert conn.execute.call_count == 1
+    statement = str(conn.execute.call_args.args[0])
+    assert "ON CONFLICT (codigo)" in statement
+    assert "DO NOTHING" in statement
+
+
+def test_upsert_updates_non_key_columns(mocker):
+    conn = mocker.Mock()
+
+    _upsert(conn, "analytics.dim_x", [{"codigo": "A", "nome": "Alpha"}], ["codigo"])
+
+    statement = str(conn.execute.call_args.args[0])
+    assert "ON CONFLICT (codigo)" in statement
+    assert "nome = EXCLUDED.nome" in statement
+
+
+def test_integer_series_rejects_fraction_and_text():
+    with pytest.raises(ValueError, match="inteiro fora"):
+        _integer_series(pd.Series([1.5]), "month", 1, 12)
+    with pytest.raises(ValueError, match="não numérico"):
+        _integer_series(pd.Series(["abc"]), "month", 1, 12)
+
+
+def test_scope_statement_expands_municipios_parameter():
+    statement = _scope_statement("SELECT 1 WHERE cd_mun IN :municipios")
+
+    assert "municipios" in statement._bindparams
+    assert statement._bindparams["municipios"].expanding is True
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"municipios": "3301009"}, "sequência"),
+        ({"municipios": []}, "códigos"),
+        ({"expected_cases_total": True}, "Total"),
+        ({"source_extracted_at": datetime(2026, 1, 1)}, "fuso"),
+        ({"batch_id": ""}, "batch_id"),
+    ],
+)
+def test_snapshot_rejeita_metadados_de_publicacao_invalidos(overrides, message):
+    with pytest.raises(ValueError, match=message):
+        _validate(_gold_minima(), **overrides)
+
+
+def test_dimension_upserts_filter_duplicates_and_sentinels(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame(
+        {
+            "cd_mun": ["3301009", "3301009", None],
+            "nm_mun": ["Campos", "Campos", "ignored"],
+            "cd_uf": ["33", "33", "33"],
+            "nm_uf": ["RJ", "RJ", "RJ"],
+            "cd_unidade": ["0000000", "0000001", "NI"],
+            "nm_unidade": ["sentinela", "UBS", "NI"],
+            "razao_social_unidade": [None, "UBS Ltda", None],
+            "tp_unidade": [None, 1, None],
+            "cd_classificacao": ["NI", "A", "A"],
+            "cd_evolucao": ["NI", "1", "1"],
+        }
+    )
+
+    upsert_dim_municipio(conn, fact)
+    upsert_dim_unidade_saude(conn, fact)
+    upsert_dim_classificacao(conn, fact)
+    upsert_dim_evolucao(conn, fact)
+    upsert_dim_doenca(conn, "DENG")
+
+    calls = [call.args for call in conn.execute.call_args_list]
+    assert len(calls) == 5
+    assert any("dim_doenca" in str(args[0]) for args in calls)
+    unidade_rows = next(args[1] for args in calls if "dim_unidade_saude" in str(args[0]))
+    assert [row["cd_unidade"] for row in unidade_rows] == ["0000001"]
+
+
+def test_unidade_rejects_non_smallint_type(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({"cd_unidade": ["0000001"], "tp_unidade": [40000]})
+
+    with pytest.raises(ValueError, match="SMALLINT"):
+        upsert_dim_unidade_saude(conn, fact)
+
+    conn.execute.assert_not_called()
+
+
+def test_insert_fato_cases_handles_empty_and_renames_dimensions(mocker):
+    conn = mocker.Mock()
+    insert_fato_casos(conn, pd.DataFrame())
+    assert conn.execute.call_count == 0
+
+    fact = pd.DataFrame(
+        {
+            "disease_codigo": ["DENG"], "year": [2026], "month": [1],
+            "cd_mun": ["3301009"], "cd_unidade": ["0000000"],
+            "cd_classificacao": ["NI"], "cd_evolucao": ["NI"],
+            "cd_sexo": ["I"], "semana_notif": [0], "ano_nascimento": [0],
+            "age_band": ["NI"], "notification_district_id": [pd.NA],
+            "notification_neighborhood_id": [pd.NA],
+            "notification_territory_status": ["UNMAPPED_NOTIFICATION_UNIT"],
+            "cases_total": [1], "batch_id": ["b1"],
+        }
+    )
+    insert_fato_casos(conn, fact)
+    statement, rows = conn.execute.call_args.args
+    assert "INSERT INTO analytics.fato_casos" in str(statement)
+    assert rows[0]["ano"] == 2026
+    assert rows[0]["mes"] == 1
