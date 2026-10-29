@@ -128,6 +128,117 @@ def test_tamanho_de_lote_invalido(source, batch_size):
         gold.aggregate_file(source, "DENG", 2024, batch_size=batch_size)
 
 
+def test_tamanho_de_lote_zero_falha_antes_de_abrir_o_parquet(source, monkeypatch):
+    monkeypatch.setattr(
+        gold.pq, "ParquetFile", lambda *_args, **_kwargs: pytest.fail("leitura inesperada")
+    )
+    with pytest.raises(ValueError, match="maior que zero"):
+        gold.aggregate_file(source, "DENG", 2024, batch_size=0)
+
+
+def test_aggregate_file_valida_metadata_da_silver(source):
+    source.with_name("metadata.json").write_text(
+        json.dumps({"disease": "ZIKA", "source_year": 2024}), encoding="utf-8"
+    )
+    with pytest.raises(ValueError):
+        gold.aggregate_file(source, "DENG", 2024)
+
+
+def test_aggregate_file_exige_metadata_da_silver(source):
+    source.with_name("metadata.json").unlink()
+    with pytest.raises(FileNotFoundError):
+        gold.aggregate_file(source, "DENG", 2024)
+
+
+def test_latest_cnes_lookup_retorna_o_batch_mais_recente(tmp_path, monkeypatch):
+    cnes_dir = tmp_path / "silver" / "cnes"
+    older = cnes_dir / "batch_id=20260101" / "data.parquet"
+    middle = cnes_dir / "batch_id=20260115" / "data.parquet"
+    newer = cnes_dir / "batch_id=20260201" / "data.parquet"
+    older.parent.mkdir(parents=True)
+    middle.parent.mkdir(parents=True)
+    newer.parent.mkdir(parents=True)
+    older.write_bytes(b"old")
+    middle.write_bytes(b"middle")
+    newer.write_bytes(b"new")
+    monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(gold.pd, "read_parquet", lambda path: path.read_bytes())
+
+    assert gold._latest_cnes_lookup() == b"new"
+
+
+def test_latest_cnes_lookup_retorna_none_sem_batches(tmp_path, monkeypatch):
+    monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
+    assert gold._latest_cnes_lookup() is None
+
+
+def test_latest_cnes_lookup_retorna_none_com_diretorio_vazio(tmp_path, monkeypatch):
+    (tmp_path / "silver" / "cnes").mkdir(parents=True)
+    monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
+    assert gold._latest_cnes_lookup() is None
+
+
+def test_aggregate_file_publica_doenca_em_minusculas_e_utc_sem_run_at(
+    raw, source, monkeypatch
+):
+    observed = []
+
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz):
+            observed.append(tz)
+            return RUN_AT
+
+    monkeypatch.setattr(gold, "datetime", FakeDateTime)
+    monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: None)
+    result = gold.aggregate_file(
+        source, "deng", 2024, municipios={"3301009": "Campos"}, batch_size=2
+    )
+
+    assert observed == [UTC]
+    assert "disease=deng" in result.as_posix()
+
+
+def test_aggregate_com_cnes_sem_id_unidade_mantem_unidade_nao_mapeada(raw, lookup):
+    raw = raw.drop(columns="ID_UNIDADE")
+    result = gold.aggregate(
+        raw, "DENG", SELECTED, MUNICIPIOS, lookup
+    )
+
+    assert result["notification_territory_status"].eq(
+        "UNMAPPED_NOTIFICATION_UNIT"
+    ).all()
+
+
+def test_aggregate_com_status_cnes_nulo_aplica_default(raw, lookup):
+    lookup = lookup.copy()
+    lookup["notification_territory_status"] = None
+    result = gold.aggregate(raw, "DENG", SELECTED, MUNICIPIOS, lookup)
+
+    assert result["notification_territory_status"].eq(
+        "UNMAPPED_NOTIFICATION_UNIT"
+    ).any()
+
+
+def test_aggregate_com_lookup_sem_dimensoes_territoriais_aplica_defaults(raw):
+    lookup = pd.DataFrame({"cd_unidade": ["0729884"]})
+    result = gold.aggregate(raw, "DENG", SELECTED, MUNICIPIOS, lookup)
+
+    assert result["notification_territory_status"].eq(
+        "UNMAPPED_NOTIFICATION_UNIT"
+    ).all()
+
+
+def test_aggregate_file_imprime_progresso_no_decimo_lote(raw, source, monkeypatch, capsys):
+    raw = pd.concat([raw, raw], ignore_index=True)
+    raw.to_parquet(source, index=False)
+    monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: None)
+
+    gold.aggregate_file(source, "DENG", 2024, municipios=MUNICIPIOS, batch_size=1)
+
+    assert "Gold: lotes=10" in capsys.readouterr().out
+
+
 def test_dimensao_categorica_nao_cria_grupos_sem_casos(raw, source, monkeypatch):
     raw["CLASSI_FIN"] = pd.Categorical(raw["CLASSI_FIN"], categories=["1", "2", "9"])
     raw.to_parquet(source, index=False)

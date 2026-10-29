@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
+import pyarrow as pa
 # pyrefly: ignore [missing-import]
 import pytest
 
-from app.pipeline.sinan.gold import aggregate
+from app.pipeline.sinan.gold import (
+    _merge_counts,
+    _gold_input_schema,
+    _validate_source_matches,
+    decode_sinan_age_years,
+    aggregate,
+    normalize_municipality_codes,
+)
 
 MUNICIPIOS_TESTE = {"1234567": "Cidade Teste"}
 
@@ -136,3 +146,121 @@ def test_aggregate_rejeita_unidade_cnes_duplicada_antes_de_contar_casos():
             silver, "DENG", selected_columns=["unidade_notificacao"],
             municipios=MUNICIPIOS_TESTE, cnes_lookup=lookup,
         )
+
+
+def test_decode_sinan_age_years_interpreta_unidades_e_tipo_separado():
+    encoded = pd.Series(["1001", "2002", "3012", "4050", "x", None])
+    result = decode_sinan_age_years(encoded)
+
+    assert result.iloc[0] == pytest.approx(1 / (24 * 365.25))
+    assert result.iloc[1] == pytest.approx(2 / 365.25)
+    assert result.iloc[2] == pytest.approx(1)
+    assert result.iloc[3] == pytest.approx(50)
+    assert result.iloc[4:].isna().all()
+
+    overridden = decode_sinan_age_years(
+        pd.Series(["0010", "0010", "0010"]),
+        pd.Series(["4", "2", "9"]),
+    )
+    assert overridden.iloc[0] == pytest.approx(10)
+    assert overridden.iloc[1] == pytest.approx(10 / 365.25)
+    assert pd.isna(overridden.iloc[2])
+
+
+def test_normalize_municipality_codes_remove_zero_a_esquerda():
+    result = normalize_municipality_codes(
+        pd.Series(["0330100", "330100", "9999999"]),
+        {"3301009": "Campos"},
+    )
+    assert result.tolist() == ["3301009", "3301009", "9999999"]
+
+
+def test_merge_counts_soma_grupos_iguais_e_preserva_grupos_distintos():
+    total = pd.DataFrame({"sex": ["F"], "cases_total": [2]})
+    partial = pd.DataFrame({"sex": ["F", "M"], "cases_total": [3, 1]})
+
+    result = _merge_counts(total, partial).sort_values("sex").reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(
+        result,
+        pd.DataFrame({"sex": ["F", "M"], "cases_total": [5, 1]}),
+    )
+
+
+def test_merge_counts_nao_cria_categorias_sem_casos():
+    total = pd.DataFrame({
+        "sex": pd.Categorical(["F"], categories=["F", "M"]),
+        "cases_total": [2],
+    })
+    partial = pd.DataFrame({
+        "sex": pd.Categorical(["F"], categories=["F", "M"]),
+        "cases_total": [3],
+    })
+
+    result = _merge_counts(total, partial)
+
+    assert result["sex"].tolist() == ["F"]
+    assert result["cases_total"].tolist() == [5]
+
+
+def test_gold_input_schema_projeta_dimensoes_obrigatorias_e_preserva_metadata():
+    source_schema = pa.schema(
+        [
+            pa.field("DT_NOTIFIC", pa.string()),
+            pa.field("ID_MUNICIP", pa.string()),
+            pa.field("SG_UF_NOT", pa.string()),
+            pa.field("NM_UF", pa.string()),
+            pa.field("CS_SEXO", pa.string()),
+            pa.field("ANO_NASC", pa.int64()),
+            pa.field("SEM_NOT", pa.int64()),
+            pa.field("ID_UNIDADE", pa.string()),
+            pa.field("NU_IDADE_N", pa.string()),
+            pa.field("TP_IDADE", pa.string()),
+            pa.field("CLASSI_FIN", pa.string()),
+            pa.field("IGNORADA", pa.string()),
+        ],
+        metadata={b"source": b"silver"},
+    )
+
+    result = _gold_input_schema(source_schema, ["classificacao_final"])
+
+    assert result.names == [
+        "DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO",
+        "ANO_NASC", "SEM_NOT", "ID_UNIDADE", "NU_IDADE_N", "TP_IDADE",
+        "CLASSI_FIN",
+    ]
+    assert result.metadata == {b"source": b"silver"}
+
+
+@pytest.mark.parametrize(
+    ("metadata", "disease", "year"),
+    [({"disease": "ZIKA", "source_year": 2026}, "DENG", 2026),
+     ({"disease": "DENG", "source_year": 2025}, "DENG", 2026)],
+)
+def test_validate_source_matches_rejeita_doenca_ou_ano_inconsistente(metadata, disease, year):
+    with pytest.raises(ValueError):
+        _validate_source_matches(metadata, disease, year, Path("silver.parquet"))
+
+
+def test_aggregate_sem_cnes_publica_status_de_unidade_nao_mapeada():
+    result = aggregate(_silver_minima(), "DENG", municipios=MUNICIPIOS_TESTE)
+
+    assert set(result["notification_territory_status"]) == {"UNMAPPED_NOTIFICATION_UNIT"}
+
+
+def test_aggregate_nao_cria_grupo_para_dimensao_nao_groupable():
+    df = _silver_minima(
+        DT_NOTIFIC=pd.to_datetime(["2026-01-05"] * 3),
+        NU_NOTIFIC=["1", "2", "3"],
+        ID_MUNICIP=["1234567"] * 3,
+        CS_SEXO=["F"] * 3,
+        ANO_NASC=[2000] * 3,
+        SEM_NOT=[202601] * 3,
+    )
+    result = aggregate(
+        df, "DENG", selected_columns=["notificacao_id"],
+        municipios=MUNICIPIOS_TESTE,
+    )
+
+    assert len(result) == 1
+    assert "NU_NOTIFIC" not in result.columns
