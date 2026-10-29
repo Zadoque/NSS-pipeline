@@ -67,3 +67,22 @@ def test_write_json_atomic_preserva_destino_se_substituicao_falha(tmp_path, monk
 
     assert destino.read_text(encoding="utf-8") == '{"versao": 1}'
     assert [p for p in tmp_path.iterdir() if p.name.startswith(".metadata.json.")] == []
+
+
+def test_write_json_atomic_cria_diretorios_aninhados(tmp_path):
+    destino = tmp_path / "nested" / "deep" / "metadata.json"
+
+    write_json_atomic({"ok": True}, destino)
+
+    assert json.loads(destino.read_text(encoding="utf-8")) == {"ok": True}
+
+
+def test_write_parquet_atomic_nao_persiste_indice_customizado(tmp_path):
+    destino = tmp_path / "data.parquet"
+    frame = pd.DataFrame({"valor": [10, 20]}, index=["a", "b"])
+
+    write_parquet_atomic(frame, destino)
+
+    loaded = pd.read_parquet(destino)
+    assert list(loaded.columns) == ["valor"]
+    assert list(loaded.index) == [0, 1]

@@ -8,6 +8,8 @@ also_copy = ["app/__init__.py", "pytest.ini"]
 only_mutate = [
     "app/pipeline/atomic_io.py",
     "app/pipeline/sinan/columns.py",
+    "app/pipeline/sinan/source.py",
+    "app/pipeline/sinan/bronze.py",
     "app/pipeline/sinan/silver.py",
     "app/pipeline/sinan/gold.py",
     "app/pipeline/load.py",
