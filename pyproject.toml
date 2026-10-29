@@ -1,0 +1,20 @@
+[tool.mutmut]
+# Escopo inicial de mutação: módulos com maior valor de negócio e testes
+# unitários já disponíveis. A lista pode ser ampliada por etapa.
+source_paths = ["app"]
+# O mutmut reconhece automaticamente ``tests/``, mas precisa também do
+# pacote-raiz para importar ``app.pipeline`` a partir da cópia mutada.
+also_copy = ["app/__init__.py", "pytest.ini"]
+only_mutate = [
+    "app/pipeline/sinan/silver.py",
+    "app/pipeline/sinan/gold.py",
+    "app/pipeline/load.py",
+    "app/pipeline/territory_mapping.py",
+    "app/pipeline/esporo/silver.py",
+]
+
+# Testes de integração ficam fora da primeira rodada para evitar que cada
+# mutante reinicialize o PostgreSQL. Eles serão adicionados em uma etapa
+# específica de mutação da carga.
+pytest_add_cli_args_test_selection = ["--ignore=tests/integration", "-m", "not integration"]
+pytest_add_cli_args = ["--override-ini=pythonpath=../mutants"]
