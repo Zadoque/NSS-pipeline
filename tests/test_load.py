@@ -85,6 +85,16 @@ def test_prepare_fact_frame_preserva_lote_e_aliases_da_gold():
     assert fact_df.loc[0, "age_band"] == "adulto"
 
 
+def test_prepare_fact_frame_preserva_classificacao_e_evolucao_e_default_sexo():
+    df = _gold_minima(CLASSI_FIN=["10"], EVOLUCAO=["2"], CS_SEXO=[""])
+
+    fact_df = _prepare_fact_frame(df, disease_codigo="DENG", batch_id="lote-8")
+
+    assert fact_df.loc[0, "cd_classificacao"] == "10"
+    assert fact_df.loc[0, "cd_evolucao"] == "2"
+    assert fact_df.loc[0, "cd_sexo"] == "I"
+
+
 def test_prepare_fact_frame_preserva_cases_total():
     df = _gold_minima(cases_total=[42])
     fact_df = _prepare_fact_frame(df, disease_codigo="DENG", batch_id="b")
@@ -251,6 +261,16 @@ def test_dimension_upserts_filter_duplicates_and_sentinels(mocker):
     assert any("dim_doenca" in str(args[0]) for args in calls)
     unidade_rows = next(args[1] for args in calls if "dim_unidade_saude" in str(args[0]))
     assert [row["cd_unidade"] for row in unidade_rows] == ["0000001"]
+    municipio_rows = next(args[1] for args in calls if "dim_municipio" in str(args[0]))
+    assert municipio_rows == [{
+        "cd_mun": "3301009", "nm_mun": "Campos", "cd_uf": "33", "nm_uf": "RJ",
+    }]
+    classificacao_rows = next(args[1] for args in calls if "dim_classificacao" in str(args[0]))
+    assert classificacao_rows == [{"codigo": "A", "descricao": "Código A (ver dicionário SINAN)"}]
+    evolucao_rows = next(args[1] for args in calls if "dim_evolucao" in str(args[0]))
+    assert evolucao_rows == [{"codigo": "1", "descricao": "Código 1 (ver dicionário SINAN)"}]
+    doenca_rows = next(args[1] for args in calls if "dim_doenca" in str(args[0]))
+    assert doenca_rows == [{"codigo": "DENG", "nome": "Dengue"}]
 
 
 def test_unidade_rejects_non_smallint_type(mocker):
@@ -372,7 +392,7 @@ def test_load_publication_acquires_disease_year_lock():
         snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
-    assert "pg_advisory_xact_lock" in conn.calls[0][0]
+    assert conn.calls[0][0].strip() == "SELECT pg_advisory_xact_lock(hashtext(:key))"
     assert conn.calls[0][1][0]["key"] == "nss:sinan:DENG:2026"
 
 
@@ -402,6 +422,21 @@ def test_load_publication_default_nao_permite_gold_vazia():
             year=2026, municipios=["3301009"], expected_cases_total=0,
             snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
+
+
+def test_get_engine_usa_database_url_configurada(monkeypatch):
+    expected = object()
+    captured = {}
+
+    def fake_create_engine(url):
+        captured["url"] = url
+        return expected
+
+    monkeypatch.setattr("app.pipeline.load.create_engine", fake_create_engine)
+    monkeypatch.setenv("DATABASE_URL", "postgresql+psycopg2://nss:test@localhost/db")
+
+    assert get_engine() is expected
+    assert captured["url"] == "postgresql+psycopg2://nss:test@localhost/db"
 
 
 @pytest.mark.parametrize(
