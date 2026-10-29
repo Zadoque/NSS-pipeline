@@ -17,6 +17,7 @@ from app.pipeline.load import (
     _upsert,
     get_engine,
     insert_fato_casos,
+    load_gold_to_postgres,
     upsert_dim_classificacao,
     upsert_dim_doenca,
     upsert_dim_evolucao,
@@ -267,3 +268,79 @@ def test_insert_fato_cases_handles_empty_and_renames_dimensions(mocker):
     assert "INSERT INTO analytics.fato_casos" in str(statement)
     assert rows[0]["ano"] == 2026
     assert rows[0]["mes"] == 1
+
+
+class _Result:
+    def __init__(self, *, newest=None, groups_total=1, cases_total=5):
+        self.newest = newest
+        self.groups_total = groups_total
+        self.cases_total = cases_total
+
+    def scalar_one(self):
+        return self.newest
+
+    def one(self):
+        return self
+
+
+class _Connection:
+    def __init__(self, *, newest=None, groups_total=1, cases_total=5):
+        self.calls = []
+        self.result = _Result(
+            newest=newest, groups_total=groups_total, cases_total=cases_total
+        )
+
+    def execute(self, statement, *args):
+        self.calls.append((str(statement), args))
+        if "max(source_extracted_at)" in str(statement):
+            return self.result
+        if "count(*) AS groups_total" in str(statement):
+            return self.result
+        return None
+
+
+class _Transaction:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __enter__(self):
+        return self.connection
+
+    def __exit__(self, exc_type, exc, traceback):
+        return False
+
+
+class _Engine:
+    def __init__(self, connection):
+        self.connection = connection
+
+    def begin(self):
+        return _Transaction(self.connection)
+
+
+def test_load_publication_rejects_older_snapshot_before_mutation():
+    extracted_at = datetime(2026, 1, 1, tzinfo=UTC)
+    conn = _Connection(newest=datetime(2026, 1, 2, tzinfo=UTC))
+
+    with pytest.raises(ValueError, match="Snapshot antigo"):
+        load_gold_to_postgres(
+            _Engine(conn), _gold_minima(), "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=5,
+            snapshot_complete=True, source_extracted_at=extracted_at,
+        )
+
+    assert not any("DELETE FROM" in statement for statement, _ in conn.calls)
+
+
+def test_load_publication_rejects_database_total_mismatch():
+    conn = _Connection(groups_total=2, cases_total=5)
+
+    with pytest.raises(RuntimeError, match="Totais publicados divergem"):
+        load_gold_to_postgres(
+            _Engine(conn), _gold_minima(), "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=5,
+            snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+    assert any("DELETE FROM" in statement for statement, _ in conn.calls)
+    assert not any("pipeline_publications" in statement and "INSERT" in statement for statement, _ in conn.calls)
