@@ -376,6 +376,25 @@ def test_load_publication_acquires_disease_year_lock():
     assert conn.calls[0][1][0]["key"] == "nss:sinan:DENG:2026"
 
 
+def test_load_publication_reuses_scope_parameters_in_queries():
+    conn = _Connection()
+
+    load_gold_to_postgres(
+        _Engine(conn), _gold_minima(), "deng", "b1",
+        year=2026, municipios=["3301009"], expected_cases_total=5,
+        snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    expected = {"disease": "DENG", "year": 2026, "municipios": ["3301009"]}
+    scoped_calls = [
+        (statement, args[0])
+        for statement, args in conn.calls
+        if "municipios" in statement
+    ]
+    assert len(scoped_calls) == 3
+    assert all(params == expected for _, params in scoped_calls)
+
+
 def test_load_publication_default_nao_permite_gold_vazia():
     with pytest.raises(ValueError, match="Gold vazia"):
         load_gold_to_postgres(
@@ -402,3 +421,30 @@ def test_snapshot_rejeita_dados_de_identificacao_invalidos(
             _gold_minima(), disease_codigo=disease, year=year,
             batch_id=batch_id, source_extracted_at=source_extracted_at,
         )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"year": 1000}, None),
+        ({"year": 999}, "Ano"),
+        ({"year": 9999}, None),
+        ({"year": True}, "Ano"),
+        ({"disease_codigo": "A"}, None),
+        ({"disease_codigo": "ABCD"}, None),
+        ({"disease_codigo": "ABCDE"}, "doença"),
+        ({"expected_cases_total": -1}, "Total"),
+        ({"expected_cases_total": False}, "Total"),
+        ({"municipios": ["330100"]}, "códigos"),
+        ({"municipios": ["3301009", "3301009"]}, None),
+    ],
+)
+def test_snapshot_cobre_limites_do_contrato(overrides, message):
+    gold = _gold_minima(
+        year=[overrides["year"]]
+    ) if "year" in overrides else _gold_minima()
+    if message is None:
+        _validate(gold, **overrides)
+    else:
+        with pytest.raises(ValueError, match=message):
+            _validate(gold, **overrides)
