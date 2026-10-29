@@ -11,6 +11,7 @@ only_mutate = [
     "app/pipeline/load.py",
     "app/pipeline/territory_mapping.py",
     "app/pipeline/esporo/silver.py",
+    "app/pipeline/update_sinan.py",
 ]
 
 # Testes de integração ficam fora da primeira rodada para evitar que cada
