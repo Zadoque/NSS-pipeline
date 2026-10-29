@@ -71,6 +71,20 @@ def test_prepare_fact_frame_normaliza_string_vazia_quando_dimensao_presente():
     assert fact_df.loc[0, "cd_evolucao"] == "1"
 
 
+def test_prepare_fact_frame_preserva_lote_e_aliases_da_gold():
+    df = _gold_minima(
+        sex=["F"], not_week=["202602"], birth_year=[1990], age_band=["adulto"]
+    )
+
+    fact_df = _prepare_fact_frame(df, disease_codigo="CHIK", batch_id="lote-7")
+
+    assert fact_df.loc[0, "batch_id"] == "lote-7"
+    assert fact_df.loc[0, "cd_sexo"] == "F"
+    assert fact_df.loc[0, "semana_notif"] == 202602
+    assert fact_df.loc[0, "ano_nascimento"] == 1990
+    assert fact_df.loc[0, "age_band"] == "adulto"
+
+
 def test_prepare_fact_frame_preserva_cases_total():
     df = _gold_minima(cases_total=[42])
     fact_df = _prepare_fact_frame(df, disease_codigo="DENG", batch_id="b")
@@ -80,10 +94,11 @@ def test_prepare_fact_frame_preserva_cases_total():
 def _validate(gold_df, **overrides):
     options = dict(year=2026, municipios=["3301009"], expected_cases_total=5,
                    snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
-                   allow_empty=False, batch_id="b1")
+                   allow_empty=False, batch_id="b1", disease_codigo="DENG")
     options.update(overrides)
     batch_id = options.pop("batch_id")
-    return _validate_snapshot(gold_df, "DENG", batch_id, **options)
+    disease_codigo = options.pop("disease_codigo")
+    return _validate_snapshot(gold_df, disease_codigo, batch_id, **options)
 
 
 def test_semana_aaaass_e_preservada_sem_overflow():
@@ -175,6 +190,8 @@ def test_upsert_updates_non_key_columns(mocker):
     statement = str(conn.execute.call_args.args[0])
     assert "ON CONFLICT (codigo)" in statement
     assert "nome = EXCLUDED.nome" in statement
+    assert "VALUES (:codigo, :nome)" in statement
+    assert conn.execute.call_args.args[1] == [{"codigo": "A", "nome": "Alpha"}]
 
 
 def test_integer_series_rejects_fraction_and_text():
@@ -344,3 +361,44 @@ def test_load_publication_rejects_database_total_mismatch():
 
     assert any("DELETE FROM" in statement for statement, _ in conn.calls)
     assert not any("pipeline_publications" in statement and "INSERT" in statement for statement, _ in conn.calls)
+
+
+def test_load_publication_acquires_disease_year_lock():
+    conn = _Connection()
+
+    load_gold_to_postgres(
+        _Engine(conn), _gold_minima(), "deng", "b1",
+        year=2026, municipios=["3301009"], expected_cases_total=5,
+        snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+    assert "pg_advisory_xact_lock" in conn.calls[0][0]
+    assert conn.calls[0][1][0]["key"] == "nss:sinan:DENG:2026"
+
+
+def test_load_publication_default_nao_permite_gold_vazia():
+    with pytest.raises(ValueError, match="Gold vazia"):
+        load_gold_to_postgres(
+            _Engine(_Connection()), _gold_minima().iloc[:0], "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=0,
+            snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+
+@pytest.mark.parametrize(
+    ("disease", "year", "batch_id", "source_extracted_at", "message"),
+    [
+        ("dengue", 2026, "b1", datetime(2026, 1, 1, tzinfo=UTC), "doença"),
+        ("DENG", 999, "b1", datetime(2026, 1, 1, tzinfo=UTC), "Ano"),
+        ("DENG", 2026, "x" * 21, datetime(2026, 1, 1, tzinfo=UTC), "batch_id"),
+        ("DENG", 2026, "b1", datetime(2026, 1, 1), "fuso"),
+    ],
+)
+def test_snapshot_rejeita_dados_de_identificacao_invalidos(
+    disease, year, batch_id, source_extracted_at, message
+):
+    with pytest.raises(ValueError, match=message):
+        _validate(
+            _gold_minima(), disease_codigo=disease, year=year,
+            batch_id=batch_id, source_extracted_at=source_extracted_at,
+        )
