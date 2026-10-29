@@ -1,5 +1,7 @@
 import json
+import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 
 import pyarrow as pa
@@ -109,6 +111,25 @@ def test_parquet_vazio_nao_cria_lote(source):
     with pytest.raises(RuntimeError, match="Parquet vazio"):
         bronze.write_bronze(source, "DENG", 2024, run_at=RUN_AT)
     assert not bronze.BASE_DIR.exists()
+
+
+def test_write_bronze_sem_run_at_registra_timestamp_com_fuso(source):
+    result = bronze.write_bronze(source, "DENG", 2024)
+
+    metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
+    assert metadata["ingested_at"].endswith("+00:00")
+    assert metadata["batch_id"].endswith("Z")
+
+
+def test_main_delega_download_e_escrita(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["bronze", "--disease", "deng", "--year", "2024"])
+    source_path = Path("source.parquet")
+    monkeypatch.setattr(bronze, "fetch_sinan", lambda disease, year: source_path)
+    monkeypatch.setattr(bronze, "write_bronze", lambda source, disease, year: Path("bronze.parquet"))
+
+    bronze.main()
+
+    assert capsys.readouterr().out.strip() == "bronze.parquet"
 
 
 def test_arquivo_invalido_nao_cria_lote(source):
