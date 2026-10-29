@@ -10,6 +10,14 @@ from app.pipeline.sinan.columns import (
     resolve_dedup_strategy,
     validate_keys,
 )
+from app.pipeline.sinan.columns import (
+    _clean_id,
+    _clean_municip,
+    _to_date,
+    _zfill_unidade,
+    _zfill_uf,
+)
+import pandas as pd
 
 
 def test_required_keys_inclui_campos_obrigatorios():
@@ -64,3 +72,39 @@ def test_catalog_nao_tem_chaves_duplicadas_por_source_column():
     # silencioso (ex.: dois --columns diferentes fariam a mesma coisa).
     source_columns = [spec.source_column for spec in CATALOG.values()]
     assert len(source_columns) == len(set(source_columns))
+
+
+def test_transformacoes_de_colunas_preservam_contratos_sinan():
+    dates = _to_date(pd.Series(["20260110", "2026-02-03", "invalido"]))
+    assert dates.iloc[0].year == 2026
+    assert dates.iloc[1].year == 2026
+    assert pd.isna(dates.iloc[2])
+    pd.testing.assert_series_equal(
+        _clean_municip(pd.Series(["330100.0", " 330240 ", None])),
+        pd.Series(["330100", "330240", pd.NA], dtype="string"),
+        check_names=False,
+    )
+    pd.testing.assert_series_equal(
+        _zfill_uf(pd.Series([33, "7.0", None])),
+        pd.Series(["33", "07", pd.NA], dtype="string"),
+        check_names=False,
+    )
+    pd.testing.assert_series_equal(
+        _zfill_unidade(pd.Series([729884, "12", None])),
+        pd.Series(["0729884", "0000012", pd.NA], dtype="string"),
+        check_names=False,
+    )
+    pd.testing.assert_series_equal(
+        _clean_id(pd.Series(["123.0", " 4 ", None])),
+        pd.Series(["123", " 4 ", pd.NA], dtype="string"),
+        check_names=False,
+    )
+
+
+def test_validate_keys_copia_lista_e_preserva_ordem():
+    selected = ["sexo", "evolucao"]
+
+    result = validate_keys(selected)
+    selected.append("idade_sinan")
+
+    assert result == ["sexo", "evolucao"]
