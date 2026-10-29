@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from app.pipeline.sinan.silver import transform
+from app.pipeline.sinan.silver import _quote_column, transform
 
 
 def _sinan_bruto(**overrides) -> pd.DataFrame:
@@ -68,3 +68,7 @@ def test_transform_remove_duplicata_exata_no_fallback():
     with pytest.warns(UserWarning):
         result = transform(df, year=2026)
     assert len(result) == 2  # as duas linhas de 2026 originais, sem a duplicata
+
+
+def test_quote_column_escapa_aspas_duplas_para_sql():
+    assert _quote_column('coluna"com"aspas') == '"coluna""com""aspas"'

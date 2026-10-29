@@ -72,6 +72,8 @@ def test_lotes_equivalem_ao_dataframe_com_dedup_global(raw, source, batch_size, 
     )
     assert metadata["columns"] == list(actual.columns)
     assert metadata["batch_id"] == "20261013T120000Z"
+    assert metadata["batches_processed"] == (len(raw) + batch_size - 1) // batch_size
+    assert "disease=deng" in str(result)
     assert not list(result.parent.glob(".silver-*"))
 
 
@@ -109,6 +111,8 @@ def test_saida_vazia_preserva_schema_e_contadores(raw, source, empty_source):
         assert output.schema_arrow.field("ID_MUNICIP").type == pa.string()
         assert "UF" in output.schema_arrow.names
         assert "NM_UF" in output.schema_arrow.names
+        pandas_metadata = json.loads(output.schema_arrow.metadata[b"pandas"])
+        assert pandas_metadata["index_columns"] == []
     metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
     assert metadata["rows"] == metadata["duplicate_rows"] == metadata["invalid_date_rows"] == 0
     assert metadata["source_rows"] == metadata["outside_year_rows"] == metadata["dropped_rows"] == len(raw)
@@ -172,6 +176,67 @@ def test_schema_incompleto_falha_antes_de_criar_lote(raw, source):
     with pytest.raises(ValueError, match="Colunas obrigatórias.*SEM_NOT"):
         silver.transform_file(source, "DENG", 2024)
     assert not silver.BASE_DIR.exists()
+
+
+def test_run_at_ausente_obtem_horario_em_utc(raw, source, monkeypatch):
+    raw.to_parquet(source, index=False)
+    observed = []
+
+    class FakeDateTime:
+        @classmethod
+        def now(cls, tz):
+            observed.append(tz)
+            return RUN_AT
+
+    monkeypatch.setattr(silver, "datetime", FakeDateTime)
+    silver.transform_file(source, "DENG", 2024, batch_size=2)
+    assert observed == [UTC]
+
+
+def test_cli_normaliza_argumentos_e_aplica_defaults(monkeypatch, capsys):
+    captured = {}
+
+    def fake_transform_file(source, disease, year, *, batch_size, memory_limit):
+        captured.update(
+            source=source,
+            disease=disease,
+            year=year,
+            batch_size=batch_size,
+            memory_limit=memory_limit,
+        )
+        return source
+
+    monkeypatch.setattr(silver, "transform_file", fake_transform_file)
+    monkeypatch.setattr("sys.argv", ["silver", "--source", "bronze.parquet", "--disease", "deng", "--year", "2024"])
+    silver.main()
+
+    expected_source = silver.Path("bronze.parquet")
+    assert captured == {
+        "source": expected_source,
+        "disease": "DENG",
+        "year": 2024,
+        "batch_size": silver.DEFAULT_BATCH_SIZE,
+        "memory_limit": silver.DEFAULT_MEMORY_LIMIT,
+    }
+    assert str(expected_source) in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "missing", ["--source", "--disease", "--year"]
+)
+def test_cli_rejeita_argumento_obrigatorio_ausente(missing, monkeypatch):
+    values = {
+        "--source": "bronze.parquet",
+        "--disease": "DENG",
+        "--year": "2024",
+    }
+    args = ["silver"]
+    for option, value in values.items():
+        if option != missing:
+            args.extend([option, value])
+    monkeypatch.setattr("sys.argv", args)
+    with pytest.raises(SystemExit):
+        silver.main()
 
 
 def test_cli_processa_silver_isolada(raw, source, monkeypatch, capsys):
