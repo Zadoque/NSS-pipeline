@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import tempfile
@@ -16,9 +17,17 @@ from .validation import validate_municipalities
 SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
+def catalog_content_sha256(records: list[Municipality] | tuple[Municipality, ...]) -> str:
+    values = [asdict(item) for item in sorted(records, key=lambda item: item.code7)]
+    payload = json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _validate_metadata(metadata: CatalogMetadata) -> None:
     if not metadata.catalog_id or not SHA256_PATTERN.fullmatch(metadata.sha256):
         raise ValueError("manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres")
+    if metadata.content_sha256 is not None and not SHA256_PATTERN.fullmatch(metadata.content_sha256):
+        raise ValueError("manifesto IBGE exige hash lógico hexadecimal de 64 caracteres")
     if metadata.validation_status != "VALIDATED":
         raise ValueError("release IBGE não está validada")
 
@@ -133,4 +142,8 @@ def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
             "reference_year dos municípios diverge do manifesto: "
             f"manifesto={metadata.reference_year}, registros={mismatched_years}"
         )
+    if metadata.content_sha256 is not None:
+        actual_content_sha256 = catalog_content_sha256(catalog.municipalities())
+        if actual_content_sha256 != metadata.content_sha256:
+            raise ValueError("hash lógico do catálogo diverge do manifesto")
     return catalog

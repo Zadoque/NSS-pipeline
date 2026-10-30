@@ -8,6 +8,7 @@ from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, Re
 from app.pipeline.reference.ibge.validation import inspect_municipalities, validate_municipalities
 from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
 from app.pipeline.reference.ibge.storage import (
+    catalog_content_sha256,
     load_active_catalog,
     promote_active,
     write_catalog,
@@ -247,6 +248,23 @@ def test_active_catalog_rejects_reference_year_mismatch(tmp_path):
     promote_active(tmp_path / "active.json", "test")
 
     with pytest.raises(ValueError, match="reference_year"):
+        load_active_catalog(tmp_path)
+
+
+def test_active_catalog_rejects_tampered_parquet_content_hash(tmp_path):
+    records = [municipality("3301009", "Campos")]
+    release = tmp_path / "releases" / "test"
+    write_catalog(release / "municipalities.parquet", records)
+    write_manifest(
+        release / "manifest.json",
+        replace(METADATA, content_sha256=catalog_content_sha256(records)),
+    )
+    promote_active(tmp_path / "active.json", "test")
+    frame = __import__("pandas").read_parquet(release / "municipalities.parquet")
+    frame.loc[0, "name"] = "Nome adulterado"
+    frame.to_parquet(release / "municipalities.parquet", index=False)
+
+    with pytest.raises(ValueError, match="hash lógico"):
         load_active_catalog(tmp_path)
 
 

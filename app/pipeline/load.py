@@ -332,25 +332,26 @@ def _register_catalog_release(conn: Connection, catalog) -> None:
     conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {
         "key": f"nss:ibge-release:{metadata.catalog_id}",
     })
-    existing_sha256 = conn.execute(text("""
-        SELECT sha256
+    existing = conn.execute(text("""
+        SELECT sha256, content_sha256
         FROM analytics.reference_catalog_releases
         WHERE catalog_id = :catalog_id
         FOR UPDATE
-    """), {"catalog_id": metadata.catalog_id}).scalar_one_or_none()
-    if existing_sha256 is not None:
-        if existing_sha256 != metadata.sha256:
+    """), {"catalog_id": metadata.catalog_id}).one_or_none()
+    if existing is not None:
+        if existing.sha256 != metadata.sha256 or existing.content_sha256 != metadata.content_sha256:
             raise ValueError(
                 "catalog_id IBGE imutável já associado a outro SHA-256"
             )
         return
     conn.execute(text("""
         INSERT INTO analytics.reference_catalog_releases
-            (catalog_id, sha256, reference_year, source_name, source_url, retrieved_at)
-        VALUES (:catalog_id, :sha256, :reference_year, :source_name, :source_url, :retrieved_at)
+            (catalog_id, sha256, content_sha256, reference_year, source_name, source_url, retrieved_at)
+        VALUES (:catalog_id, :sha256, :content_sha256, :reference_year, :source_name, :source_url, :retrieved_at)
     """), {
         "catalog_id": metadata.catalog_id,
         "sha256": metadata.sha256,
+        "content_sha256": metadata.content_sha256,
         "reference_year": metadata.reference_year,
         "source_name": metadata.source_name,
         "source_url": metadata.source_url,

@@ -16,7 +16,7 @@ from .catalog import InMemoryMunicipalityCatalog
 from .client import DEFAULT_MUNICIPALITIES_URL, IbgeLocalidadesClient
 from .dtb import parse_dtb_archive
 from .models import CatalogMetadata
-from .storage import promote_active, write_manifest, write_release
+from .storage import catalog_content_sha256, promote_active, write_manifest, write_release
 
 
 def download_dtb_archive(
@@ -108,6 +108,10 @@ def _reuse_immutable_release(release: Path, metadata: CatalogMetadata) -> Path |
         raise ValueError(
             f"catalog_id imutável já associado a outro SHA-256: {metadata.catalog_id}"
         )
+    if current.content_sha256 != metadata.content_sha256:
+        raise ValueError(
+            f"catalog_id imutável já associado a outro hash lógico: {metadata.catalog_id}"
+        )
     return catalog_path
 
 
@@ -157,6 +161,7 @@ def refresh_from_localidades(
         source_url=source_url,
         retrieved_at=datetime.now(UTC).isoformat(),
         sha256=_records_sha256(records),
+        content_sha256=catalog_content_sha256(records),
     )
     existing = _reuse_immutable_release(release, metadata)
     if existing is not None:
@@ -185,6 +190,7 @@ def refresh_from_dtb_archive(
         source_url=source_url,
         retrieved_at=datetime.now(UTC).isoformat(),
         sha256=sha256,
+        content_sha256=catalog_content_sha256(records),
     )
     existing = _reuse_immutable_release(release, metadata)
     if existing is not None:

@@ -100,7 +100,10 @@ def _publish(engine, gold_df, disease_codigo="DENG", batch_id="b1", **overrides)
 def _catalog():
     return InMemoryMunicipalityCatalog(
         [Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025)],
-        CatalogMetadata("ibge-dtb-test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "a" * 64),
+        CatalogMetadata(
+            "ibge-dtb-test", 2025, "fixture", "fixture://dtb",
+            "2026-01-01T00:00:00Z", "a" * 64, content_sha256="c" * 64,
+        ),
     )
 
 
@@ -130,7 +133,7 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
         row = conn.execute(text("""
             SELECT p.ibge_catalog_id, p.ibge_catalog_sha256, p.geographic_scope_type,
                    p.geographic_scope_sha256,
-                   r.reference_year
+                   r.reference_year, r.content_sha256
             FROM analytics.pipeline_publications p
             JOIN analytics.reference_catalog_releases r
               ON r.catalog_id = p.ibge_catalog_id
@@ -142,6 +145,7 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
     assert row.geographic_scope_sha256 is not None
     assert len(row.geographic_scope_sha256) == 64
     assert row.reference_year == 2025
+    assert row.content_sha256 == "c" * 64
 
 
 def test_publicacao_rejeita_reuso_de_catalog_id_com_hash_diferente(postgres_engine):

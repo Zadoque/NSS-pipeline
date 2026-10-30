@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from unittest.mock import call
 
 import pandas as pd
@@ -229,10 +230,13 @@ def test_upsert_release_requires_sha256(mocker):
 
 def test_register_release_serializa_por_catalog_id(mocker):
     conn = mocker.Mock()
-    conn.execute.return_value.scalar_one_or_none.return_value = "a" * 64
+    conn.execute.return_value.one_or_none.return_value = SimpleNamespace(
+        sha256="a" * 64, content_sha256=None,
+    )
     catalog = mocker.Mock()
     catalog.metadata.catalog_id = "ibge-dtb-2025"
     catalog.metadata.sha256 = "a" * 64
+    catalog.metadata.content_sha256 = None
 
     _register_catalog_release(conn, catalog)
 
