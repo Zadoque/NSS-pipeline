@@ -62,6 +62,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `13e14da` | Consistência das identidades de UF no catálogo |
 | `c61f36c` | Relatórios tipados de validação do catálogo |
 | `fc49691` | Ordenação determinística dos artefatos de release |
+| `6f51671` | Reutilização de sessão HTTP no escopo nacional CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -108,6 +109,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   mesclados no mesmo Parquet, com conflito de `event_id` rejeitado.
 - Paginação CNES configurável e validada, com `page_size` registrado no
   metadata do lote; o caminho legado mantém sua chamada compatível.
+- Sessão HTTP CNES reutilizada durante uma execução com catálogo, mantendo
+  retries e reduzindo o overhead de milhares de municípios no escopo nacional.
 - Fixação opcional de `cnes_batch_id` na Gold e nos executores SINAN, com
   rejeição de lote inexistente e registro do identificador no metadata.
 - Métricas Gold de origem, resolução, descarte, redução por agregação, códigos
@@ -149,6 +152,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 324 passed, 18 skipped, 25 warnings
 pytest -q com PostgreSQL  → 342 passed, 25 warnings
+national catalog smoke    → 5571 municípios, 27 UFs
 ```
 
 Os 342 testes foram executados com PostgreSQL real em container isolado,
@@ -185,6 +189,7 @@ Validações operacionais adicionais:
 
 ```text
 DTB 2025 em escopo BRAZIL: 5571 municípios, 27 UFs, 92 municípios no RJ
+Release Parquet temporária: 5571 municípios recarregados via active.json
 API CNES com limit=250: teto observado de 20 registros por resposta
 Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
 ```
@@ -228,8 +233,9 @@ completa. Permanecem necessários:
    o parser para esses eventos já existem, mas nenhum evento é inferido sem
    fonte declarada.
 3. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
-   `page_size` já está disponível, mas o limite operacional máximo da API ainda
-   precisa ser confirmado em homologação.
+   `page_size` e a reutilização de sessão já estão disponíveis, mas o limite
+   operacional máximo e a execução de todas as requisições ainda precisam ser
+   confirmados em homologação.
 4. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
    de produção; a configuração e as rodadas dirigidas são classificáveis, mas
    a meta de 95% ainda não foi alcançada.

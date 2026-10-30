@@ -237,10 +237,15 @@ parte do fluxo por doença/ano:
 docker compose run --rm --entrypoint python pipeline -m app.pipeline.run_cnes
 ```
 
-Isso itera sobre os municípios definidos em `MUNICIPIOS_RJ` (`gold.py`),
-busca os estabelecimentos de cada um via API, grava a Bronze por município e
-consolida tudo em uma única Silver de lookup
+Sem argumentos, isso usa o escopo RJ legado fornecido por `scope.py`; com uma
+release IBGE aprovada, o mesmo executor pode iterar por UFs, municípios ou pelo
+Brasil inteiro. Ele busca os estabelecimentos de cada município via API, grava
+a Bronze por município e consolida tudo em uma única Silver de lookup
 (`silver/cnes/batch_id={batch}/data.parquet`), sem duplicatas de `cd_unidade`.
+
+Em uma execução com catálogo, a sessão HTTP com retries é reutilizada entre os
+municípios, reduzindo o overhead do escopo nacional. O `page_size` continua
+registrado no metadata para permitir auditoria da execução.
 
 Essa ingestão é **manual e independente** do `run.py` principal — não há
 agendamento automático definido ainda (veja
@@ -337,7 +342,7 @@ confundida com um snapshot de serving.
 python -m app.pipeline.run_cnes
 ```
 
-Sem argumentos — usa `MUNICIPIOS_RJ` como escopo padrão. Ingere a Bronze por
+Sem argumentos — usa o escopo RJ legado como padrão. Ingere a Bronze por
 município e consolida a Silver de lookup do CNES. Com uma release IBGE local
 aprovada, o mesmo executor aceita seleção explícita:
 
