@@ -46,6 +46,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `a7ae190` | Documentação de lotes CNES fixados |
 | `1c3c99b` | Suporte a eventos administrativos explícitos |
 | `c0dc947` | Isolamento do fixture de metadata nos testes |
+| `7e0bd6c` | Inclusão do histórico IBGE no escopo do mutmut |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -123,14 +124,18 @@ toponímicas municipais de 2025: 136 eventos, abrangendo 124 geocódigos. Esses
 eventos preservam o mesmo geocódigo na origem e no destino; não representam
 sucessões territoriais.
 
-A configuração do `mutmut` foi corrigida para copiar os assets `territories/`.
-A rodada integral continua grande para o hardware local e foi interrompida após
-739 de 4.691 mutantes. As rodadas dirigidas foram executadas por grupo: a
-rodada consolidada anterior dos módulos IBGE registrou 615 mutantes, 284 mortos
-e 206 sobreviventes; as rodadas adicionais registraram 120 mortos, 57
-sobreviventes e 21 sem testes associados em `refresh`. A meta de 95% ainda não
-foi atingida. Os sobreviventes permanecem pendência de qualidade; não foram
-ocultados por alteração artificial do escopo.
+A configuração do `mutmut` foi corrigida para copiar os assets `territories/` e
+inclui agora o módulo de histórico administrativo. A rodada integral continua
+grande para o hardware local e foi interrompida após 739 de 4.691 mutantes na
+configuração anterior. Após a ampliação do escopo, uma execução foi
+interrompida após 349 de 5.337 mutantes. As rodadas dirigidas foram executadas
+por grupo: a rodada consolidada anterior dos módulos IBGE registrou 615
+mutantes, 284 mortos e 206 sobreviventes; as rodadas adicionais registraram
+120 mortos, 57 sobreviventes e 21 sem testes associados em `refresh`. A rodada
+parcial do histórico registrou 193 mortos, 156 sobreviventes e 77 não
+verificados antes da interrupção. A meta de 95% ainda não foi atingida. Os
+sobreviventes permanecem pendência de qualidade; não foram ocultados por
+alteração artificial do escopo.
 
 ## Compatibilidade preservada
 
