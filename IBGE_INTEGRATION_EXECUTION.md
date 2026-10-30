@@ -28,6 +28,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `0f1208d` | FK municipal canônica na Silver CNES e dimensão de unidades |
 | `a67f925` | Bloqueio de publicação para resoluções IBGE inválidas |
 | `1e34ae4` | Métricas Gold separadas para resolução, descarte e agregação |
+| `48720cf` | Promoção do histórico oficial de alterações toponímicas |
+| `c5d9964` | Paginação CNES configurável para execução nacional |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -71,10 +73,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 286 passed, 25 warnings
+pytest -q                  → 290 passed, 25 warnings
 ```
 
-Os 286 testes foram executados com PostgreSQL real em container isolado,
+Os 290 testes foram executados com PostgreSQL real em container isolado,
 incluindo 17 testes de integração e a migration `0006`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
@@ -85,6 +87,11 @@ Registros municipais: 5571
 UFs: 27
 Campos dos Goytacazes: 3301009 / 330100
 ```
+
+O parser histórico foi executado contra a planilha oficial de alterações
+toponímicas municipais de 2025: 136 eventos, abrangendo 124 geocódigos. Esses
+eventos preservam o mesmo geocódigo na origem e no destino; não representam
+sucessões territoriais.
 
 A rodada de `mutmut` foi iniciada, mas terminou sem relatório estatístico final
 ao encontrar uma falha durante a execução de um cenário mutado de CNES. O
