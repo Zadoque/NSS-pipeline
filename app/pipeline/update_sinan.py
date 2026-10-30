@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .run_load import run_load
+from .reference.ibge.models import MunicipalityCatalog
 from .sinan.source import RemoteSinanFile, download_remote_file, inspect_remote_file, is_changed
 
 TRACKED_DISEASES = ("DENG", "CHIK", "ZIKA", "FMAC", "TOXC", "TOXG")
@@ -46,9 +47,16 @@ def _save_manifest(path: Path, manifest: dict) -> None:
     temporary.replace(path)
 
 
-def update_one(remote: RemoteSinanFile, manifest: dict) -> str:
+def update_one(remote: RemoteSinanFile, manifest: dict, catalog: MunicipalityCatalog | None = None) -> str:
     key = f"{remote.disease}:{remote.year}"
+    catalog_id = catalog.metadata.catalog_id if catalog else None
+    catalog_sha256 = catalog.metadata.sha256 if catalog else None
     known_snapshot = manifest.get(key, {}).get("remoteSizeBytes") == remote.size_bytes
+    if catalog is not None:
+        known_snapshot = known_snapshot and (
+            manifest.get(key, {}).get("ibgeCatalogId") == catalog_id
+            and manifest.get(key, {}).get("ibgeCatalogSha256") == catalog_sha256
+        )
     if not is_changed(remote) and known_snapshot:
         manifest[key] = {
             "remotePath": remote.path,
@@ -57,11 +65,16 @@ def update_one(remote: RemoteSinanFile, manifest: dict) -> str:
             "localSizeBytes": remote.local_path.stat().st_size,
             "checkedAt": datetime.now(UTC).isoformat(),
             "status": "UNCHANGED",
+            "ibgeCatalogId": catalog_id,
+            "ibgeCatalogSha256": catalog_sha256,
         }
         return f"{key}: unchanged ({remote.size_bytes} bytes)"
 
     local_path = download_remote_file(remote)
-    run_load(remote.disease, remote.year, source_path=local_path, allow_empty=True)
+    load_options = {"source_path": local_path, "allow_empty": True}
+    if catalog is not None:
+        load_options["catalog"] = catalog
+    run_load(remote.disease, remote.year, **load_options)
     manifest[key] = {
         "remotePath": remote.path,
         "remoteSizeBytes": remote.size_bytes,
@@ -69,11 +82,16 @@ def update_one(remote: RemoteSinanFile, manifest: dict) -> str:
         "localSizeBytes": local_path.stat().st_size,
         "updatedAt": datetime.now(UTC).isoformat(),
         "status": "UPDATED",
+        "ibgeCatalogId": catalog_id,
+        "ibgeCatalogSha256": catalog_sha256,
     }
     return f"{key}: updated ({remote.size_bytes} bytes)"
 
 
-def update(diseases: list[str], years: list[int], manifest_path: Path = MANIFEST_PATH) -> list[str]:
+def update(
+    diseases: list[str], years: list[int], manifest_path: Path = MANIFEST_PATH,
+    catalog: MunicipalityCatalog | None = None,
+) -> list[str]:
     manifest = _load_manifest(manifest_path)
     results: list[str] = []
     for disease in diseases:
@@ -81,7 +99,7 @@ def update(diseases: list[str], years: list[int], manifest_path: Path = MANIFEST
             logger.info("Verificando SINAN disease=%s year=%s", disease, year)
             try:
                 remote = inspect_remote_file(disease, year)
-                result = update_one(remote, manifest)
+                result = update_one(remote, manifest, catalog=catalog)
                 _save_manifest(manifest_path, manifest)
             except Exception:
                 logger.error("Falha na atualização SINAN disease=%s year=%s", disease, year)
@@ -100,6 +118,7 @@ def main() -> None:
     )
     parser.add_argument("--years", help="Anos separados por vírgula; padrão: ano UTC atual")
     parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH)
+    parser.add_argument("--catalog-root", type=Path, help="Diretório local da release IBGE ativa")
     args = parser.parse_args()
     diseases = [value.strip().upper() for value in args.diseases.split(",") if value.strip()]
     unknown = sorted(set(diseases) - set(TRACKED_DISEASES))
@@ -108,7 +127,9 @@ def main() -> None:
     if not diseases:
         parser.error("Informe ao menos uma doença em --diseases")
     try:
-        update(diseases, _parse_years(args.years), args.manifest)
+        from .reference.ibge.storage import load_active_catalog
+        catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
+        update(diseases, _parse_years(args.years), args.manifest, catalog=catalog)
     except Exception:
         logger.exception("Falha no atualizador SINAN (manifesto=%s)", args.manifest)
         raise SystemExit(1) from None

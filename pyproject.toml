@@ -17,6 +17,13 @@ only_mutate = [
     "app/pipeline/esporo/silver.py",
     "app/pipeline/update_sinan.py",
     "app/pipeline/run_cnes.py",
+    "app/pipeline/run_load.py",
+    "app/pipeline/scope.py",
+    "app/pipeline/reference/ibge/catalog.py",
+    "app/pipeline/reference/ibge/client.py",
+    "app/pipeline/reference/ibge/storage.py",
+    "app/pipeline/reference/ibge/validation.py",
+    "app/pipeline/reference/ibge/refresh.py",
 ]
 
 # Testes de integração ficam fora da primeira rodada para evitar que cada
