@@ -41,8 +41,10 @@ def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypat
     monkeypatch.setattr(pipeline, "write_json_atomic", lambda data, path: published.update(metadata=data))
     monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
 
-    def fake_fetch(code7, *, limit, catalog, session):
+    def fake_fetch(code7, *, limit, catalog, session, timeout):
         calls.append((code7, session))
+        assert limit == 250
+        assert timeout == 60.0
         municipality = catalog.get_municipality(code7)
         return pd.DataFrame({
             "codigo_cnes": [f"{len(calls):07d}"],

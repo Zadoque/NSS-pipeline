@@ -71,6 +71,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `626a02f` | Atualização dos resultados de mutação do streaming |
 | `b567e8b` | Persistência do hash do escopo geográfico |
 | `d410b41` | Imutabilidade da release IBGE na publicação PostgreSQL |
+| `3d4ca99` | Timeout configurável para requisições CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -123,6 +124,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   metadata do lote; o caminho legado mantém sua chamada compatível.
 - Sessão HTTP CNES reutilizada durante uma execução com catálogo, mantendo
   retries e reduzindo o overhead de milhares de municípios no escopo nacional.
+- Timeout de requisição CNES configurável pela API e CLI, registrado no
+  metadata do lote para tornar falhas e homologações reproduzíveis.
 - Teste de homologação offline opt-in (`IBGE_DTB_ARCHIVE`) percorre os 5.571
   municípios da DTB, simula a resposta CNES e verifica resolução canônica,
   sessão compartilhada e metadata do lote sem depender da rede.
@@ -271,10 +274,10 @@ completa. Permanecem necessários:
    administrativa, além de definir a política temporal efetiva. O contrato e
    o parser para esses eventos já existem, mas nenhum evento é inferido sem
    fonte declarada.
-3. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
-   `page_size` e a reutilização de sessão já estão disponíveis, mas o limite
-   operacional máximo e a execução de todas as requisições ainda precisam ser
-   confirmados em homologação.
+3. Observar e calibrar a paginação CNES para todas as UFs; `page_size`, timeout
+   e reutilização de sessão já estão disponíveis, mas o limite operacional
+   máximo e a execução de todas as requisições ainda precisam ser confirmados
+   em homologação.
 4. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
    de produção; a configuração e as rodadas dirigidas são classificáveis, mas
    a meta de 95% ainda não foi alcançada.

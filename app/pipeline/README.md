@@ -348,7 +348,7 @@ aprovada, o mesmo executor aceita seleção explícita:
 
 ```bash
 python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
-  --ufs SP,MG --page-size 250
+  --ufs SP,MG --page-size 250 --request-timeout 30
 python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
   --municipios 3550308,3301009
 python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
@@ -357,7 +357,8 @@ python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
 
 `--municipios`, `--ufs` e `--all-brazil` são mutuamente exclusivos e exigem
 `--catalog-root`; sem eles, o default RJ permanece ativo. O `--page-size`
-controla o tamanho das páginas da API CNES e é registrado no metadata do lote.
+controla o tamanho das páginas e `--request-timeout` o limite de cada chamada
+à API CNES; ambos são registrados no metadata do lote.
 
 ### Executando camadas isoladamente
 
