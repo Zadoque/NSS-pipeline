@@ -29,16 +29,22 @@ def write_catalog(path: Path, records: list[Municipality] | tuple[Municipality, 
 def write_manifest(path: Path, metadata: CatalogMetadata) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
-    temporary.write_text(json.dumps(asdict(metadata), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    try:
+        temporary.write_text(json.dumps(asdict(metadata), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return path
 
 
 def promote_active(active_path: Path, catalog_id: str) -> Path:
     active_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = active_path.with_name(f".{active_path.name}.tmp")
-    temporary.write_text(json.dumps({"catalog_id": catalog_id}, indent=2) + "\n", encoding="utf-8")
-    os.replace(temporary, active_path)
+    try:
+        temporary.write_text(json.dumps({"catalog_id": catalog_id}, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary, active_path)
+    finally:
+        temporary.unlink(missing_ok=True)
     return active_path
 
 

@@ -6,7 +6,12 @@ from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog, Par
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
 from app.pipeline.reference.ibge.validation import validate_municipalities
 from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
-from app.pipeline.reference.ibge.storage import promote_active, write_catalog
+from app.pipeline.reference.ibge.storage import (
+    load_active_catalog,
+    promote_active,
+    write_catalog,
+    write_manifest,
+)
 from app.pipeline.reference.ibge.refresh import download_dtb_archive
 from app.pipeline.scope import legacy_rj_scope, select_scope
 
@@ -131,6 +136,36 @@ def test_storage_writes_parquet_and_active_pointer(tmp_path):
     assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
 
 
+def test_storage_round_trip_loads_active_catalog(tmp_path):
+    release = tmp_path / "releases" / "test"
+    write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])
+    write_manifest(release / "manifest.json", METADATA)
+    promote_active(tmp_path / "active.json", "test")
+
+    loaded = load_active_catalog(tmp_path)
+    assert loaded.metadata.catalog_id == "test"
+    assert loaded.get_municipality("3301009").name == "Campos"
+
+
+def test_load_active_catalog_rejects_pointer_without_release_id(tmp_path):
+    (tmp_path / "active.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(ValueError, match="catalog_id"):
+        load_active_catalog(tmp_path)
+
+
+def test_storage_atomic_metadata_cleanup_on_replace_failure(tmp_path, mocker):
+    manifest = tmp_path / "manifest.json"
+    mocker.patch("app.pipeline.reference.ibge.storage.os.replace", side_effect=OSError("disk full"))
+    with pytest.raises(OSError, match="disk full"):
+        write_manifest(manifest, METADATA)
+    assert not list(tmp_path.glob("*.tmp"))
+
+    active = tmp_path / "active.json"
+    with pytest.raises(OSError, match="disk full"):
+        promote_active(active, "test")
+    assert not list(tmp_path.glob("*.tmp"))
+
+
 def test_localidades_client_validates_and_parses_response(mocker):
     session = mocker.Mock()
     session.get.return_value.json.return_value = [{
@@ -140,7 +175,24 @@ def test_localidades_client_validates_and_parses_response(mocker):
     }]
     result = IbgeLocalidadesClient(session=session).fetch_municipalities()
     assert result[0].code7 == "3301009"
-    session.get.assert_called_once()
+    session.get.assert_called_once_with(
+        "https://servicodados.ibge.gov.br/api/v1/localidades/municipios", timeout=60
+    )
+
+
+@pytest.mark.parametrize("payload", [{}, [None]])
+def test_localidades_client_rejects_invalid_payload_or_record(mocker, payload):
+    session = mocker.Mock()
+    session.get.return_value.json.return_value = payload
+    with pytest.raises(ValueError, match="IBGE|registro"):
+        IbgeLocalidadesClient(session=session).fetch_municipalities()
+
+
+def test_localidades_client_rejects_missing_administrative_fields(mocker):
+    session = mocker.Mock()
+    session.get.return_value.json.return_value = [{"id": 3301009, "nome": "Campos"}]
+    with pytest.raises(ValueError, match="administrativos"):
+        IbgeLocalidadesClient(session=session).fetch_municipalities()
 
 
 def test_download_dtb_archive_promotes_only_matching_hash(tmp_path, mocker):
