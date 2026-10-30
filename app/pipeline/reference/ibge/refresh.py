@@ -84,6 +84,25 @@ def _records_sha256(records) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def _reuse_immutable_release(release: Path, metadata: CatalogMetadata) -> Path | None:
+    """Reutiliza uma release idêntica ou rejeita colisão de identidade."""
+    if not release.exists():
+        return None
+    manifest_path = release / "manifest.json"
+    catalog_path = release / "municipalities.parquet"
+    if not manifest_path.exists() or not catalog_path.exists():
+        raise ValueError(f"release incompleta não pode ser reutilizada: {release.name}")
+    try:
+        current = CatalogMetadata(**json.loads(manifest_path.read_text(encoding="utf-8")))
+    except (json.JSONDecodeError, TypeError) as exc:
+        raise ValueError(f"manifesto inválido na release existente: {release.name}") from exc
+    if current.sha256 != metadata.sha256:
+        raise ValueError(
+            f"catalog_id imutável já associado a outro SHA-256: {metadata.catalog_id}"
+        )
+    return catalog_path
+
+
 def refresh_from_localidades(
     root: Path,
     *,
@@ -94,7 +113,6 @@ def refresh_from_localidades(
 ) -> Path:
     records = (client or IbgeLocalidadesClient()).fetch_municipalities()
     release = root / "releases" / catalog_id
-    parquet = write_catalog(release / "municipalities.parquet", records)
     metadata = CatalogMetadata(
         catalog_id=catalog_id,
         reference_year=reference_year,
@@ -103,6 +121,11 @@ def refresh_from_localidades(
         retrieved_at=datetime.now(UTC).isoformat(),
         sha256=_records_sha256(records),
     )
+    existing = _reuse_immutable_release(release, metadata)
+    if existing is not None:
+        promote_active(root / "active.json", catalog_id)
+        return existing
+    parquet = write_catalog(release / "municipalities.parquet", records)
     write_manifest(release / "manifest.json", metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet
@@ -118,7 +141,6 @@ def refresh_from_dtb_archive(
 ) -> Path:
     records = parse_dtb_archive(archive, reference_year)
     release = root / "releases" / catalog_id
-    parquet = write_catalog(release / "municipalities.parquet", records)
     sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
     metadata = CatalogMetadata(
         catalog_id=catalog_id,
@@ -128,6 +150,11 @@ def refresh_from_dtb_archive(
         retrieved_at=datetime.now(UTC).isoformat(),
         sha256=sha256,
     )
+    existing = _reuse_immutable_release(release, metadata)
+    if existing is not None:
+        promote_active(root / "active.json", catalog_id)
+        return existing
+    parquet = write_catalog(release / "municipalities.parquet", records)
     write_manifest(release / "manifest.json", metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet
