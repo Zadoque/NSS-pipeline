@@ -75,6 +75,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `79fb79d` | Homologação do timeout no escopo nacional CNES |
 | `b61e7e3` | Serialização concorrente do registro de releases IBGE |
 | `dc1da0b` | Verificação do hash lógico do conteúdo do catálogo |
+| `37bc89d` | Rejeição de municípios duplicados no escopo explícito |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -158,6 +159,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   tanto no armazenamento local quanto na publicação PostgreSQL.
 - O carregador rejeita registros cujo `reference_year` diverge do manifesto e
   o refresh não reutiliza releases com identidade ou validação inconsistentes.
+- A seleção explícita de municípios rejeita códigos repetidos, evitando que a
+  contagem declarada do escopo divirja do conjunto efetivamente processado.
 - O contrato de download fixa por teste o timeout padrão de 120 segundos,
   evitando regressões silenciosas no controle de rede da atualização.
 - `run_load.py` e `run_cnes.py` não dependem mais diretamente de
@@ -181,16 +184,16 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 ```text
 nix flake check --no-build  → aprovado
 pytest -q                  → 335 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 344 passed, 25 warnings
+pytest -q com PostgreSQL  → 354 passed, 1 skipped, 25 warnings
 pytest -q nacional + PostgreSQL → 355 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 342 testes foram executados com PostgreSQL real em container isolado,
-incluindo 18 testes de integração e as migrations até `0007`. Sem as variáveis
-de conexão, esses 18 testes são pulados explicitamente; isso não altera os
+Os 354 testes foram executados com PostgreSQL real em container isolado,
+incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
+de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
