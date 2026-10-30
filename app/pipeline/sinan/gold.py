@@ -95,6 +95,7 @@ def aggregate(
     selected_columns: list[str] | None = None,
     municipios: dict[str, str] | MunicipalityCatalog | None = None,
     cnes_lookup: pd.DataFrame | None = None,
+    catalog: MunicipalityCatalog | None = None,
 ) -> pd.DataFrame:
     selected_columns = validate_keys(selected_columns)
     municipios = municipios if municipios is not None else MUNICIPIOS_RJ
@@ -115,6 +116,10 @@ def aggregate(
     work = df.copy()
     work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
     work = work[work["cd_mun"].isin(municipios)]
+    if catalog is not None and not work.empty:
+        canonical = work["cd_mun"].map(catalog.get_municipality)
+        work["_ibge_uf_code"] = canonical.map(lambda item: item.uf_code if item else pd.NA)
+        work["_ibge_uf_name"] = canonical.map(lambda item: item.uf_name if item else pd.NA)
 
     territory_cols = [
         "notification_district_id",
@@ -150,7 +155,13 @@ def aggregate(
 
     work["year"] = work["DT_NOTIFIC"].dt.year.astype("int64")
     work["month"] = work["DT_NOTIFIC"].dt.month.astype("int64")
-    work["cd_uf"] = work["SG_UF_NOT"].astype("string").str.zfill(2)
+    work["source_cd_uf"] = work["SG_UF_NOT"].astype("string").str.zfill(2)
+    work["cd_uf"] = (
+        work["_ibge_uf_code"] if catalog is not None else work["source_cd_uf"]
+    ).astype("string")
+    work["NM_UF"] = (
+        work["_ibge_uf_name"] if catalog is not None else work["NM_UF"]
+    )
     work["nm_mun"] = work["cd_mun"].map(municipios)
     work["sex"] = work["CS_SEXO"].astype("string")
     work["birth_year"] = pd.to_numeric(work["ANO_NASC"], errors="coerce").astype("Int64")
@@ -160,7 +171,10 @@ def aggregate(
     )
     work["not_week"] = pd.to_numeric(work["SEM_NOT"], errors="coerce").astype("Int64")
 
-    group_cols = ["year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex", "age_band", "birth_year", "not_week", *extra_group_cols, *territory_cols]
+    group_cols = [
+        "year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex",
+        "age_band", "birth_year", "not_week", *extra_group_cols, *territory_cols,
+    ]
 
     result = (
         work.groupby(group_cols, dropna=False, observed=True)
@@ -259,6 +273,7 @@ def aggregate_file(
     run_at: datetime | None = None,
     target: GoldTarget = "ad_hoc",
     *,
+    catalog: MunicipalityCatalog | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> Path:
     if batch_size <= 0:
@@ -282,12 +297,12 @@ def aggregate_file(
     with pq.ParquetFile(source) as original:
         schema = _gold_input_schema(original.schema_arrow, selected_columns)
         empty = pa.Table.from_batches([], schema=schema).to_pandas()
-        result = aggregate(empty, disease, selected_columns, municipios, cnes_lookup=cnes_lookup)
+        result = aggregate(empty, disease, selected_columns, municipios, cnes_lookup=cnes_lookup, catalog=catalog)
         len_before = original.metadata.num_rows
         for batch in original.iter_batches(batch_size=batch_size, columns=schema.names):
             partial = aggregate(
                 batch.to_pandas(), disease, selected_columns, municipios,
-                cnes_lookup=cnes_lookup,
+                cnes_lookup=cnes_lookup, catalog=catalog,
             )
             batches += 1
             if not partial.empty:

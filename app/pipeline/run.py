@@ -41,7 +41,7 @@ def run(
     else:
         municipios = None
     gold = aggregate_file(
-        silver, disease, year, selected_columns, municipios=municipios,
+        silver, disease, year, selected_columns, municipios=municipios, catalog=catalog,
         run_at=run_at, target="ad_hoc",
     )
 

@@ -53,7 +53,7 @@ def run_load(
 
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
-        municipios=municipios, run_at=run_at, target="serving",
+        municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
     )
 
     gold_df = pd.read_parquet(gold_path)

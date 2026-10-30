@@ -84,6 +84,22 @@ def test_aggregate_mapeia_codigo_sinan_para_ibge_canonico(sinan_code, ibge_code)
     assert set(result["cd_mun"]) == {ibge_code}
 
 
+def test_aggregate_usa_uf_canonica_do_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(ID_MUNICIP=["330100"] * 3, SG_UF_NOT=["35"] * 3, NM_UF=["São Paulo"] * 3),
+        "DENG", municipios=catalog, catalog=catalog,
+    )
+    assert result.loc[0, "cd_uf"] == "33"
+    assert result.loc[0, "nm_uf"] == "Rio de Janeiro"
+
+
 def test_aggregate_inclui_disease_como_primeira_coluna():
     df = _silver_minima()
     result = aggregate(df, disease="deng", municipios=MUNICIPIOS_TESTE)
