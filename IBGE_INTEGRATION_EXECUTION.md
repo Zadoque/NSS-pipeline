@@ -49,6 +49,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `7e0bd6c` | Inclusão do histórico IBGE no escopo do mutmut |
 | `7e3be14` | Paginação CNES avança pelo tamanho efetivamente retornado |
 | `8e73dc0` | Preservação de identidades imutáveis de releases |
+| `aabe4df` | Merge idempotente de eventos históricos promovidos |
+| `6486a09` | Materialização de UFs e crosswalk nas releases |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -88,6 +90,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Parser e promoção de eventos administrativos declarados para criação,
   extinção, sucessão, fusão e desmembramento, exigindo códigos de origem e
   destino explícitos quando aplicáveis.
+- Promoção histórica idempotente: eventos toponímicos e administrativos são
+  mesclados no mesmo Parquet, com conflito de `event_id` rejeitado.
 - Paginação CNES configurável e validada, com `page_size` registrado no
   metadata do lote; o caminho legado mantém sua chamada compatível.
 - Fixação opcional de `cnes_batch_id` na Gold e nos executores SINAN, com
@@ -97,6 +101,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   PostgreSQL pela migration `0007`.
 - Carregamento da release ativa protegido contra ponteiro inválido, manifesto
   incompatível, release não validada e traversal de caminho.
+- Cada nova release materializa `municipalities.parquet`, `ufs.parquet` e
+  `code_crosswalk.parquet`; leitores antigos continuam usando o catálogo
+  municipal canônico.
 - Atualização protegida contra reutilização de `catalog_id` com SHA-256
   diferente; a candidata é rejeitada antes de sobrescrever o artefato ou o
   ponteiro ativo.
@@ -109,10 +116,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 330 passed, 25 warnings
+pytest -q                  → 332 passed, 25 warnings
 ```
 
-Os 330 testes foram executados com PostgreSQL real em container isolado,
+Os 332 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
