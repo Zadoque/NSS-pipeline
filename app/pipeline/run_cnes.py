@@ -53,6 +53,8 @@ def run_cnes(
             checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ValueError(f"checkpoint CNES inválido: {checkpoint_path}") from exc
+        if not isinstance(checkpoint, dict):
+            raise ValueError(f"checkpoint CNES inválido: {checkpoint_path}")
         expected = {
             "municipios": list(municipios),
             "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
@@ -70,6 +72,8 @@ def run_cnes(
     else:
         run_at = datetime.now(UTC)
     completed = (checkpoint or {}).get("completed", {})
+    if not isinstance(completed, dict):
+        raise ValueError("checkpoint CNES com completed inválido")
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []

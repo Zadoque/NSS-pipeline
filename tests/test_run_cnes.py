@@ -185,6 +185,24 @@ def test_run_cnes_checkpoint_rejects_changed_parameters(tmp_path, monkeypatch):
         )
 
 
+def test_run_cnes_checkpoint_rejects_invalid_completed_shape(tmp_path):
+    checkpoint = tmp_path / "checkpoint.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": [],
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="completed inválido"):
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+
+
 def test_run_cnes_checkpoint_rejects_tampered_bronze(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
     from app.pipeline.cnes import bronze as bronze_module
