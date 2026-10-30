@@ -1,0 +1,65 @@
+from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
+from app.pipeline.reference.ibge.validation import validate_municipalities
+from app.pipeline.scope import legacy_rj_scope, select_scope
+
+
+METADATA = CatalogMetadata("test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "hash")
+
+
+def municipality(code7, name, uf_code="33", uf_abbr="RJ"):
+    return Municipality(code7, code7[:6], name, uf_code, uf_abbr, uf_abbr, 2025)
+
+
+def catalog():
+    return InMemoryMunicipalityCatalog(
+        [
+            municipality("3301009", "Campos"),
+            municipality("3305000", "São João da Barra"),
+            municipality("3302205", "Itaperuna"),
+            municipality("3302403", "Macaé"),
+            municipality("3550308", "São Paulo", "35", "SP"),
+        ],
+        METADATA,
+    )
+
+
+def test_resolve_codes_and_rejects_invalid_code():
+    value = catalog()
+    assert value.resolve("330100").municipality.code7 == "3301009"
+    assert value.resolve("3301009").status is ResolutionStatus.VALID
+    assert value.resolve("0330100").municipality.code7 == "3301009"
+    assert value.resolve("3301008").status is ResolutionStatus.UNKNOWN_CODE
+    assert value.resolve("Bom Jesus").status is ResolutionStatus.INVALID_FORMAT
+
+
+def test_resolve_detects_uf_mismatch():
+    result = catalog().resolve("330100", declared_uf="35")
+    assert result.status is ResolutionStatus.UF_MISMATCH
+
+
+def test_legacy_scope_preserves_four_rj_municipalities():
+    scope = legacy_rj_scope(catalog())
+    assert scope.codes7 == {"3301009", "3305000", "3302205", "3302403"}
+
+
+def test_scope_can_select_uf_or_municipalities_but_not_both():
+    value = catalog()
+    assert select_scope(value, ufs=["SP"]).codes7 == {"3550308"}
+    assert select_scope(value, municipalities=["330100"]).codes7 == {"3301009"}
+    try:
+        select_scope(value, ufs=["RJ"], all_brazil=True)
+    except ValueError as error:
+        assert "apenas uma" in str(error)
+    else:
+        raise AssertionError("escopo ambíguo deveria falhar")
+
+
+def test_catalog_rejects_ambiguous_crosswalk():
+    records = [municipality("3301009", "Campos"), municipality("3301008", "Outro")]
+    try:
+        validate_municipalities(records)
+    except ValueError as error:
+        assert "code6" in str(error)
+    else:
+        raise AssertionError("crosswalk ambíguo deveria falhar")

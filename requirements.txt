@@ -1,7 +1,7 @@
 pandas>=2.0
 pyarrow
 duckdb>=1.5,<2
-PySUS
+PySUS>=2.11.7
 requests
 shapely
 alembic
