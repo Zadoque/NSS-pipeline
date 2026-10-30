@@ -91,7 +91,9 @@ def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monke
         CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
     )
     calls = []
+    request_session = mocker.Mock()
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "session_with_retries", lambda: request_session)
     monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
     monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
     monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
@@ -104,7 +106,7 @@ def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monke
     pipeline.run_cnes(catalog=catalog, page_size=250)
 
     assert calls == [
-        (code, {"limit": 250, "catalog": catalog})
+        (code, {"limit": 250, "catalog": catalog, "session": request_session})
         for code in ("3301009", "3305000", "3302205", "3302403")
     ]
 

@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from .atomic_io import write_json_atomic, write_parquet_atomic
-from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
+from .cnes.bronze import fetch_estabelecimentos, session_with_retries, write_bronze_cnes
 from .cnes.silver import transform_cnes
 from .territory_mapping import enrich_cnes_territories
 from .territory_assets import asset_directory
@@ -28,6 +28,7 @@ def run_cnes(
     catalog: MunicipalityCatalog | None = None,
     geographic_scope: GeographicScope | None = None,
     page_size: int = DEFAULT_CNES_PAGE_SIZE,
+    session=None,
 ) -> Path:
     if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
         raise ValueError("page_size CNES deve ser um inteiro maior que zero")
@@ -43,30 +44,41 @@ def run_cnes(
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []
-    for cod_municipio in municipios:
-        logger.info("Processando CNES municipio=%s", cod_municipio)
-        bronze_df = (
-            fetch_estabelecimentos(cod_municipio, limit=page_size, catalog=catalog)
-            if catalog is not None
-            else fetch_estabelecimentos(cod_municipio)
-        )
-        if bronze_df.empty:
-            raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
+    request_session = None
+    owns_session = False
+    if catalog is not None:
+        request_session = session or session_with_retries()
+        owns_session = session is None
+    try:
+        for cod_municipio in municipios:
+            logger.info("Processando CNES municipio=%s", cod_municipio)
+            bronze_df = (
+                fetch_estabelecimentos(
+                    cod_municipio, limit=page_size, catalog=catalog, session=request_session,
+                )
+                if catalog is not None
+                else fetch_estabelecimentos(cod_municipio)
+            )
+            if bronze_df.empty:
+                raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
 
-        write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
-        silver = (
-            transform_cnes(bronze_df, catalog=catalog)
-            if catalog is not None
-            else transform_cnes(bronze_df)
-        )
-        territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
-        if territory_assets is not None:
-            silver = enrich_cnes_territories(silver, territory_assets)
-        else:
-            silver["notification_district_id"] = pd.NA
-            silver["notification_neighborhood_id"] = pd.NA
-            silver["notification_territory_status"] = "UNAVAILABLE"
-        silvers.append(silver)
+            write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
+            silver = (
+                transform_cnes(bronze_df, catalog=catalog)
+                if catalog is not None
+                else transform_cnes(bronze_df)
+            )
+            territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
+            if territory_assets is not None:
+                silver = enrich_cnes_territories(silver, territory_assets)
+            else:
+                silver["notification_district_id"] = pd.NA
+                silver["notification_neighborhood_id"] = pd.NA
+                silver["notification_territory_status"] = "UNAVAILABLE"
+            silvers.append(silver)
+    finally:
+        if owns_session and request_session is not None:
+            request_session.close()
 
     consolidated = pd.concat(silvers, ignore_index=True).drop_duplicates(
         subset=["cd_unidade"], keep="last"

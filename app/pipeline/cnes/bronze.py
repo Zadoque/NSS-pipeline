@@ -29,11 +29,17 @@ def _session_with_retries() -> requests.Session:
     return session
 
 
+def session_with_retries() -> requests.Session:
+    """Cria uma sessão CNES reutilizável por uma execução do pipeline."""
+    return _session_with_retries()
+
+
 def fetch_estabelecimentos(
     codigo_municipio_7: str,
     limit: int = 10,
     *,
     catalog: MunicipalityCatalog | None = None,
+    session: requests.Session | None = None,
 ) -> pd.DataFrame:
     if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
         raise ValueError("limit CNES deve ser um inteiro maior que zero")
@@ -47,26 +53,29 @@ def fetch_estabelecimentos(
         if not isinstance(codigo_municipio_7, str) or not codigo_municipio_7.isdigit() or len(codigo_municipio_7) != 7:
             raise ValueError("CNES exige código municipal IBGE de 7 dígitos")
         codigo_municipio_6 = codigo_municipio_7[:6]
-    session = _session_with_retries()
+    client = session or _session_with_retries()
+    owns_session = session is None
     registros = []
     offset = 0
-
-    while True:
-        resp = session.get(
-            API_BASE,
-            params={"codigo_municipio": codigo_municipio_6, "limit": limit, "offset": offset},
-            timeout=60,
-        )
-        resp.raise_for_status()
-        pagina = resp.json().get("estabelecimentos", [])
-        if not pagina:
-            break
-        registros.extend(pagina)
-        # A API pode aplicar um teto menor que ``limit`` sem sinalizá-lo.
-        # Avançar pelo tamanho efetivo evita saltar registros nesse caso.
-        offset += len(pagina)
-
-    return pd.DataFrame(registros)
+    try:
+        while True:
+            resp = client.get(
+                API_BASE,
+                params={"codigo_municipio": codigo_municipio_6, "limit": limit, "offset": offset},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            pagina = resp.json().get("estabelecimentos", [])
+            if not pagina:
+                break
+            registros.extend(pagina)
+            # A API pode aplicar um teto menor que ``limit`` sem sinalizá-lo.
+            # Avançar pelo tamanho efetivo evita saltar registros nesse caso.
+            offset += len(pagina)
+        return pd.DataFrame(registros)
+    finally:
+        if owns_session:
+            client.close()
 
 
 def write_bronze_cnes(df: pd.DataFrame, municipio: str, run_at: datetime | None = None) -> Path:
