@@ -58,6 +58,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `bf2473d` | Derivação segura de diferenças anuais da DTB |
 | `159e97e` | Consistência entre ano dos registros e manifesto |
 | `696e19d` | Verificação completa antes do reuso de releases |
+| `4f97372` | Centralização do recorte RJ legado em `scope.py` |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -122,6 +123,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   tanto no armazenamento local quanto na publicação PostgreSQL.
 - O carregador rejeita registros cujo `reference_year` diverge do manifesto e
   o refresh não reutiliza releases com identidade ou validação inconsistentes.
+- `run_load.py` e `run_cnes.py` não dependem mais diretamente de
+  `MUNICIPIOS_RJ`; o recorte legado é fornecido por `scope.py`, mantendo o
+  alias público para compatibilidade.
 - Atualização protegida contra reutilização de `catalog_id` com SHA-256
   diferente; a candidata é rejeitada antes de sobrescrever o artefato ou o
   ponteiro ativo.
@@ -134,10 +138,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 337 passed, 25 warnings
+pytest -q                  → 338 passed, 25 warnings
 ```
 
-Os 337 testes foram executados com PostgreSQL real em container isolado,
+Os 338 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
