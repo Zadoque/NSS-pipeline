@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog, ParquetMunicipalityCatalog
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
 from app.pipeline.reference.ibge.validation import validate_municipalities
 from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
@@ -50,6 +50,14 @@ def test_resolve_detects_uf_mismatch():
 def test_resolve_rejects_missing_or_malformed_codes(value):
     result = catalog().resolve(value)
     assert result.status is ResolutionStatus.INVALID_FORMAT
+    assert result.reason in {"código não numérico", "formato esperado: 6 ou 7 dígitos"}
+
+
+def test_resolve_none_keeps_empty_original_and_format_reason():
+    result = catalog().resolve(None)
+    assert result.original_code == ""
+    assert result.input_format is None
+    assert result.reason == "código não numérico"
 
 
 def test_resolve_distinguishes_unknown_code_and_preserves_input_context():
@@ -117,6 +125,8 @@ def test_validation_rejects_invalid_canonical_attributes(record, message):
 def test_storage_writes_parquet_and_active_pointer(tmp_path):
     destination = write_catalog(tmp_path / "municipalities.parquet", [municipality("3301009", "Campos")])
     assert destination.exists()
+    loaded = ParquetMunicipalityCatalog(destination, METADATA)
+    assert loaded.get_municipality("3301009").name == "Campos"
     promote_active(tmp_path / "active.json", "test")
     assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
 
