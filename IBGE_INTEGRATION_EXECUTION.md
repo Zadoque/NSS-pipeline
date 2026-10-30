@@ -74,6 +74,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `3d4ca99` | Timeout configurável para requisições CNES |
 | `79fb79d` | Homologação do timeout no escopo nacional CNES |
 | `b61e7e3` | Serialização concorrente do registro de releases IBGE |
+| `dc1da0b` | Verificação do hash lógico do conteúdo do catálogo |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -104,6 +105,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   publicação PostgreSQL.
 - Migration `0008` e metadata Gold para registrar o `scope_sha256` determinístico
   dos códigos municipais publicados, além do tipo e da contagem do escopo.
+- Migration `0009` registra o hash lógico canônico dos registros municipais;
+  o carregamento ativo rejeita Parquet adulterado mesmo sem o ZIP de origem.
 - Publicação PostgreSQL rejeita a reutilização de `catalog_id` com SHA-256
   diferente, mantendo o registro de release imutável sob lock transacional.
 - O registro da release usa advisory lock por `catalog_id`, evitando corrida
@@ -177,9 +180,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 333 passed, 19 skipped, 25 warnings
+pytest -q                  → 335 passed, 20 skipped, 25 warnings
 pytest -q com PostgreSQL  → 344 passed, 25 warnings
-pytest -q nacional + PostgreSQL → 354 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 355 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
