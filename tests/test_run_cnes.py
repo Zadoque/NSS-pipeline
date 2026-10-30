@@ -183,3 +183,30 @@ def test_run_cnes_checkpoint_rejects_changed_parameters(tmp_path, monkeypatch):
         pipeline.run_cnes(
             {"3301009": "Campos"}, checkpoint_path=checkpoint, page_size=250,
         )
+
+
+def test_run_cnes_checkpoint_rejects_tampered_bronze(tmp_path, monkeypatch):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    checkpoint = tmp_path / "cnes-checkpoint.json"
+    def fetch(code):
+        if code == "3302403":
+            raise RuntimeError("parada")
+        return _bronze(code)
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    with pytest.raises(RuntimeError, match="parada"):
+        pipeline.run_cnes(
+            {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+        )
+    bronze_path = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))["completed"]["3301009"]["bronze_path"]
+    with open(bronze_path, "ab") as handle:
+        handle.write(b"tampered")
+    with pytest.raises(ValueError, match="adulterada"):
+        pipeline.run_cnes(
+            {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+        )

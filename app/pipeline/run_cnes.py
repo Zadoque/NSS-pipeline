@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -85,6 +86,10 @@ def run_cnes(
                 bronze_path = Path(checkpoint_entry.get("bronze_path", ""))
                 if not bronze_path.is_file():
                     raise ValueError(f"checkpoint CNES aponta para Bronze ausente: {bronze_path}")
+                expected_sha256 = checkpoint_entry.get("bronze_sha256")
+                actual_sha256 = hashlib.sha256(bronze_path.read_bytes()).hexdigest()
+                if expected_sha256 != actual_sha256:
+                    raise ValueError(f"Bronze CNES adulterada ou incompatível: {bronze_path}")
                 bronze_df = pd.read_parquet(bronze_path)
             else:
                 bronze_df = (
@@ -107,6 +112,7 @@ def run_cnes(
                 completed[cod_municipio] = {
                     "bronze_path": str(bronze_path),
                     "rows": len(bronze_df),
+                    "bronze_sha256": hashlib.sha256(bronze_path.read_bytes()).hexdigest(),
                 }
                 write_json_atomic(
                     {
