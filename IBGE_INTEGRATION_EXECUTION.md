@@ -25,6 +25,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `820a135` | Histórico territorial e classificação do Distrito Federal |
 | `5f2fea3` | Teste de linhagem IBGE na publicação PostgreSQL |
 | `d8414c1` | Hash lógico para releases obtidas pela API |
+| `0f1208d` | FK municipal canônica na Silver CNES e dimensão de unidades |
+| `a67f925` | Bloqueio de publicação para resoluções IBGE inválidas |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -45,6 +47,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
 - Validação do código municipal antes da consulta CNES e derivação explícita
   do código de seis dígitos.
+- Persistência de `cd_mun` canônico na Silver CNES e na dimensão de unidades,
+  quando o catálogo IBGE está disponível.
 - Registro configurável de disponibilidade de malhas territoriais; municípios
   sem asset permanecem `UNAVAILABLE`.
 - Migration `0005` para registrar release IBGE, hash e tipo de escopo na
@@ -52,6 +56,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Manifesto SINAN sensível à mudança de `ibgeCatalogId` e
   `ibgeCatalogSha256`.
 - Módulos IBGE incluídos no escopo do `mutmut`.
+- Publicação SINAN bloqueada quando a Gold reporta código municipal inválido ou
+  divergência entre UF declarada e UF canônica; municípios válidos fora do
+  escopo continuam sendo contabilizados separadamente.
 - `flake.nix` e `flake.lock` com Python 3.12, PostgreSQL, Docker e ambiente
   virtual reproduzível.
 
@@ -59,10 +66,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 284 passed, 25 warnings
+pytest -q                  → 286 passed, 25 warnings
 ```
 
-Os 284 testes foram executados com PostgreSQL real em container isolado,
+Os 286 testes foram executados com PostgreSQL real em container isolado,
 incluindo 17 testes de integração e a migration `0006`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
@@ -96,8 +103,8 @@ completa. Permanecem necessários:
    representativa, não o ZIP integral.
 2. Alimentar a tabela histórica com os eventos oficiais de alterações
    administrativas e definir a política temporal efetiva.
-3. Bloqueio operacional explícito para códigos inválidos e divergentes de UF
-   na Gold, além do `dropped_rows` legado.
+3. Separar definitivamente `dropped_rows` em métricas de redução por agregação
+   e descarte efetivo, preservando o campo legado durante a migração.
 4. Paginação e carga CNES dimensionadas e observadas para todas as UFs.
 5. Investigação dos mutantes e obtenção de uma taxa de mutação válida; a
    execução atual foi inconclusiva no runner após uma falha em cenário mutado.
