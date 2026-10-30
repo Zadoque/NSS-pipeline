@@ -55,6 +55,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `dea9ad4` | Documentação do refresh controlado |
 | `5e8e78a` | Alinhamento temporal dos registros da API |
 | `23cbd2e` | Validação de SHA-256 nos manifestos e publicações |
+| `bf2473d` | Derivação segura de diferenças anuais da DTB |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -94,6 +95,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Parser e promoção de eventos administrativos declarados para criação,
   extinção, sucessão, fusão e desmembramento, exigindo códigos de origem e
   destino explícitos quando aplicáveis.
+- Comparação entre edições anuais da DTB para registrar somente criação,
+  extinção e mudança de nome observáveis; sucessões entre códigos distintos
+  continuam exigindo fonte histórica explícita.
 - Promoção histórica idempotente: eventos toponímicos e administrativos são
   mesclados no mesmo Parquet, com conflito de `event_id` rejeitado.
 - Paginação CNES configurável e validada, com `page_size` registrado no
@@ -126,10 +130,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 334 passed, 25 warnings
+pytest -q                  → 335 passed, 25 warnings
 ```
 
-Os 334 testes foram executados com PostgreSQL real em container isolado,
+Os 335 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
