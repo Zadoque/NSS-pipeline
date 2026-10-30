@@ -16,6 +16,7 @@ from app.pipeline.reference.ibge.storage import (
 )
 from app.pipeline.reference.ibge.refresh import (
     download_dtb_archive,
+    refresh_from_dtb_url,
     refresh_from_dtb_archive,
     refresh_from_localidades,
     main as refresh_main,
@@ -317,6 +318,7 @@ def test_download_dtb_archive_promotes_only_matching_hash(tmp_path, mocker):
     )
 
     assert result.read_bytes() == b"DTB-2025"
+    assert result.parent == tmp_path / "raw" / "dtb_2025"
     session.get.assert_called_once_with(
         "https://example.invalid/DTB_2025.zip", stream=True, timeout=120,
     )
@@ -384,6 +386,41 @@ def test_refresh_from_dtb_archive_hashes_raw_artifact(tmp_path, mocker):
     assert result.exists()
     assert __import__("hashlib").sha256(b"official-dtb-fixture").hexdigest() in manifest
     assert load_active_catalog(tmp_path).metadata.catalog_id == "ibge-dtb-test"
+
+
+def test_refresh_from_dtb_url_downloads_then_promotes_with_same_contract(tmp_path, mocker):
+    archive = tmp_path / "raw" / "dtb_2025" / "DTB_2025.zip"
+    downloaded = mocker.patch(
+        "app.pipeline.reference.ibge.refresh.download_dtb_archive",
+        return_value=archive,
+    )
+    promoted = mocker.patch(
+        "app.pipeline.reference.ibge.refresh.refresh_from_dtb_archive",
+        return_value=tmp_path / "releases" / "ibge-dtb-2025" / "municipalities.parquet",
+    )
+    session = mocker.Mock()
+
+    result = refresh_from_dtb_url(
+        tmp_path,
+        url="https://example.invalid/DTB_2025.zip",
+        catalog_id="ibge-dtb-2025",
+        reference_year=2025,
+        expected_sha256="a" * 64,
+        session=session,
+    )
+
+    assert result == promoted.return_value
+    downloaded.assert_called_once_with(
+        tmp_path,
+        url="https://example.invalid/DTB_2025.zip",
+        reference_year=2025,
+        expected_sha256="a" * 64,
+        session=session,
+    )
+    promoted.assert_called_once_with(
+        tmp_path, archive, catalog_id="ibge-dtb-2025",
+        source_url="https://example.invalid/DTB_2025.zip", reference_year=2025,
+    )
 
 
 def test_refresh_rejects_catalog_id_reuse_with_different_hash(tmp_path, mocker):
@@ -477,6 +514,50 @@ def test_refresh_cli_promotes_local_dtb_archive(tmp_path, monkeypatch, mocker, c
     refresh_main()
 
     assert "municipalities.parquet" in capsys.readouterr().out
+
+
+def test_refresh_cli_forwards_dtb_url_and_hash(tmp_path, monkeypatch, mocker, capsys):
+    expected = tmp_path / "releases" / "ibge-dtb-2025" / "municipalities.parquet"
+    refresh = mocker.patch(
+        "app.pipeline.reference.ibge.refresh.refresh_from_dtb_url",
+        return_value=expected,
+    )
+    monkeypatch.setattr(sys, "argv", [
+        "refresh", "--root", str(tmp_path / "catalog"),
+        "--catalog-id", "ibge-dtb-2025", "--reference-year", "2025",
+        "--dtb-url", "https://example.invalid/DTB_2025.zip",
+        "--expected-sha256", "b" * 64,
+    ])
+
+    refresh_main()
+
+    refresh.assert_called_once_with(
+        tmp_path / "catalog", url="https://example.invalid/DTB_2025.zip",
+        catalog_id="ibge-dtb-2025", reference_year=2025,
+        expected_sha256="b" * 64,
+    )
+    assert str(expected) in capsys.readouterr().out
+
+
+def test_refresh_cli_forwards_localidades(tmp_path, monkeypatch, mocker, capsys):
+    expected = tmp_path / "releases" / "ibge-api-2025" / "municipalities.parquet"
+    refresh = mocker.patch(
+        "app.pipeline.reference.ibge.refresh.refresh_from_localidades",
+        return_value=expected,
+    )
+    monkeypatch.setattr(sys, "argv", [
+        "refresh", "--root", str(tmp_path / "catalog"),
+        "--catalog-id", "ibge-api-2025", "--reference-year", "2025",
+        "--localidades", "--source-url", "https://example.invalid/municipios",
+    ])
+
+    refresh_main()
+
+    refresh.assert_called_once_with(
+        tmp_path / "catalog", catalog_id="ibge-api-2025",
+        source_url="https://example.invalid/municipios", reference_year=2025,
+    )
+    assert str(expected) in capsys.readouterr().out
 from dataclasses import replace
 
 import pytest
