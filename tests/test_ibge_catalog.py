@@ -322,6 +322,7 @@ def test_download_dtb_archive_promotes_only_matching_hash(tmp_path, mocker):
     session.get.assert_called_once_with(
         "https://example.invalid/DTB_2025.zip", stream=True, timeout=120,
     )
+    response.iter_content.assert_called_once_with(chunk_size=1024 * 1024)
     assert not list(result.parent.glob("*.tmp"))
 
 
