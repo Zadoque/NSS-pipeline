@@ -2,6 +2,7 @@ import pytest
 
 from app.pipeline.reference.ibge.historical import (
     MunicipalityEvent,
+    derive_annual_events,
     parse_administrative_events,
     parse_toponymic_events,
     promote_administrative_events,
@@ -112,3 +113,23 @@ def test_promotions_merge_toponymic_and_administrative_events(tmp_path):
     frame = __import__("pandas").read_parquet(result)
     assert set(frame["event_type"]) == {"TOPONYMIC_CHANGE", "CREATION"}
     assert len(frame) == 2
+
+
+def test_derive_annual_events_does_not_infer_succession():
+    from app.pipeline.reference.ibge.models import Municipality
+
+    previous = [Municipality("3301009", "330100", "Nome antigo", "33", "RJ", "Rio", 2024)]
+    current = [
+        Municipality("3301009", "330100", "Nome atual", "33", "RJ", "Rio", 2025),
+        Municipality("5101837", "510183", "Novo município", "51", "MT", "Mato Grosso", 2025),
+    ]
+
+    events = derive_annual_events(
+        previous, current, reference_year=2025,
+        effective_date="2025-01-01", source_url="fixture://dtb-diff",
+    )
+
+    assert {(event.event_type, event.source_code7, event.target_code7) for event in events} == {
+        ("TOPONYMIC_CHANGE", "3301009", "3301009"),
+        ("CREATION", None, "5101837"),
+    }

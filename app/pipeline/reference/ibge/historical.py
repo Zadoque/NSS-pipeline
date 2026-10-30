@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -8,10 +9,15 @@ import json
 import pandas as pd
 
 from ...atomic_io import write_json_atomic
+from .models import Municipality
 
 ADMINISTRATIVE_EVENT_TYPES = frozenset({
     "CREATION", "EXTINCTION", "SUCCESSION", "MERGER", "SPLIT", "RENAME",
 })
+
+
+def _event_id(*parts: object) -> str:
+    return hashlib.sha256("|".join(str(part) for part in parts).encode("utf-8")).hexdigest()[:20]
 
 
 @dataclass(frozen=True)
@@ -65,9 +71,7 @@ def parse_toponymic_events(
         if not old_name or not new_name or pd.isna(effective):
             raise ValueError(f"evento toponímico incompleto, linha {index + 2}")
         code7 = uf + mun
-        event_id = hashlib.sha256(
-            f"{reference_year}|{index}|{code7}|{old_name}|{new_name}|{effective.date()}".encode("utf-8")
-        ).hexdigest()[:20]
+        event_id = _event_id(reference_year, index, code7, old_name, new_name, effective.date())
         events.append(MunicipalityEvent(
             event_id=event_id,
             event_type="TOPONYMIC_CHANGE",
@@ -80,6 +84,54 @@ def parse_toponymic_events(
         ))
     if not events:
         raise ValueError("histórico toponímico vazio")
+    return events
+
+
+def derive_annual_events(
+    previous: Sequence[Municipality],
+    current: Sequence[Municipality],
+    *,
+    reference_year: int,
+    effective_date: str,
+    source_url: str | None = None,
+) -> list[MunicipalityEvent]:
+    """Deriva somente diferenças observáveis entre duas edições DTB.
+
+    Ausência/presença de um código gera criação/extinção e mudança de nome
+    gera alteração toponímica. A função deliberadamente não tenta associar um
+    código removido a outro criado; sucessão e desmembramento exigem fonte
+    histórica explícita.
+    """
+    previous_by_code = {item.code7: item for item in previous}
+    current_by_code = {item.code7: item for item in current}
+    source = source_url or f"IBGE_DTB_DIFF_{reference_year}"
+    events: list[MunicipalityEvent] = []
+    for code7 in sorted(set(current_by_code) - set(previous_by_code)):
+        item = current_by_code[code7]
+        events.append(MunicipalityEvent(
+            event_id=_event_id(reference_year, effective_date, "CREATION", code7),
+            event_type="CREATION", effective_date=effective_date,
+            source_code7=None, target_code7=code7, target_name=item.name, source=source,
+        ))
+    for code7 in sorted(set(previous_by_code) - set(current_by_code)):
+        item = previous_by_code[code7]
+        events.append(MunicipalityEvent(
+            event_id=_event_id(reference_year, effective_date, "EXTINCTION", code7),
+            event_type="EXTINCTION", effective_date=effective_date,
+            source_code7=code7, target_code7=None, source_name=item.name, source=source,
+        ))
+    for code7 in sorted(set(previous_by_code) & set(current_by_code)):
+        old = previous_by_code[code7]
+        new = current_by_code[code7]
+        if old.name != new.name:
+            events.append(MunicipalityEvent(
+                event_id=_event_id(reference_year, effective_date, "TOPONYMIC_CHANGE", code7, old.name, new.name),
+                event_type="TOPONYMIC_CHANGE", effective_date=effective_date,
+                source_code7=code7, target_code7=code7,
+                source_name=old.name, target_name=new.name, source=source,
+            ))
+    if not events:
+        raise ValueError("nenhuma diferença territorial observável entre as edições")
     return events
 
 
@@ -187,9 +239,7 @@ def parse_administrative_events(
             raise ValueError(f"TARGET_CODE7 ausente, linha {index + 2}")
         if event_type in {"EXTINCTION", "SUCCESSION", "MERGER", "SPLIT"} and not source_code:
             raise ValueError(f"SOURCE_CODE7 ausente, linha {index + 2}")
-        event_id = hashlib.sha256(
-            f"{reference_year}|{index}|{event_type}|{effective.date()}|{source_code}|{target_code}".encode("utf-8")
-        ).hexdigest()[:20]
+        event_id = _event_id(reference_year, index, event_type, effective.date(), source_code, target_code)
         events.append(MunicipalityEvent(
             event_id=event_id,
             event_type=event_type,
