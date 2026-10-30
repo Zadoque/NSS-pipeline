@@ -44,6 +44,7 @@ def run(
     gold = aggregate_file(
         silver, disease, year, selected_columns, municipios=municipios, catalog=catalog,
         run_at=run_at, target="ad_hoc", cnes_batch_id=cnes_batch_id,
+        geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
     )
 
     logger.info("Gold concluída: %s", gold)

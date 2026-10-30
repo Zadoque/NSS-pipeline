@@ -128,6 +128,7 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
     with postgres_engine.connect() as conn:
         row = conn.execute(text("""
             SELECT p.ibge_catalog_id, p.ibge_catalog_sha256, p.geographic_scope_type,
+                   p.geographic_scope_sha256,
                    r.reference_year
             FROM analytics.pipeline_publications p
             JOIN analytics.reference_catalog_releases r
@@ -137,6 +138,8 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
     assert row.ibge_catalog_id == "ibge-dtb-test"
     assert row.ibge_catalog_sha256 == "a" * 64
     assert row.geographic_scope_type == "UFs"
+    assert row.geographic_scope_sha256 is not None
+    assert len(row.geographic_scope_sha256) == 64
     assert row.reference_year == 2025
 
 

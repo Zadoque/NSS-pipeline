@@ -6,6 +6,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from app.pipeline.sinan import gold
+from app.pipeline.scope import scope_sha256
 
 
 RUN_AT = datetime(2026, 10, 14, tzinfo=UTC)
@@ -86,6 +87,8 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
     assert metadata["resolved_rows"] == 7
     assert metadata["discarded_rows"] == 1
     assert metadata["aggregation_reduction"] == 0
+    assert metadata["geographic_scope"]["type"] == "MUNICIPALITIES"
+    assert metadata["geographic_scope"]["scope_sha256"] == scope_sha256(MUNICIPIOS)
 
 
 @pytest.mark.parametrize("empty_source", [False, True])

@@ -15,7 +15,7 @@ from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 from .reference.ibge.models import MunicipalityCatalog
 from .reference.ibge.storage import load_active_catalog
-from .scope import GeographicScope, legacy_rj_mapping, select_scope
+from .scope import GeographicScope, legacy_rj_mapping, scope_sha256, select_scope
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,7 @@ def run_load(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
         municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
         cnes_batch_id=cnes_batch_id,
+        geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
     )
 
     gold_df = pd.read_parquet(gold_path)
@@ -94,6 +95,7 @@ def run_load(
             source_extracted_at=run_at, allow_empty=allow_empty,
             ibge_catalog=catalog,
             geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
+            geographic_scope_sha256=scope_sha256(municipios),
             quality_metrics=quality_metrics,
         )
     finally:

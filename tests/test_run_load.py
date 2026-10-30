@@ -6,6 +6,7 @@ import pytest
 from app.pipeline import run_load as runner
 from app.pipeline.load import load_gold_to_postgres
 from app.pipeline.sinan.gold import MUNICIPIOS_RJ
+from app.pipeline.scope import scope_sha256
 
 
 @pytest.fixture
@@ -38,6 +39,7 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(
     assert options["year"] == 2026
     assert options["snapshot_complete"] is True
     assert options["allow_empty"] is False
+    assert options["geographic_scope_sha256"] == scope_sha256(MUNICIPIOS_RJ)
     assert options["source_extracted_at"] == aggregate.call_args.kwargs["run_at"]
     assert aggregate.call_args.kwargs["municipios"] == MUNICIPIOS_RJ
     assert aggregate.call_args.kwargs["target"] == "serving"

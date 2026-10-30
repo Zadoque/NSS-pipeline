@@ -9,6 +9,8 @@ import pandas as pd
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Connection, Engine
 
+from .scope import scope_sha256
+
 DISEASE_NAMES: dict[str, str] = {
     "DENG": "Dengue",
     "CHIK": "Chikungunya",
@@ -352,6 +354,7 @@ def load_gold_to_postgres(
     year: int, municipios: Sequence[str], expected_cases_total: int,
     snapshot_complete: bool, source_extracted_at: datetime, allow_empty: bool = False,
     ibge_catalog=None, geographic_scope_type: str = "MUNICIPALITIES",
+    geographic_scope_sha256: str | None = None,
     quality_metrics: Mapping[str, int] | None = None,
 ) -> None:
     """Publica o snapshot completo somente no recorte declarado.
@@ -368,6 +371,10 @@ def load_gold_to_postgres(
     params = {"disease": disease_codigo, "year": year, "municipios": scope}
     if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
         raise ValueError("tipo de escopo geográfico inválido")
+    expected_scope_sha256 = scope_sha256(scope)
+    if geographic_scope_sha256 is not None and geographic_scope_sha256 != expected_scope_sha256:
+        raise ValueError("hash do escopo geográfico diverge dos municípios publicados")
+    geographic_scope_sha256 = expected_scope_sha256
     quality = {column: 0 for column in QUALITY_METRIC_COLUMNS}
     if quality_metrics is not None:
         if not isinstance(quality_metrics, Mapping):
@@ -417,6 +424,7 @@ def load_gold_to_postgres(
             "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
             "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
             "geographic_scope_type": geographic_scope_type,
+            "geographic_scope_sha256": geographic_scope_sha256,
             **quality,
         } for code in scope]
         _upsert(conn, "analytics.pipeline_publications", rows,

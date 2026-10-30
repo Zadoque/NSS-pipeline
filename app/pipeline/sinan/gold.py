@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from pathlib import Path
  
 import pandas as pd
@@ -15,6 +16,7 @@ from typing import Literal
 
 from ..reference.ibge.models import MunicipalityCatalog
 from ..scope import legacy_rj_mapping
+from ..scope import scope_sha256
  
 # Compatibilidade pública para consumidores legados; a definição vive em
 # ``scope.py`` para não acoplar os executores ao módulo Gold.
@@ -315,11 +317,20 @@ def aggregate_file(
     catalog: MunicipalityCatalog | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
     cnes_batch_id: str | None = None,
+    geographic_scope_type: str = "MUNICIPALITIES",
 ) -> Path:
     if batch_size <= 0:
         raise ValueError("batch_size deve ser maior que zero")
     selected_columns = validate_keys(selected_columns)
     disease = disease.upper()
+    if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
+        raise ValueError("tipo de escopo geográfico inválido")
+    if municipios is None:
+        scope_codes = sorted(MUNICIPIOS_RJ)
+    elif isinstance(municipios, Mapping):
+        scope_codes = sorted(municipios)
+    else:
+        scope_codes = sorted(item.code7 for item in municipios.municipalities())
 
     now = run_at or datetime.now(UTC)
     batch_id = now.strftime("%Y%m%dT%H%M%SZ")
@@ -400,6 +411,11 @@ def aggregate_file(
         **resolution_metrics,
         "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
         "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+        "geographic_scope": {
+            "type": geographic_scope_type,
+            "municipality_count": len(scope_codes),
+            "scope_sha256": scope_sha256(scope_codes),
+        },
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet

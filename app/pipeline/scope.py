@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 
 from .reference.ibge.models import Municipality, MunicipalityCatalog, ResolutionStatus
 
@@ -36,6 +38,19 @@ class GeographicScope:
     @property
     def count(self) -> int:
         return len(self.municipalities)
+
+    @property
+    def sha256(self) -> str:
+        return scope_sha256(self.codes7)
+
+
+def scope_sha256(codes: object) -> str:
+    """Calcula um identificador estável para o conjunto municipal selecionado."""
+    values = sorted({str(code) for code in codes})
+    if not values or any(len(code) != 7 or not code.isdigit() for code in values):
+        raise ValueError("escopo deve conter códigos municipais IBGE de 7 dígitos")
+    payload = json.dumps(values, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 def legacy_rj_scope(catalog: MunicipalityCatalog) -> GeographicScope:
