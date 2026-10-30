@@ -112,6 +112,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   metadata do lote; o caminho legado mantém sua chamada compatível.
 - Sessão HTTP CNES reutilizada durante uma execução com catálogo, mantendo
   retries e reduzindo o overhead de milhares de municípios no escopo nacional.
+- Teste de homologação offline opt-in (`IBGE_DTB_ARCHIVE`) percorre os 5.571
+  municípios da DTB, simula a resposta CNES e verifica resolução canônica,
+  sessão compartilhada e metadata do lote sem depender da rede.
 - Fixação opcional de `cnes_batch_id` na Gold e nos executores SINAN, com
   rejeição de lote inexistente e registro do identificador no metadata.
 - Métricas Gold de origem, resolução, descarte, redução por agregação, códigos
@@ -158,6 +161,7 @@ pytest -q                  → 326 passed, 18 skipped, 25 warnings
 pytest -q com PostgreSQL  → 344 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
+national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
 Os 342 testes foram executados com PostgreSQL real em container isolado,
@@ -198,6 +202,7 @@ Release Parquet temporária: 5571 municípios recarregados via active.json
 Refresh controlado real: DTB_2025.zip promovida em staging e recarregada pelo ponteiro ativo
 API CNES com limit=250: teto observado de 20 registros por resposta
 Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
+Homologação CNES offline: 1 passed em 45,87 s com `IBGE_DTB_ARCHIVE=DTB_2025.zip`
 ```
 
 O teto observado da API CNES expôs um risco de salto de registros: o offset
