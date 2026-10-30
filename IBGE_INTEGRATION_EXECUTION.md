@@ -70,6 +70,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `84d54d3` | Contrato de chunking no download da DTB |
 | `626a02f` | Atualização dos resultados de mutação do streaming |
 | `b567e8b` | Persistência do hash do escopo geográfico |
+| `d410b41` | Imutabilidade da release IBGE na publicação PostgreSQL |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -100,6 +101,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   publicação PostgreSQL.
 - Migration `0008` e metadata Gold para registrar o `scope_sha256` determinístico
   dos códigos municipais publicados, além do tipo e da contagem do escopo.
+- Publicação PostgreSQL rejeita a reutilização de `catalog_id` com SHA-256
+  diferente, mantendo o registro de release imutável sob lock transacional.
 - Manifesto SINAN sensível à mudança de `ibgeCatalogId` e
   `ibgeCatalogSha256`.
 - Módulos IBGE incluídos no escopo do `mutmut`.
@@ -169,7 +172,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 332 passed, 19 skipped, 25 warnings
 pytest -q com PostgreSQL  → 344 passed, 25 warnings
-pytest -q nacional + PostgreSQL → 351 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 352 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
