@@ -38,6 +38,12 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `9f01fc2` | Diagnósticos de resolução e leitura Parquet |
 | `8d6de55` | Limpeza de temporários em metadados atômicos |
 | `3b0f828` | Testes dos fluxos de promoção de releases |
+| `40d1c78` | Escopo geográfico e paginação CNES expostos na CLI |
+| `66d5920` | Documentação da seleção geográfica CNES |
+| `e75e1a9` | Persistência das métricas de qualidade Gold |
+| `8983ca3` | Validação de ponteiro e manifesto da release ativa |
+| `ab37650` | Fixação do lote CNES para Gold reprodutível |
+| `a7ae190` | Documentação de lotes CNES fixados |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -56,7 +62,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Cliente da API de Localidades do IBGE com validação estrutural da resposta.
 - Seleção por município, UF ou Brasil inteiro, mantendo o RJ como default.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
-  executores SINAN.
+  executores SINAN e CNES, com `--page-size` no CNES.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
 - Validação do código municipal antes da consulta CNES e derivação explícita
   do código de seis dígitos.
@@ -76,6 +82,13 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   sem inferir criação, extinção ou sucessão municipal.
 - Paginação CNES configurável e validada, com `page_size` registrado no
   metadata do lote; o caminho legado mantém sua chamada compatível.
+- Fixação opcional de `cnes_batch_id` na Gold e nos executores SINAN, com
+  rejeição de lote inexistente e registro do identificador no metadata.
+- Métricas Gold de origem, resolução, descarte, redução por agregação, códigos
+  inválidos, fora de escopo e divergências de UF persistidas na publicação
+  PostgreSQL pela migration `0007`.
+- Carregamento da release ativa protegido contra ponteiro inválido, manifesto
+  incompatível, release não validada e traversal de caminho.
 - Configuração do `mutmut` incluindo os assets territoriais necessários aos
   testes-base dos executores CNES.
 - `flake.nix` e `flake.lock` com Python 3.12, PostgreSQL, Docker e ambiente
@@ -85,11 +98,11 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 315 passed, 25 warnings
+pytest -q                  → 324 passed, 25 warnings
 ```
 
-Os 315 testes foram executados com PostgreSQL real em container isolado,
-incluindo 17 testes de integração e a migration `0006`.
+Os 324 testes foram executados com PostgreSQL real em container isolado,
+incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
 
@@ -134,16 +147,13 @@ completa. Permanecem necessários:
 2. Completar a tabela histórica com eventos oficiais de criação, extinção e
    sucessão administrativa, além de definir a política temporal efetiva. As
    alterações toponímicas já possuem parser e promoção local.
-3. Incorporar `resolved_rows`, `discarded_rows` e `aggregation_reduction` aos
-   consumidores de auditoria; `dropped_rows` permanece preservado por
-   compatibilidade.
-4. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
+3. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
    `page_size` já está disponível, mas o limite operacional máximo da API ainda
    precisa ser confirmado em homologação.
-5. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
+4. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
    de produção; a configuração e as rodadas dirigidas são classificáveis, mas
    a meta de 95% ainda não foi alcançada.
-6. Execução nacional de homologação com dados autorizados e reconciliação dos
+5. Execução nacional de homologação com dados autorizados e reconciliação dos
    totais da Silver, Gold e PostgreSQL.
 
 ## Conclusão
