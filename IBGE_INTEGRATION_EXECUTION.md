@@ -27,6 +27,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `d8414c1` | Hash lógico para releases obtidas pela API |
 | `0f1208d` | FK municipal canônica na Silver CNES e dimensão de unidades |
 | `a67f925` | Bloqueio de publicação para resoluções IBGE inválidas |
+| `1e34ae4` | Métricas Gold separadas para resolução, descarte e agregação |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
