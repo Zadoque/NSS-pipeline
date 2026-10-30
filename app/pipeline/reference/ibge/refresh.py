@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import hashlib
 import json
 import os
+import shutil
 import tempfile
 from dataclasses import asdict, replace
 from pathlib import Path
@@ -110,6 +111,32 @@ def _reuse_immutable_release(release: Path, metadata: CatalogMetadata) -> Path |
     return catalog_path
 
 
+def _release_path(root: Path, catalog_id: str) -> Path:
+    if not catalog_id or catalog_id in {".", ".."} or Path(catalog_id).name != catalog_id:
+        raise ValueError("catalog_id inválido para uma release local")
+    return root / "releases" / catalog_id
+
+
+def _write_release_atomically(
+    root: Path,
+    catalog_id: str,
+    records,
+    metadata: CatalogMetadata,
+) -> Path:
+    """Materializa catálogo e manifesto juntos antes de trocar a release."""
+    release = _release_path(root, catalog_id)
+    release.parent.mkdir(parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix=f".{catalog_id}.", dir=release.parent))
+    try:
+        write_release(staging, records)
+        write_manifest(staging / "manifest.json", metadata)
+        os.replace(staging, release)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging)
+    return release / "municipalities.parquet"
+
+
 def refresh_from_localidades(
     root: Path,
     *,
@@ -118,11 +145,11 @@ def refresh_from_localidades(
     reference_year: int,
     client: IbgeLocalidadesClient | None = None,
 ) -> Path:
+    release = _release_path(root, catalog_id)
     records = tuple(
         replace(record, reference_year=reference_year)
         for record in (client or IbgeLocalidadesClient()).fetch_municipalities()
     )
-    release = root / "releases" / catalog_id
     metadata = CatalogMetadata(
         catalog_id=catalog_id,
         reference_year=reference_year,
@@ -135,8 +162,7 @@ def refresh_from_localidades(
     if existing is not None:
         promote_active(root / "active.json", catalog_id)
         return existing
-    parquet = write_release(release, records)
-    write_manifest(release / "manifest.json", metadata)
+    parquet = _write_release_atomically(root, catalog_id, records, metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet
 
@@ -149,8 +175,8 @@ def refresh_from_dtb_archive(
     source_url: str,
     reference_year: int,
 ) -> Path:
+    release = _release_path(root, catalog_id)
     records = parse_dtb_archive(archive, reference_year)
-    release = root / "releases" / catalog_id
     sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
     metadata = CatalogMetadata(
         catalog_id=catalog_id,
@@ -164,8 +190,7 @@ def refresh_from_dtb_archive(
     if existing is not None:
         promote_active(root / "active.json", catalog_id)
         return existing
-    parquet = write_release(release, records)
-    write_manifest(release / "manifest.json", metadata)
+    parquet = _write_release_atomically(root, catalog_id, records, metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet
 

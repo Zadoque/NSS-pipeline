@@ -424,6 +424,40 @@ def test_refresh_does_not_reuse_unvalidated_existing_release(tmp_path, mocker):
         )
 
 
+def test_refresh_promotes_release_as_a_whole_and_cleans_staging_on_failure(tmp_path, mocker):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"first")
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.parse_dtb_archive",
+        return_value=[municipality("3301009", "Campos")],
+    )
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.write_manifest",
+        side_effect=OSError("disk full"),
+    )
+
+    with pytest.raises(OSError, match="disk full"):
+        refresh_from_dtb_archive(
+            tmp_path, archive, catalog_id="atomic", source_url="fixture://dtb",
+            reference_year=2025,
+        )
+
+    releases = tmp_path / "releases"
+    assert not (releases / "atomic").exists()
+    assert not list(releases.glob(".atomic.*"))
+    assert not (tmp_path / "active.json").exists()
+
+
+def test_refresh_rejects_catalog_id_path_traversal(tmp_path):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"fixture")
+    with pytest.raises(ValueError, match="catalog_id inválido"):
+        refresh_from_dtb_archive(
+            tmp_path, archive, catalog_id="../outside", source_url="fixture://dtb",
+            reference_year=2025,
+        )
+
+
 def test_refresh_cli_promotes_local_dtb_archive(tmp_path, monkeypatch, mocker, capsys):
     archive = tmp_path / "DTB_2025.zip"
     archive.write_bytes(b"fixture")
