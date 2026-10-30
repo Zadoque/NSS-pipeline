@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from dataclasses import asdict
 from pathlib import Path
@@ -11,6 +12,15 @@ import pandas as pd
 from .catalog import ParquetMunicipalityCatalog
 from .models import CatalogMetadata, Municipality
 from .validation import validate_municipalities
+
+SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
+
+
+def _validate_metadata(metadata: CatalogMetadata) -> None:
+    if not metadata.catalog_id or not SHA256_PATTERN.fullmatch(metadata.sha256):
+        raise ValueError("manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres")
+    if metadata.validation_status != "VALIDATED":
+        raise ValueError("release IBGE não está validada")
 
 
 def write_catalog(path: Path, records: list[Municipality] | tuple[Municipality, ...]) -> Path:
@@ -68,6 +78,7 @@ def write_release(path: Path, records: list[Municipality] | tuple[Municipality, 
 
 
 def write_manifest(path: Path, metadata: CatalogMetadata) -> Path:
+    _validate_metadata(metadata)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
     try:
@@ -114,6 +125,5 @@ def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
         raise ValueError(f"manifesto da release incompatível: {manifest_path}") from exc
     if metadata.catalog_id != catalog_id:
         raise ValueError("catalog_id do manifesto diverge do ponteiro ativo")
-    if metadata.validation_status != "VALIDATED":
-        raise ValueError("release IBGE ativa não está validada")
+    _validate_metadata(metadata)
     return ParquetMunicipalityCatalog(release / "municipalities.parquet", metadata)

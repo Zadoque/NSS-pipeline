@@ -23,7 +23,7 @@ from app.pipeline.reference.ibge.refresh import (
 from app.pipeline.scope import legacy_rj_scope, select_scope
 
 
-METADATA = CatalogMetadata("test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "hash")
+METADATA = CatalogMetadata("test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "a" * 64)
 
 
 def municipality(code7, name, uf_code="33", uf_abbr="RJ"):
@@ -206,11 +206,18 @@ def test_storage_atomic_metadata_cleanup_on_replace_failure(tmp_path, mocker):
     with pytest.raises(OSError, match="disk full"):
         write_manifest(manifest, METADATA)
     assert not list(tmp_path.glob("*.tmp"))
-
     active = tmp_path / "active.json"
     with pytest.raises(OSError, match="disk full"):
         promote_active(active, "test")
     assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_storage_rejects_non_sha256_manifest(tmp_path):
+    with pytest.raises(ValueError, match="SHA-256"):
+        write_manifest(
+            tmp_path / "manifest.json",
+            CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+        )
 
 
 def test_localidades_client_validates_and_parses_response(mocker):

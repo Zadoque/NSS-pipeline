@@ -325,8 +325,8 @@ def _register_catalog_release(conn: Connection, catalog) -> None:
     if catalog is None:
         return
     metadata = catalog.metadata
-    if not metadata.sha256:
-        raise ValueError("release IBGE sem SHA-256 não pode ser publicada")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", metadata.sha256):
+        raise ValueError("release IBGE sem SHA-256 válido não pode ser publicada")
     conn.execute(text("""
         INSERT INTO analytics.reference_catalog_releases
             (catalog_id, sha256, reference_year, source_name, source_url, retrieved_at)
