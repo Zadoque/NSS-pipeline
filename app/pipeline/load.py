@@ -329,16 +329,22 @@ def _register_catalog_release(conn: Connection, catalog) -> None:
     metadata = catalog.metadata
     if not re.fullmatch(r"[0-9a-fA-F]{64}", metadata.sha256):
         raise ValueError("release IBGE sem SHA-256 válido não pode ser publicada")
+    existing_sha256 = conn.execute(text("""
+        SELECT sha256
+        FROM analytics.reference_catalog_releases
+        WHERE catalog_id = :catalog_id
+        FOR UPDATE
+    """), {"catalog_id": metadata.catalog_id}).scalar_one_or_none()
+    if existing_sha256 is not None:
+        if existing_sha256 != metadata.sha256:
+            raise ValueError(
+                "catalog_id IBGE imutável já associado a outro SHA-256"
+            )
+        return
     conn.execute(text("""
         INSERT INTO analytics.reference_catalog_releases
             (catalog_id, sha256, reference_year, source_name, source_url, retrieved_at)
         VALUES (:catalog_id, :sha256, :reference_year, :source_name, :source_url, :retrieved_at)
-        ON CONFLICT (catalog_id) DO UPDATE SET
-            sha256 = EXCLUDED.sha256,
-            reference_year = EXCLUDED.reference_year,
-            source_name = EXCLUDED.source_name,
-            source_url = EXCLUDED.source_url,
-            retrieved_at = EXCLUDED.retrieved_at
     """), {
         "catalog_id": metadata.catalog_id,
         "sha256": metadata.sha256,

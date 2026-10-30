@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from dataclasses import replace
 from threading import Event
 
 import pandas as pd
@@ -141,6 +142,25 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
     assert row.geographic_scope_sha256 is not None
     assert len(row.geographic_scope_sha256) == 64
     assert row.reference_year == 2025
+
+
+def test_publicacao_rejeita_reuso_de_catalog_id_com_hash_diferente(postgres_engine):
+    catalog = _catalog()
+    _publish(postgres_engine, _gold_exemplo(), "DENG", "immutable-1", ibge_catalog=catalog)
+    changed_metadata = replace(catalog.metadata, sha256="b" * 64)
+    changed_catalog = InMemoryMunicipalityCatalog(catalog.municipalities(), changed_metadata)
+
+    with pytest.raises(ValueError, match="imutável"):
+        _publish(
+            postgres_engine, _gold_exemplo(), "DENG", "immutable-2",
+            ibge_catalog=changed_catalog,
+        )
+
+    with postgres_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT sha256 FROM analytics.reference_catalog_releases "
+            "WHERE catalog_id = 'ibge-dtb-test'"
+        )).scalar_one() == "a" * 64
 
 
 def test_publicacao_registra_metricas_de_reconciliacao(postgres_engine):
