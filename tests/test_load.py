@@ -12,6 +12,7 @@ from app.pipeline.load import (
     _clean_code_series,
     _integer_series,
     _prepare_fact_frame,
+    _register_catalog_release,
     _scope_statement,
     _validate_snapshot,
     _upsert,
@@ -216,6 +217,24 @@ def test_scope_statement_expands_municipios_parameter():
 
     assert "municipios" in statement._bindparams
     assert statement._bindparams["municipios"].expanding is True
+
+
+def test_upsert_release_requires_sha256(mocker):
+    conn = mocker.Mock()
+    catalog = mocker.Mock()
+    catalog.metadata.sha256 = ""
+    with pytest.raises(ValueError, match="SHA-256"):
+        _register_catalog_release(conn, catalog)
+
+
+def test_load_rejects_unknown_scope_type():
+    with pytest.raises(ValueError, match="escopo"):
+        load_gold_to_postgres(
+            _Engine(_Connection()), _gold_minima(), "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=5,
+            snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+            geographic_scope_type="UNKNOWN",
+        )
 
 
 @pytest.mark.parametrize(

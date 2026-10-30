@@ -313,10 +313,37 @@ def _scope_statement(sql: str):
     return text(sql).bindparams(bindparam("municipios", expanding=True))
 
 
+def _register_catalog_release(conn: Connection, catalog) -> None:
+    if catalog is None:
+        return
+    metadata = catalog.metadata
+    if not metadata.sha256:
+        raise ValueError("release IBGE sem SHA-256 não pode ser publicada")
+    conn.execute(text("""
+        INSERT INTO analytics.reference_catalog_releases
+            (catalog_id, sha256, reference_year, source_name, source_url, retrieved_at)
+        VALUES (:catalog_id, :sha256, :reference_year, :source_name, :source_url, :retrieved_at)
+        ON CONFLICT (catalog_id) DO UPDATE SET
+            sha256 = EXCLUDED.sha256,
+            reference_year = EXCLUDED.reference_year,
+            source_name = EXCLUDED.source_name,
+            source_url = EXCLUDED.source_url,
+            retrieved_at = EXCLUDED.retrieved_at
+    """), {
+        "catalog_id": metadata.catalog_id,
+        "sha256": metadata.sha256,
+        "reference_year": metadata.reference_year,
+        "source_name": metadata.source_name,
+        "source_url": metadata.source_url,
+        "retrieved_at": metadata.retrieved_at,
+    })
+
+
 def load_gold_to_postgres(
     engine: Engine, gold_df: pd.DataFrame, disease_codigo: str, batch_id: str, *,
     year: int, municipios: Sequence[str], expected_cases_total: int,
     snapshot_complete: bool, source_extracted_at: datetime, allow_empty: bool = False,
+    ibge_catalog=None, geographic_scope_type: str = "MUNICIPALITIES",
 ) -> None:
     """Publica o snapshot completo somente no recorte declarado.
 
@@ -330,6 +357,8 @@ def load_gold_to_postgres(
         source_extracted_at=source_extracted_at, allow_empty=allow_empty,
     )
     params = {"disease": disease_codigo, "year": year, "municipios": scope}
+    if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
+        raise ValueError("tipo de escopo geográfico inválido")
     with engine.begin() as conn:
         # Serializa também recortes parcialmente sobrepostos da mesma doença/ano.
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
@@ -341,6 +370,7 @@ def load_gold_to_postgres(
         if newest is not None and source_extracted_at < newest:
             raise ValueError("Snapshot antigo: já existe publicação mais recente no recorte")
         upsert_dim_doenca(conn, disease_codigo)
+        _register_catalog_release(conn, ibge_catalog)
         upsert_dim_municipio(conn, fact_df)
         upsert_dim_unidade_saude(conn, fact_df)
         upsert_dim_classificacao(conn, fact_df)
@@ -364,6 +394,9 @@ def load_gold_to_postgres(
             "published_at": datetime.now(UTC),
             "groups_total": int(totals.loc[code, "size"]) if code in totals.index else 0,
             "cases_total": int(totals.loc[code, "sum"]) if code in totals.index else 0,
+            "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
+            "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
+            "geographic_scope_type": geographic_scope_type,
         } for code in scope]
         _upsert(conn, "analytics.pipeline_publications", rows,
                 conflict_cols=["disease_codigo", "ano", "cd_mun", "batch_id"])

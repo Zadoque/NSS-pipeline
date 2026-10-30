@@ -67,6 +67,8 @@ def run_load(
             engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
             expected_cases_total=expected_cases_total, snapshot_complete=True,
             source_extracted_at=run_at, allow_empty=allow_empty,
+            ibge_catalog=catalog,
+            geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
         )
     finally:
         engine.dispose()
