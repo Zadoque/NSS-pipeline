@@ -10,6 +10,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from ..atomic_io import write_json_atomic, write_parquet_atomic
+from ..reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 
 API_BASE = "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos"
 BASE_DIR = Path("/data")
@@ -28,8 +29,22 @@ def _session_with_retries() -> requests.Session:
     return session
 
 
-def fetch_estabelecimentos(codigo_municipio_7: str, limit: int = 10) -> pd.DataFrame:
-    codigo_municipio_6 = codigo_municipio_7[:6]
+def fetch_estabelecimentos(
+    codigo_municipio_7: str,
+    limit: int = 10,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+) -> pd.DataFrame:
+    if catalog is not None:
+        resolved = catalog.resolve(codigo_municipio_7)
+        if resolved.status is not ResolutionStatus.VALID or resolved.municipality is None:
+            raise ValueError(f"município CNES inválido no catálogo: {codigo_municipio_7}")
+        codigo_municipio_7 = resolved.municipality.code7
+        codigo_municipio_6 = resolved.municipality.code6
+    else:
+        if not isinstance(codigo_municipio_7, str) or not codigo_municipio_7.isdigit() or len(codigo_municipio_7) != 7:
+            raise ValueError("CNES exige código municipal IBGE de 7 dígitos")
+        codigo_municipio_6 = codigo_municipio_7[:6]
     session = _session_with_retries()
     registros = []
     offset = 0

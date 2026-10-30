@@ -11,14 +11,26 @@ from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
 from .cnes.silver import transform_cnes
 from .sinan.gold import MUNICIPIOS_RJ
 from .territory_mapping import enrich_cnes_territories
+from .reference.ibge.models import MunicipalityCatalog
+from .scope import GeographicScope, select_scope
 
 BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 logger = logging.getLogger(__name__)
 
 
-def run_cnes(municipios: dict[str, str] | None = None) -> Path:
-    municipios = municipios if municipios is not None else MUNICIPIOS_RJ
+def run_cnes(
+    municipios: dict[str, str] | None = None,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+    geographic_scope: GeographicScope | None = None,
+) -> Path:
+    if geographic_scope is not None:
+        municipios = {item.code7: item.name for item in geographic_scope.municipalities}
+    elif catalog is not None:
+        municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
+    else:
+        municipios = municipios if municipios is not None else MUNICIPIOS_RJ
     if not municipios:
         raise ValueError("Informe ao menos um município para a carga CNES")
     run_at = datetime.now(UTC)
@@ -27,7 +39,11 @@ def run_cnes(municipios: dict[str, str] | None = None) -> Path:
     silvers = []
     for cod_municipio in municipios:
         logger.info("Processando CNES municipio=%s", cod_municipio)
-        bronze_df = fetch_estabelecimentos(cod_municipio)
+        bronze_df = (
+            fetch_estabelecimentos(cod_municipio, catalog=catalog)
+            if catalog is not None
+            else fetch_estabelecimentos(cod_municipio)
+        )
         if bronze_df.empty:
             raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
 
@@ -55,6 +71,8 @@ def run_cnes(municipios: dict[str, str] | None = None) -> Path:
         "ingested_at": run_at.isoformat(),
         "rows": len(consolidated),
         "municipios": list(municipios),
+        "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+        "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
         "columns": list(consolidated.columns),
     }
     write_json_atomic(metadata, directory / "metadata.json")

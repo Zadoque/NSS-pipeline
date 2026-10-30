@@ -67,6 +67,26 @@ def test_fetch_estabelecimentos_paginates_until_empty(mocker):
     assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 1, 2]
 
 
+def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    response = mocker.Mock()
+    response.json.return_value = {"estabelecimentos": []}
+    response.raise_for_status = mocker.Mock()
+    session = mocker.Mock()
+    session.get.return_value = response
+    mocker.patch.object(cnes_bronze, "_session_with_retries", return_value=session)
+
+    cnes_bronze.fetch_estabelecimentos("3301009", catalog=catalog)
+
+    assert session.get.call_args.kwargs["params"]["codigo_municipio"] == "330100"
+
+
 def test_esporo_run_passes_same_run_timestamp_to_silver(mocker, tmp_path):
     bronze = tmp_path / "bronze.parquet"
     silver = tmp_path / "silver.parquet"
