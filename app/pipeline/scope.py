@@ -88,10 +88,14 @@ def select_scope(
         return GeographicScope(selected, kind="UFs")
 
     selected = []
+    seen: set[str] = set()
     for value in municipalities or ():
         result = catalog.resolve(value)
         if result.status is not ResolutionStatus.VALID or result.municipality is None:
             raise ValueError(f"município inválido no escopo: {value} ({result.status})")
+        if result.municipality.code7 in seen:
+            raise ValueError(f"município duplicado no escopo: {result.municipality.code7}")
+        seen.add(result.municipality.code7)
         selected.append(result.municipality)
     if not selected:
         raise ValueError("o escopo municipal não pode ser vazio")

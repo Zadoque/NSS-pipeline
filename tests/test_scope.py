@@ -1,7 +1,8 @@
 import pytest
 
-from app.pipeline.scope import GeographicScope, scope_sha256
-from app.pipeline.reference.ibge.models import Municipality
+from app.pipeline.scope import GeographicScope, scope_sha256, select_scope
+from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 
 
 def _municipality(code7: str) -> Municipality:
@@ -23,3 +24,12 @@ def test_geographic_scope_exposes_hash_of_its_codes():
 def test_scope_hash_rejects_non_municipal_codes():
     with pytest.raises(ValueError, match="7 dígitos"):
         scope_sha256(["330100"])
+
+
+def test_select_scope_rejects_duplicate_municipalities():
+    catalog = InMemoryMunicipalityCatalog(
+        [_municipality("3301009")],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    with pytest.raises(ValueError, match="duplicado"):
+        select_scope(catalog, municipalities=["3301009", "3301009"])
