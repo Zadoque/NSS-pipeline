@@ -1,4 +1,5 @@
 from dataclasses import replace
+import sys
 
 import pytest
 
@@ -17,6 +18,7 @@ from app.pipeline.reference.ibge.refresh import (
     download_dtb_archive,
     refresh_from_dtb_archive,
     refresh_from_localidades,
+    main as refresh_main,
 )
 from app.pipeline.scope import legacy_rj_scope, select_scope
 
@@ -334,6 +336,24 @@ def test_refresh_rejects_catalog_id_reuse_with_different_hash(tmp_path, mocker):
             reference_year=2025,
         )
     assert load_active_catalog(tmp_path).metadata.sha256 == __import__("hashlib").sha256(b"first").hexdigest()
+
+
+def test_refresh_cli_promotes_local_dtb_archive(tmp_path, monkeypatch, mocker, capsys):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"fixture")
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.refresh_from_dtb_archive",
+        return_value=tmp_path / "releases" / "ibge-dtb-2025" / "municipalities.parquet",
+    )
+    monkeypatch.setattr(sys, "argv", [
+        "refresh", "--root", str(tmp_path / "catalog"),
+        "--catalog-id", "ibge-dtb-2025", "--reference-year", "2025",
+        "--dtb-archive", str(archive), "--source-url", "fixture://dtb",
+    ])
+
+    refresh_main()
+
+    assert "municipalities.parquet" in capsys.readouterr().out
 from dataclasses import replace
 
 import pytest

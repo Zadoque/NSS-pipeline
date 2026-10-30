@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from datetime import UTC, datetime
 import hashlib
 import json
@@ -11,7 +12,7 @@ from pathlib import Path
 import requests
 
 from .catalog import InMemoryMunicipalityCatalog
-from .client import IbgeLocalidadesClient
+from .client import DEFAULT_MUNICIPALITIES_URL, IbgeLocalidadesClient
 from .dtb import parse_dtb_archive
 from .models import CatalogMetadata
 from .storage import promote_active, write_manifest, write_release
@@ -158,3 +159,40 @@ def refresh_from_dtb_archive(
     write_manifest(release / "manifest.json", metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Atualiza e promove uma release local do catálogo IBGE")
+    parser.add_argument("--root", type=Path, required=True, help="Diretório do catálogo IBGE")
+    parser.add_argument("--catalog-id", required=True, help="Identificador imutável da release")
+    parser.add_argument("--reference-year", type=int, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--dtb-url", help="URL oficial do ZIP DTB")
+    source.add_argument("--dtb-archive", type=Path, help="ZIP DTB já baixado")
+    source.add_argument("--localidades", action="store_true", help="Usa a API de Localidades do IBGE")
+    parser.add_argument("--source-url", help="URL de proveniência para um arquivo local")
+    parser.add_argument("--expected-sha256", help="SHA-256 esperado do ZIP DTB")
+    args = parser.parse_args()
+    if args.dtb_archive is not None and not args.source_url:
+        parser.error("--dtb-archive exige --source-url")
+    if args.dtb_url:
+        result = refresh_from_dtb_url(
+            args.root, url=args.dtb_url, catalog_id=args.catalog_id,
+            reference_year=args.reference_year, expected_sha256=args.expected_sha256,
+        )
+    elif args.dtb_archive is not None:
+        result = refresh_from_dtb_archive(
+            args.root, args.dtb_archive, catalog_id=args.catalog_id,
+            source_url=args.source_url, reference_year=args.reference_year,
+        )
+    else:
+        result = refresh_from_localidades(
+            args.root, catalog_id=args.catalog_id,
+            source_url=args.source_url or DEFAULT_MUNICIPALITIES_URL,
+            reference_year=args.reference_year,
+        )
+    print(result)
+
+
+if __name__ == "__main__":
+    main()
