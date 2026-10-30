@@ -24,7 +24,7 @@ def _validate_metadata(metadata: CatalogMetadata) -> None:
 
 
 def write_catalog(path: Path, records: list[Municipality] | tuple[Municipality, ...]) -> Path:
-    values = validate_municipalities(records)
+    values = tuple(sorted(validate_municipalities(records), key=lambda item: item.code7))
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False) as temporary:
         temporary_path = Path(temporary.name)
@@ -41,7 +41,7 @@ def write_ufs(path: Path, records: list[Municipality] | tuple[Municipality, ...]
     frame = pd.DataFrame([
         {"uf_code": item.uf_code, "uf_abbr": item.uf_abbr, "uf_name": item.uf_name}
         for item in values
-    ]).drop_duplicates(subset=["uf_code"])
+    ]).drop_duplicates(subset=["uf_code"]).sort_values("uf_code")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
     try:
@@ -57,7 +57,7 @@ def write_crosswalk(path: Path, records: list[Municipality] | tuple[Municipality
     frame = pd.DataFrame([
         {"code6": item.code6, "code7": item.code7, "reference_year": item.reference_year}
         for item in values
-    ])
+    ]).sort_values("code6")
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")
     try:
@@ -70,7 +70,7 @@ def write_crosswalk(path: Path, records: list[Municipality] | tuple[Municipality
 
 def write_release(path: Path, records: list[Municipality] | tuple[Municipality, ...]) -> Path:
     """Escreve os artefatos canônicos de uma release municipal."""
-    values = validate_municipalities(records)
+    values = tuple(sorted(validate_municipalities(records), key=lambda item: item.code7))
     parquet = write_catalog(path / "municipalities.parquet", values)
     write_ufs(path / "ufs.parquet", values)
     write_crosswalk(path / "code_crosswalk.parquet", values)

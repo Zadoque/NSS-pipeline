@@ -183,6 +183,19 @@ def test_storage_writes_ufs_and_crosswalk_artifacts(tmp_path):
     assert set(crosswalk["code6"]) == {"330100", "355030"}
 
 
+def test_release_artifacts_are_sorted_by_canonical_keys(tmp_path):
+    records = [municipality("3550308", "São Paulo", "35", "SP"), municipality("3301009", "Campos")]
+    release = tmp_path / "release"
+    write_release(release, records)
+
+    municipalities = __import__("pandas").read_parquet(release / "municipalities.parquet")
+    ufs = __import__("pandas").read_parquet(release / "ufs.parquet")
+    crosswalk = __import__("pandas").read_parquet(release / "code_crosswalk.parquet")
+    assert municipalities["code7"].tolist() == ["3301009", "3550308"]
+    assert ufs["uf_code"].tolist() == ["33", "35"]
+    assert crosswalk["code6"].tolist() == ["330100", "355030"]
+
+
 def test_storage_round_trip_loads_active_catalog(tmp_path):
     release = tmp_path / "releases" / "test"
     write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])
