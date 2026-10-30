@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from .models import CatalogMetadata, Municipality, ResolutionResult, ResolutionStatus
-from .validation import CODE6, CODE7, validate_municipalities
+from .models import CatalogMetadata, CatalogValidationReport, Municipality, ResolutionResult, ResolutionStatus
+from .validation import CODE6, CODE7, inspect_municipalities, validate_municipalities
 
 
 def _as_municipality(row: object) -> Municipality:
@@ -36,6 +36,9 @@ class InMemoryMunicipalityCatalog:
 
     def municipalities(self) -> tuple[Municipality, ...]:
         return self._records
+
+    def validate(self) -> CatalogValidationReport:
+        return inspect_municipalities(self._records)
 
     def as_mapping(self) -> dict[str, str]:
         return {item.code7: item.name for item in self._records}

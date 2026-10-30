@@ -11,6 +11,7 @@ from .historical import (
 )
 from .models import (
     CatalogMetadata,
+    CatalogValidationReport,
     Municipality,
     MunicipalityCatalog,
     ResolutionResult,
@@ -19,6 +20,7 @@ from .models import (
 
 __all__ = [
     "CatalogMetadata",
+    "CatalogValidationReport",
     "InMemoryMunicipalityCatalog",
     "Municipality",
     "MunicipalityCatalog",

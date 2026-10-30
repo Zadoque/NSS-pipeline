@@ -5,7 +5,7 @@ import pytest
 
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog, ParquetMunicipalityCatalog
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
-from app.pipeline.reference.ibge.validation import validate_municipalities
+from app.pipeline.reference.ibge.validation import inspect_municipalities, validate_municipalities
 from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
 from app.pipeline.reference.ibge.storage import (
     load_active_catalog,
@@ -116,6 +116,21 @@ def test_catalog_rejects_ambiguous_crosswalk():
 def test_validation_rejects_empty_catalog_with_contract_message():
     with pytest.raises(ValueError, match="catálogo municipal vazio"):
         validate_municipalities([])
+
+
+def test_catalog_validation_report_exposes_quality_counts():
+    report = catalog().validate()
+    assert report.valid is True
+    assert report.municipality_count == 5
+    assert report.uf_count == 2
+    assert report.code6_count == 5
+
+
+def test_catalog_validation_report_preserves_error_without_throwing():
+    report = inspect_municipalities((replace(municipality("3301009", "Campos"), code6="330101"),))
+    assert report.valid is False
+    assert report.municipality_count == 1
+    assert report.errors
 
 
 def test_validation_rejects_duplicate_code7():

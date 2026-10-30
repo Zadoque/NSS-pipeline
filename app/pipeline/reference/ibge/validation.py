@@ -5,9 +5,26 @@ from collections import Counter
 from collections.abc import Iterable
 
 from .models import Municipality
+from .models import CatalogValidationReport
 
 CODE7 = re.compile(r"^[0-9]{7}$")
 CODE6 = re.compile(r"^[0-9]{6}$")
+
+
+def inspect_municipalities(records: Iterable[Municipality]) -> CatalogValidationReport:
+    values = tuple(records)
+    errors: list[str] = []
+    try:
+        validate_municipalities(values)
+    except ValueError as error:
+        errors.append(str(error))
+    return CatalogValidationReport(
+        valid=not errors,
+        municipality_count=len(values),
+        uf_count=len({item.uf_code for item in values}),
+        code6_count=len({item.code6 for item in values}),
+        errors=tuple(errors),
+    )
 
 
 def validate_municipalities(records: Iterable[Municipality]) -> tuple[Municipality, ...]:

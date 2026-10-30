@@ -40,6 +40,15 @@ class CatalogMetadata:
 
 
 @dataclass(frozen=True)
+class CatalogValidationReport:
+    valid: bool
+    municipality_count: int
+    uf_count: int
+    code6_count: int
+    errors: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ResolutionResult:
     original_code: str
     input_format: str | None
@@ -56,3 +65,5 @@ class MunicipalityCatalog(Protocol):
     def resolve(self, value: object, declared_uf: str | None = None) -> ResolutionResult: ...
 
     def municipalities(self) -> tuple[Municipality, ...]: ...
+
+    def validate(self) -> CatalogValidationReport: ...
