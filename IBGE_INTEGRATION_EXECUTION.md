@@ -157,6 +157,7 @@ nix flake check --no-build  → aprovado
 pytest -q                  → 326 passed, 18 skipped, 25 warnings
 pytest -q com PostgreSQL  → 344 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
+controlled refresh smoke  → release DTB 2025 promovida e recarregada
 ```
 
 Os 342 testes foram executados com PostgreSQL real em container isolado,
@@ -194,6 +195,7 @@ Validações operacionais adicionais:
 ```text
 DTB 2025 em escopo BRAZIL: 5571 municípios, 27 UFs, 92 municípios no RJ
 Release Parquet temporária: 5571 municípios recarregados via active.json
+Refresh controlado real: DTB_2025.zip promovida em staging e recarregada pelo ponteiro ativo
 API CNES com limit=250: teto observado de 20 registros por resposta
 Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
 ```
