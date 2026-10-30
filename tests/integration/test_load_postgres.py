@@ -21,6 +21,8 @@ from app.pipeline.load import load_gold_to_postgres
 from app.pipeline.sinan.columns import CANONICAL_GOLD_COLUMNS
 from app.pipeline.sinan.gold import aggregate
 from app.pipeline.sinan.silver import transform
+from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 
 pytestmark = pytest.mark.integration
 
@@ -94,6 +96,13 @@ def _publish(engine, gold_df, disease_codigo="DENG", batch_id="b1", **overrides)
     return load_gold_to_postgres(engine, gold_df, disease_codigo, batch_id, **options)
 
 
+def _catalog():
+    return InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("ibge-dtb-test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+
+
 def test_load_gold_to_postgres_cria_linha_no_fato(postgres_engine):
     gold_df = _gold_exemplo(cases_total=5)
     _publish(postgres_engine, gold_df, disease_codigo="DENG", batch_id="b1")
@@ -105,6 +114,30 @@ def test_load_gold_to_postgres_cria_linha_no_fato(postgres_engine):
 
     assert row is not None
     assert row.cases_total == 5
+
+
+def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
+    _publish(
+        postgres_engine,
+        _gold_exemplo(),
+        "DENG",
+        "ibge-b1",
+        ibge_catalog=_catalog(),
+        geographic_scope_type="UFs",
+    )
+    with postgres_engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT p.ibge_catalog_id, p.ibge_catalog_sha256, p.geographic_scope_type,
+                   r.reference_year
+            FROM analytics.pipeline_publications p
+            JOIN analytics.reference_catalog_releases r
+              ON r.catalog_id = p.ibge_catalog_id
+            WHERE p.batch_id = 'ibge-b1'
+        """)).one()
+    assert row.ibge_catalog_id == "ibge-dtb-test"
+    assert row.ibge_catalog_sha256 == "a" * 64
+    assert row.geographic_scope_type == "UFs"
+    assert row.reference_year == 2025
 
 
 def test_snapshot_substitui_contagem_em_vez_de_duplicar(postgres_engine):
