@@ -11,6 +11,8 @@ from ..atomic_io import write_json_atomic, write_parquet_atomic
 from .columns import CATALOG, validate_keys
 from datetime import UTC, datetime
 from typing import Literal
+
+from ..reference.ibge.models import MunicipalityCatalog
  
 MUNICIPIOS_RJ = {
     "3301009": "Campos dos Goytacazes",
@@ -71,13 +73,14 @@ CNES_METADATA_COLUMNS = ["nm_unidade", "razao_social_unidade", "tp_unidade"]
 GOLD_REQUIRED_COLUMNS = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"}
 
 def normalize_municipality_codes(
-    series: pd.Series, municipios: dict[str, str],
+    series: pd.Series, municipios: dict[str, str] | MunicipalityCatalog,
 ) -> pd.Series:
     raw = series.astype("string").str.extract(r"(\d+)")[0]
     municipality_key = raw.str.lstrip("0")
+    mapping = municipios.as_mapping() if hasattr(municipios, "as_mapping") else municipios
     ibge_by_sinan_code = {
-        **{code[:6]: code for code in municipios},
-        **{code: code for code in municipios},
+        **{code[:6]: code for code in mapping},
+        **{code: code for code in mapping},
     }
     return municipality_key.map(ibge_by_sinan_code).fillna(raw)
 
@@ -90,11 +93,13 @@ def aggregate(
     df: pd.DataFrame,
     disease: str,
     selected_columns: list[str] | None = None,
-    municipios: dict[str, str] | None = None,
+    municipios: dict[str, str] | MunicipalityCatalog | None = None,
     cnes_lookup: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     selected_columns = validate_keys(selected_columns)
     municipios = municipios if municipios is not None else MUNICIPIOS_RJ
+    if hasattr(municipios, "as_mapping"):
+        municipios = municipios.as_mapping()
     disease = disease.upper()
 
     missing = GOLD_REQUIRED_COLUMNS - set(df.columns)
@@ -250,7 +255,7 @@ def aggregate_file(
     disease: str,
     year: int,
     selected_columns: list[str] | None = None,
-    municipios: dict[str, str] | None = None,
+    municipios: dict[str, str] | MunicipalityCatalog | None = None,
     run_at: datetime | None = None,
     target: GoldTarget = "ad_hoc",
     *,

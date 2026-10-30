@@ -1,6 +1,8 @@
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
 from app.pipeline.reference.ibge.validation import validate_municipalities
+from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
+from app.pipeline.reference.ibge.storage import promote_active, write_catalog
 from app.pipeline.scope import legacy_rj_scope, select_scope
 
 
@@ -63,3 +65,22 @@ def test_catalog_rejects_ambiguous_crosswalk():
         assert "code6" in str(error)
     else:
         raise AssertionError("crosswalk ambíguo deveria falhar")
+
+
+def test_storage_writes_parquet_and_active_pointer(tmp_path):
+    destination = write_catalog(tmp_path / "municipalities.parquet", [municipality("3301009", "Campos")])
+    assert destination.exists()
+    promote_active(tmp_path / "active.json", "test")
+    assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
+
+
+def test_localidades_client_validates_and_parses_response(mocker):
+    session = mocker.Mock()
+    session.get.return_value.json.return_value = [{
+        "id": 3301009,
+        "nome": "Campos",
+        "microrregiao": {"mesorregiao": {"UF": {"id": 33, "sigla": "RJ", "nome": "Rio"}}},
+    }]
+    result = IbgeLocalidadesClient(session=session).fetch_municipalities()
+    assert result[0].code7 == "3301009"
+    session.get.assert_called_once()

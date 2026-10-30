@@ -36,6 +36,9 @@ class InMemoryMunicipalityCatalog:
     def municipalities(self) -> tuple[Municipality, ...]:
         return self._records
 
+    def as_mapping(self) -> dict[str, str]:
+        return {item.code7: item.name for item in self._records}
+
     def get_municipality(self, code7: str) -> Municipality | None:
         return self._by_code7.get(str(code7))
 
