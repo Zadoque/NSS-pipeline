@@ -329,6 +329,9 @@ def _register_catalog_release(conn: Connection, catalog) -> None:
     metadata = catalog.metadata
     if not re.fullmatch(r"[0-9a-fA-F]{64}", metadata.sha256):
         raise ValueError("release IBGE sem SHA-256 válido não pode ser publicada")
+    conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {
+        "key": f"nss:ibge-release:{metadata.catalog_id}",
+    })
     existing_sha256 = conn.execute(text("""
         SELECT sha256
         FROM analytics.reference_catalog_releases

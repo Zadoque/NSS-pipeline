@@ -227,6 +227,20 @@ def test_upsert_release_requires_sha256(mocker):
         _register_catalog_release(conn, catalog)
 
 
+def test_register_release_serializa_por_catalog_id(mocker):
+    conn = mocker.Mock()
+    conn.execute.return_value.scalar_one_or_none.return_value = "a" * 64
+    catalog = mocker.Mock()
+    catalog.metadata.catalog_id = "ibge-dtb-2025"
+    catalog.metadata.sha256 = "a" * 64
+
+    _register_catalog_release(conn, catalog)
+
+    first_call = conn.execute.call_args_list[0]
+    assert "pg_advisory_xact_lock" in str(first_call.args[0])
+    assert first_call.args[1] == {"key": "nss:ibge-release:ibge-dtb-2025"}
+
+
 def test_load_rejects_unknown_scope_type():
     with pytest.raises(ValueError, match="escopo"):
         load_gold_to_postgres(
