@@ -47,6 +47,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `1c3c99b` | Suporte a eventos administrativos explícitos |
 | `c0dc947` | Isolamento do fixture de metadata nos testes |
 | `7e0bd6c` | Inclusão do histórico IBGE no escopo do mutmut |
+| `7e3be14` | Paginação CNES avança pelo tamanho efetivamente retornado |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -104,10 +105,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 328 passed, 25 warnings
+pytest -q                  → 329 passed, 25 warnings
 ```
 
-Os 328 testes foram executados com PostgreSQL real em container isolado,
+Os 329 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
@@ -123,6 +124,18 @@ O parser histórico foi executado contra a planilha oficial de alterações
 toponímicas municipais de 2025: 136 eventos, abrangendo 124 geocódigos. Esses
 eventos preservam o mesmo geocódigo na origem e no destino; não representam
 sucessões territoriais.
+
+Validações operacionais adicionais:
+
+```text
+DTB 2025 em escopo BRAZIL: 5571 municípios, 27 UFs, 92 municípios no RJ
+API CNES com limit=250: teto observado de 20 registros por resposta
+Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
+```
+
+O teto observado da API CNES expôs um risco de salto de registros: o offset
+avançava pelo limite solicitado. A implementação foi corrigida para avançar
+pelo número retornado na página, e o comportamento foi coberto por teste.
 
 A configuração do `mutmut` foi corrigida para copiar os assets `territories/` e
 inclui agora o módulo de histórico administrativo. A rodada integral continua
