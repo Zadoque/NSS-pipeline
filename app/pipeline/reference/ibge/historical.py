@@ -105,6 +105,54 @@ def write_events(path: Path, events: list[MunicipalityEvent] | tuple[Municipalit
     return path
 
 
+def _read_events(path: Path) -> list[MunicipalityEvent]:
+    if not path.exists():
+        return []
+    frame = pd.read_parquet(path).fillna("")
+    return [
+        MunicipalityEvent(
+            event_id=str(row["event_id"]),
+            event_type=str(row["event_type"]),
+            effective_date=str(row["effective_date"]),
+            source_code7=str(row["source_code7"]) or None,
+            target_code7=str(row["target_code7"]) or None,
+            source_name=str(row["source_name"]) or None,
+            target_name=str(row["target_name"]) or None,
+            source=str(row["source"]),
+        )
+        for _, row in frame.iterrows()
+    ]
+
+
+def _promote_events(
+    root: Path,
+    events: list[MunicipalityEvent],
+    *,
+    source_path: Path,
+    reference_year: int,
+    source_url: str | None,
+) -> Path:
+    result_path = root / "historical" / "municipality_events.parquet"
+    existing = {event.event_id: event for event in _read_events(result_path)}
+    for event in events:
+        previous = existing.get(event.event_id)
+        if previous is not None and previous != event:
+            raise ValueError(f"event_id conflitante no histórico municipal: {event.event_id}")
+        existing[event.event_id] = event
+    merged = list(existing.values())
+    result = write_events(result_path, merged)
+    manifest = {
+        "reference_year": reference_year,
+        "source_url": source_url,
+        "source_path": str(source_path),
+        "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+        "rows": len(merged),
+        "event_types": sorted({event.event_type for event in merged}),
+    }
+    write_json_atomic(manifest, result.parent / "municipality_events.manifest.json")
+    return result
+
+
 def parse_administrative_events(
     source_path: Path,
     *,
@@ -168,17 +216,10 @@ def promote_administrative_events(
     events = parse_administrative_events(
         source_path, reference_year=reference_year, source_url=source_url,
     )
-    result = write_events(root / "historical" / "municipality_events.parquet", events)
-    manifest = {
-        "reference_year": reference_year,
-        "source_url": source_url,
-        "source_path": str(source_path),
-        "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
-        "rows": len(events),
-        "event_types": sorted({event.event_type for event in events}),
-    }
-    write_json_atomic(manifest, result.parent / "municipality_events.manifest.json")
-    return result
+    return _promote_events(
+        root, events, source_path=source_path, reference_year=reference_year,
+        source_url=source_url,
+    )
 
 
 def promote_toponymic_events(
@@ -192,14 +233,7 @@ def promote_toponymic_events(
     events = parse_toponymic_events(
         source_path, reference_year=reference_year, source_url=source_url,
     )
-    result = write_events(root / "historical" / "municipality_events.parquet", events)
-    manifest = {
-        "reference_year": reference_year,
-        "source_url": source_url,
-        "source_path": str(source_path),
-        "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
-        "rows": len(events),
-        "event_types": sorted({event.event_type for event in events}),
-    }
-    write_json_atomic(manifest, result.parent / "municipality_events.manifest.json")
-    return result
+    return _promote_events(
+        root, events, source_path=source_path, reference_year=reference_year,
+        source_url=source_url,
+    )

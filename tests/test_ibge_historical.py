@@ -90,3 +90,25 @@ def test_promote_administrative_events_writes_versioned_manifest(tmp_path):
     result = promote_administrative_events(tmp_path / "catalog", source, reference_year=2025)
     assert result.exists()
     assert result.with_name("municipality_events.manifest.json").exists()
+
+
+def test_promotions_merge_toponymic_and_administrative_events(tmp_path):
+    root = tmp_path / "catalog"
+    toponymic = tmp_path / "toponymic.csv"
+    toponymic.write_text(
+        "UF,MUN,ALT,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n"
+        "33,01009,2,Nome antigo,Campos dos Goytacazes,1988-10-24\n",
+        encoding="utf-8",
+    )
+    administrative = tmp_path / "administrative.csv"
+    administrative.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\n"
+        "CREATION,2025-01-01,,5101837\n",
+        encoding="utf-8",
+    )
+    promote_toponymic_events(root, toponymic, reference_year=2025)
+    result = promote_administrative_events(root, administrative, reference_year=2025)
+
+    frame = __import__("pandas").read_parquet(result)
+    assert set(frame["event_type"]) == {"TOPONYMIC_CHANGE", "CREATION"}
+    assert len(frame) == 2
