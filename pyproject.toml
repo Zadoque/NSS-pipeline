@@ -24,6 +24,7 @@ only_mutate = [
     "app/pipeline/reference/ibge/storage.py",
     "app/pipeline/reference/ibge/validation.py",
     "app/pipeline/reference/ibge/refresh.py",
+    "app/pipeline/reference/ibge/historical.py",
 ]
 
 # Testes de integração ficam fora da primeira rodada para evitar que cada
