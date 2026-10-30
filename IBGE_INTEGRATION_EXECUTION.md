@@ -158,6 +158,17 @@ toponímicas municipais de 2025: 136 eventos, abrangendo 124 geocódigos. Esses
 eventos preservam o mesmo geocódigo na origem e no destino; não representam
 sucessões territoriais.
 
+Também foi executada uma comparação real entre as edições DTB 2024 e 2025:
+
+```text
+DTB_2024.zip SHA-256: 218d2017cc29ff21cb6e8a0b015c40ea8f456900f95aa18f534be4ea94b473f0
+DTB_2025.zip SHA-256: d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27
+Municípios em cada edição: 5571
+Diferenças observáveis: 3 TOPONYMIC_CHANGE, 0 CREATION, 0 EXTINCTION
+```
+
+A comparação não inferiu sucessão, fusão ou desmembramento entre códigos.
+
 Validações operacionais adicionais:
 
 ```text
