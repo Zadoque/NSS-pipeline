@@ -258,6 +258,18 @@ trazendo `nm_unidade`, `razao_social_unidade` e `tp_unidade` para a Gold.
 docker compose run --rm pipeline --disease DENG --year 2026 --columns="unidade_notificacao"
 ```
 
+Para garantir reprodutibilidade, fixe o lote CNES usado pela Gold:
+
+```bash
+docker compose run --rm pipeline --disease DENG --year 2026 \
+  --columns="unidade_notificacao" --cnes-batch-id 20261014T120000Z
+```
+
+Sem `--cnes-batch-id`, a compatibilidade legada seleciona o lote mais recente
+disponível. Quando informado, o lote precisa existir exatamente em
+`silver/cnes/batch_id={id}`; a Gold registra o identificador no próprio
+`metadata.json`.
+
 Se nenhuma Silver do CNES existir ainda (`run_cnes.py` nunca foi executado),
 `_latest_cnes_lookup()` retorna `None` e a Gold é gerada normalmente, apenas
 sem as colunas de enriquecimento — a pipeline do SINAN nunca falha por
