@@ -24,6 +24,7 @@ def validate_municipalities(records: Iterable[Municipality]) -> tuple[Municipali
     if duplicate_code6:
         raise ValueError(f"code6 ambíguo no catálogo: {duplicate_code6}")
 
+    uf_attributes: dict[str, tuple[str, str]] = {}
     for item in values:
         if not CODE7.fullmatch(item.code7) or not CODE6.fullmatch(item.code6):
             raise ValueError(f"código municipal inválido: {item.code7}/{item.code6}")
@@ -33,4 +34,8 @@ def validate_municipalities(records: Iterable[Municipality]) -> tuple[Municipali
             raise ValueError(f"UF inconsistente para {item.code7}")
         if not item.name.strip() or not item.uf_abbr.strip() or not item.uf_name.strip():
             raise ValueError(f"atributo obrigatório ausente para {item.code7}")
+        attributes = (item.uf_abbr.strip().upper(), item.uf_name.strip())
+        previous = uf_attributes.setdefault(item.uf_code, attributes)
+        if previous != attributes:
+            raise ValueError(f"identidade da UF inconsistente para {item.uf_code}")
     return values

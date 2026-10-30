@@ -124,6 +124,15 @@ def test_validation_rejects_duplicate_code7():
         validate_municipalities([record, record])
 
 
+def test_validation_rejects_conflicting_uf_identity():
+    records = [
+        municipality("3301009", "Campos", uf_abbr="RJ"),
+        Municipality("3302205", "330220", "Itaperuna", "33", "XX", "Rio de Janeiro", 2025),
+    ]
+    with pytest.raises(ValueError, match="identidade da UF"):
+        validate_municipalities(records)
+
+
 @pytest.mark.parametrize(
     "record, message",
     [
