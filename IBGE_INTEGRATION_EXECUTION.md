@@ -31,6 +31,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `48720cf` | Promoção do histórico oficial de alterações toponímicas |
 | `c5d9964` | Paginação CNES configurável para execução nacional |
 | `0977138` | Download e cache da DTB com validação SHA-256 |
+| `c6033cd` | Atualização da contagem final de validação |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
