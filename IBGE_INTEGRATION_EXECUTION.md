@@ -61,6 +61,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `4f97372` | Centralização do recorte RJ legado em `scope.py` |
 | `13e14da` | Consistência das identidades de UF no catálogo |
 | `c61f36c` | Relatórios tipados de validação do catálogo |
+| `fc49691` | Ordenação determinística dos artefatos de release |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -116,7 +117,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   incompatível, release não validada e traversal de caminho.
 - Cada nova release materializa `municipalities.parquet`, `ufs.parquet` e
   `code_crosswalk.parquet`; leitores antigos continuam usando o catálogo
-  municipal canônico.
+  municipal canônico. Os três artefatos são ordenados por suas chaves canônicas,
+  independentemente da ordem de entrada.
 - CLI `python -m app.pipeline.reference.ibge.refresh` para promover DTB local,
   DTB por URL ou API de Localidades com hash e proveniência explícitos.
 - Registros obtidos pela API de Localidades recebem o `reference_year` declarado
@@ -145,11 +147,14 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 341 passed, 25 warnings
+pytest -q                  → 324 passed, 18 skipped, 25 warnings
+pytest -q com PostgreSQL  → 342 passed, 25 warnings
 ```
 
-Os 341 testes foram executados com PostgreSQL real em container isolado,
-incluindo 18 testes de integração e as migrations até `0007`.
+Os 342 testes foram executados com PostgreSQL real em container isolado,
+incluindo 18 testes de integração e as migrations até `0007`. Sem as variáveis
+de conexão, esses 18 testes são pulados explicitamente; isso não altera os
+resultados unitários, mas o comando homologatório deve fornecer o banco.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
 
