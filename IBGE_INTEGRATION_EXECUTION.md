@@ -73,6 +73,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `d410b41` | Imutabilidade da release IBGE na publicação PostgreSQL |
 | `3d4ca99` | Timeout configurável para requisições CNES |
 | `79fb79d` | Homologação do timeout no escopo nacional CNES |
+| `b61e7e3` | Serialização concorrente do registro de releases IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -105,6 +106,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   dos códigos municipais publicados, além do tipo e da contagem do escopo.
 - Publicação PostgreSQL rejeita a reutilização de `catalog_id` com SHA-256
   diferente, mantendo o registro de release imutável sob lock transacional.
+- O registro da release usa advisory lock por `catalog_id`, evitando corrida
+  entre publicações concorrentes de doenças diferentes.
 - Manifesto SINAN sensível à mudança de `ibgeCatalogId` e
   `ibgeCatalogSha256`.
 - Módulos IBGE incluídos no escopo do `mutmut`.
@@ -176,7 +179,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 333 passed, 19 skipped, 25 warnings
 pytest -q com PostgreSQL  → 344 passed, 25 warnings
-pytest -q nacional + PostgreSQL → 353 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 354 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
