@@ -151,6 +151,36 @@ def test_storage_round_trip_loads_active_catalog(tmp_path):
     assert loaded.get_municipality("3301009").name == "Campos"
 
 
+@pytest.mark.parametrize(
+    ("active_id", "manifest_id", "validation_status", "message"),
+    [
+        ("release", "release", "PENDING", "não está validada"),
+        ("release", "other", "VALIDATED", "diverge"),
+        ("../outside", "../outside", "VALIDATED", "não informa"),
+    ],
+)
+def test_active_catalog_rejects_untrusted_pointer_and_manifest(
+    tmp_path, active_id, manifest_id, validation_status, message,
+):
+    release = tmp_path / "releases" / "release"
+    release.mkdir(parents=True)
+    (tmp_path / "active.json").write_text(
+        __import__("json").dumps({"catalog_id": active_id}), encoding="utf-8"
+    )
+    (release / "manifest.json").write_text(__import__("json").dumps({
+        "catalog_id": manifest_id,
+        "reference_year": 2025,
+        "source_name": "fixture",
+        "source_url": "fixture://catalog",
+        "retrieved_at": "2026-01-01T00:00:00Z",
+        "sha256": "a" * 64,
+        "validation_status": validation_status,
+    }), encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_active_catalog(tmp_path)
+
+
 def test_load_active_catalog_rejects_pointer_without_release_id(tmp_path):
     (tmp_path / "active.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="catalog_id"):

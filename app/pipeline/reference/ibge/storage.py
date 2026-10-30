@@ -49,10 +49,30 @@ def promote_active(active_path: Path, catalog_id: str) -> Path:
 
 
 def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
-    active = json.loads((root / "active.json").read_text(encoding="utf-8"))
+    active_path = root / "active.json"
+    try:
+        active = json.loads(active_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"ponteiro ativo ausente: {active_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"ponteiro ativo inválido: {active_path}") from exc
     catalog_id = active.get("catalog_id")
-    if not catalog_id:
+    if not isinstance(catalog_id, str) or not catalog_id or Path(catalog_id).name != catalog_id:
         raise ValueError("active.json não informa catalog_id")
     release = root / "releases" / catalog_id
-    metadata = CatalogMetadata(**json.loads((release / "manifest.json").read_text(encoding="utf-8")))
+    manifest_path = release / "manifest.json"
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"manifesto da release ausente: {manifest_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"manifesto da release inválido: {manifest_path}") from exc
+    try:
+        metadata = CatalogMetadata(**manifest)
+    except TypeError as exc:
+        raise ValueError(f"manifesto da release incompatível: {manifest_path}") from exc
+    if metadata.catalog_id != catalog_id:
+        raise ValueError("catalog_id do manifesto diverge do ponteiro ativo")
+    if metadata.validation_status != "VALIDATED":
+        raise ValueError("release IBGE ativa não está validada")
     return ParquetMunicipalityCatalog(release / "municipalities.parquet", metadata)
