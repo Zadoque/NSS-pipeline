@@ -12,7 +12,11 @@ from app.pipeline.reference.ibge.storage import (
     write_catalog,
     write_manifest,
 )
-from app.pipeline.reference.ibge.refresh import download_dtb_archive
+from app.pipeline.reference.ibge.refresh import (
+    download_dtb_archive,
+    refresh_from_dtb_archive,
+    refresh_from_localidades,
+)
 from app.pipeline.scope import legacy_rj_scope, select_scope
 
 
@@ -230,6 +234,45 @@ def test_download_dtb_archive_rejects_hash_without_replacing_previous(tmp_path, 
     else:
         raise AssertionError("hash divergente deveria rejeitar a DTB")
     assert destination.read_bytes() == b"previous"
+
+
+def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
+    class Client:
+        def fetch_municipalities(self):
+            return (municipality("3301009", "Campos"),)
+
+    result = refresh_from_localidades(
+        tmp_path,
+        catalog_id="ibge-api-test",
+        source_url="https://example.invalid/municipios",
+        reference_year=2025,
+        client=Client(),
+    )
+    assert result.exists()
+    loaded = load_active_catalog(tmp_path)
+    assert loaded.metadata.catalog_id == "ibge-api-test"
+    assert len(loaded.municipalities()) == 1
+    assert len(loaded.metadata.sha256) == 64
+
+
+def test_refresh_from_dtb_archive_hashes_raw_artifact(tmp_path, mocker):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"official-dtb-fixture")
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.parse_dtb_archive",
+        return_value=[municipality("3301009", "Campos")],
+    )
+    result = refresh_from_dtb_archive(
+        tmp_path,
+        archive,
+        catalog_id="ibge-dtb-test",
+        source_url="https://example.invalid/DTB_2025.zip",
+        reference_year=2025,
+    )
+    manifest = result.with_name("manifest.json").read_text(encoding="utf-8")
+    assert result.exists()
+    assert __import__("hashlib").sha256(b"official-dtb-fixture").hexdigest() in manifest
+    assert load_active_catalog(tmp_path).metadata.catalog_id == "ibge-dtb-test"
 from dataclasses import replace
 
 import pytest
