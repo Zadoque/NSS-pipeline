@@ -183,15 +183,15 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 335 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 354 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 355 passed, 25 warnings
+pytest -q                  → 336 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 355 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 356 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 354 testes foram executados com PostgreSQL real em container isolado,
+Os 355 testes foram executados com PostgreSQL real em container isolado,
 incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
