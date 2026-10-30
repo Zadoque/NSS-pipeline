@@ -60,6 +60,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `696e19d` | Verificação completa antes do reuso de releases |
 | `4f97372` | Centralização do recorte RJ legado em `scope.py` |
 | `13e14da` | Consistência das identidades de UF no catálogo |
+| `c61f36c` | Relatórios tipados de validação do catálogo |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -129,6 +130,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   alias público para compatibilidade.
 - O validador rejeita o mesmo código de UF associado a siglas ou nomes
   divergentes antes de gerar `ufs.parquet`.
+- `MunicipalityCatalog.validate()` expõe relatório tipado com validade,
+  contagem de municípios, UFs, códigos 6 e erros sem exceção; a validação
+  estrita continua disponível para promoção.
 - Atualização protegida contra reutilização de `catalog_id` com SHA-256
   diferente; a candidata é rejeitada antes de sobrescrever o artefato ou o
   ponteiro ativo.
@@ -141,10 +145,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 339 passed, 25 warnings
+pytest -q                  → 341 passed, 25 warnings
 ```
 
-Os 339 testes foram executados com PostgreSQL real em container isolado,
+Os 341 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
