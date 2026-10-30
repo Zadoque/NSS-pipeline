@@ -89,6 +89,24 @@ def test_fetch_estabelecimentos_paginates_until_empty(mocker):
     assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 1, 2]
 
 
+def test_fetch_estabelecimentos_respeita_teto_da_api_sem_pular_registros(mocker):
+    responses = [
+        mocker.Mock(json=lambda: {"estabelecimentos": [{"id": value} for value in range(20)]}),
+        mocker.Mock(json=lambda: {"estabelecimentos": [{"id": 20}]}),
+        mocker.Mock(json=lambda: {"estabelecimentos": []}),
+    ]
+    for response in responses:
+        response.raise_for_status = mocker.Mock()
+    session = mocker.Mock()
+    session.get.side_effect = responses
+    mocker.patch.object(cnes_bronze, "_session_with_retries", return_value=session)
+
+    result = cnes_bronze.fetch_estabelecimentos("3301009", limit=250)
+
+    assert result["id"].tolist() == list(range(21))
+    assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 20, 21]
+
+
 def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality

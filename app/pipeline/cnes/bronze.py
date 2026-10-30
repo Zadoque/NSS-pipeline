@@ -62,7 +62,9 @@ def fetch_estabelecimentos(
         if not pagina:
             break
         registros.extend(pagina)
-        offset += limit
+        # A API pode aplicar um teto menor que ``limit`` sem sinalizá-lo.
+        # Avançar pelo tamanho efetivo evita saltar registros nesse caso.
+        offset += len(pagina)
 
     return pd.DataFrame(registros)
 
