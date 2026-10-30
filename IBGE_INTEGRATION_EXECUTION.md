@@ -208,6 +208,11 @@ Diferenças observáveis: 3 TOPONYMIC_CHANGE, 0 CREATION, 0 EXTINCTION
 
 A comparação não inferiu sucessão, fusão ou desmembramento entre códigos.
 
+A inspeção dos membros dos ZIPs oficiais confirmou que os arquivos de
+“novos/extintos” publicados na DTB 2024/2025 tratam de distritos e
+subdistritos, não de uma tabela municipal estruturada de sucessões. Por isso,
+nenhum evento administrativo municipal foi inferido a partir deles.
+
 Validações operacionais adicionais:
 
 ```text
@@ -217,6 +222,8 @@ Refresh controlado real: DTB_2025.zip promovida em staging e recarregada pelo po
 API CNES com limit=250: teto observado de 20 registros por resposta
 Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
 Homologação CNES offline: 1 passed em 45,87 s com `IBGE_DTB_ARCHIVE=DTB_2025.zip`
+Piloto CNES real: Campos concluído; a API ficou sem resposta ao iniciar São
+Paulo após aproximadamente quatro minutos e a execução foi interrompida.
 ```
 
 O teto observado da API CNES expôs um risco de salto de registros: o offset
