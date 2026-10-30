@@ -119,3 +119,34 @@ def test_publicacao_vazia_explicita_e_falha_liberam_conexao(mocker, pipeline):
     assert load.call_args.kwargs["expected_cases_total"] == 0
     assert load.call_args.kwargs["allow_empty"] is True
     engine.dispose.assert_called_once()
+
+
+def test_catalogo_ibge_bloqueia_publicacao_com_resolucao_invalida(mocker, pipeline):
+    aggregate, engine, get_engine, load = pipeline
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3305000", "330500", "São João da Barra", "33", "RJ", "Rio", 2025),
+            Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    silver = pd.DataFrame({"ID_MUNICIP": ["330100"]})
+    mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, pd.DataFrame({"cases_total": [1]})])
+    aggregate.return_value = Path("gold.parquet")
+    metadata_path = Path("metadata.json")
+    metadata_path.write_text(
+        '{"invalid_municipality_rows": 1, "uf_mismatch_rows": 0}', encoding="utf-8"
+    )
+    mocker.patch.object(Path, "with_name", return_value=metadata_path)
+
+    with pytest.raises(ValueError, match="resoluções municipais inválidas"):
+        runner.run_load("DENG", 2026, catalog=catalog)
+
+    load.assert_not_called()
+    get_engine.assert_not_called()
+    engine.dispose.assert_not_called()

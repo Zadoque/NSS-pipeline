@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -57,6 +58,17 @@ def run_load(
     )
 
     gold_df = pd.read_parquet(gold_path)
+    if catalog is not None:
+        gold_metadata = json.loads(
+            gold_path.with_name("metadata.json").read_text(encoding="utf-8")
+        )
+        invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
+        uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
+        if invalid_rows or uf_mismatch_rows:
+            raise ValueError(
+                "Publicação bloqueada: Gold contém resoluções municipais inválidas "
+                f"(invalid={invalid_rows}, uf_mismatch={uf_mismatch_rows})"
+            )
     logger.info("Gold concluída: %s (linhas=%s)", gold_path, len(gold_df))
     batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
 

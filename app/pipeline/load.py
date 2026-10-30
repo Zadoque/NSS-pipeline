@@ -171,12 +171,10 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     # analytics.dim_unidade_saude (migration 0001) — "razao_social",
     # não "razao_social_unidade" (esse é o nome vindo do silver_cnes.py).
     #
-    # cd_mun (FK para dim_municipio) NÃO é populado aqui de propósito:
-    # o "codigo_municipio" retornado pela API do CNES tem 6 dígitos,
-    # enquanto dim_municipio.cd_mun usa o padrão IBGE de 7 dígitos do
-    # SINAN. Converter exigiria calcular o dígito verificador — não é
-    # um simples zero à esquerda. Até isso ser implementado com cuidado,
-    # cd_mun de dim_unidade_saude fica nulo (coluna é opcional no schema).
+    # cd_mun (FK para dim_municipio) é utilizado quando a Silver CNES foi
+    # produzida com um MunicipalityCatalog IBGE. Sem esse catálogo, o caminho
+    # legado mantém a FK nula: o código CNES de seis dígitos não deve ser
+    # convertido por preenchimento ou cálculo heurístico do dígito verificador.
     source_to_db = {
         "nm_unidade": "nm_unidade",
         "razao_social_unidade": "razao_social",
