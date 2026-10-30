@@ -66,6 +66,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `163e818` | Promoção atômica e segura de releases IBGE |
 | `36d5942` | Homologação nacional offline do escopo CNES |
 | `a7e99d1` | Contrato explícito de timeout no download da DTB |
+| `4d33b14` | Cobertura dos entrypoints de refresh IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -161,9 +162,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 326 passed, 19 skipped, 25 warnings
+pytest -q                  → 327 passed, 19 skipped, 25 warnings
 pytest -q com PostgreSQL  → 344 passed, 25 warnings
-pytest -q nacional + PostgreSQL → 345 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 348 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
