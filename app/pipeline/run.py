@@ -24,6 +24,7 @@ def run(
     *,
     catalog: MunicipalityCatalog | None = None,
     geographic_scope: GeographicScope | None = None,
+    cnes_batch_id: str | None = None,
 ) -> None:
     disease = disease.upper()
     run_at = datetime.now(UTC)          
@@ -42,7 +43,7 @@ def run(
         municipios = None
     gold = aggregate_file(
         silver, disease, year, selected_columns, municipios=municipios, catalog=catalog,
-        run_at=run_at, target="ad_hoc",
+        run_at=run_at, target="ad_hoc", cnes_batch_id=cnes_batch_id,
     )
 
     logger.info("Gold concluída: %s", gold)
@@ -61,6 +62,7 @@ def main() -> None:
     parser.add_argument("--municipios", help="Códigos municipais separados por vírgula")
     parser.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
     parser.add_argument("--all-brazil", action="store_true")
+    parser.add_argument("--cnes-batch-id", help="Lote CNES fixado para o enriquecimento da Gold")
     args = parser.parse_args()
     selected = [c.strip() for c in args.columns.split(",") if c.strip()]
     try:
@@ -73,7 +75,10 @@ def main() -> None:
             ufs=args.ufs.split(",") if args.ufs else None,
             all_brazil=args.all_brazil,
         ) if catalog is not None else None
-        run(args.disease, args.year, selected, catalog=catalog, geographic_scope=scope)
+        run(
+            args.disease, args.year, selected, catalog=catalog,
+            geographic_scope=scope, cnes_batch_id=args.cnes_batch_id,
+        )
     except Exception:
         logger.exception("Falha na pipeline SINAN disease=%s year=%s", args.disease, args.year)
         raise SystemExit(1) from None

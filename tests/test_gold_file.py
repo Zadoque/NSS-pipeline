@@ -170,6 +170,29 @@ def test_latest_cnes_lookup_retorna_o_batch_mais_recente(tmp_path, monkeypatch):
     assert gold._latest_cnes_lookup() == b"new"
 
 
+def test_gold_fixa_lote_cnes_explicitamente(source, lookup, tmp_path, monkeypatch):
+    batch_id = "20261014T120000Z"
+    batch_path = tmp_path / "data" / "silver" / "cnes" / f"batch_id={batch_id}"
+    batch_path.mkdir(parents=True)
+    lookup.to_parquet(batch_path / "data.parquet", index=False)
+    monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
+    monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: pytest.fail("lote implícito usado"))
+
+    result = gold.aggregate_file(
+        source, "DENG", 2024, SELECTED, MUNICIPIOS, RUN_AT,
+        cnes_batch_id=batch_id,
+    )
+    metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
+    assert metadata["cnes_batch_id"] == batch_id
+    assert "nm_unidade" in pq.ParquetFile(result).schema.names
+
+
+def test_gold_rejeita_lote_cnes_inexistente(source, tmp_path, monkeypatch):
+    monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
+    with pytest.raises(FileNotFoundError, match="lote CNES"):
+        gold.aggregate_file(source, "DENG", 2024, cnes_batch_id="20261014T120000Z")
+
+
 def test_latest_cnes_lookup_retorna_none_sem_batches(tmp_path, monkeypatch):
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
     assert gold._latest_cnes_lookup() is None

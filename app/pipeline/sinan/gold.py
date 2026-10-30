@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
  
 import pandas as pd
@@ -278,6 +279,15 @@ def _latest_cnes_lookup() -> pd.DataFrame | None:
         return None
     return pd.read_parquet(batches[-1])
 
+
+def _cnes_lookup_for_batch(batch_id: str) -> pd.DataFrame:
+    if not re.fullmatch(r"\d{8}T\d{6}Z", batch_id):
+        raise ValueError("cnes_batch_id inválido")
+    path = BASE_DIR / "silver" / "cnes" / f"batch_id={batch_id}" / "data.parquet"
+    if not path.exists():
+        raise FileNotFoundError(f"lote CNES não encontrado: {batch_id}")
+    return pd.read_parquet(path)
+
 def _gold_input_schema(source_schema: pa.Schema, keys: list[str]) -> pa.Schema:
     needed = GOLD_REQUIRED_COLUMNS | {"ID_UNIDADE", "NU_IDADE_N", "TP_IDADE"}
     needed.update(CATALOG[key].source_column for key in keys if CATALOG[key].groupable)
@@ -307,6 +317,7 @@ def aggregate_file(
     *,
     catalog: MunicipalityCatalog | None = None,
     batch_size: int = DEFAULT_BATCH_SIZE,
+    cnes_batch_id: str | None = None,
 ) -> Path:
     if batch_size <= 0:
         raise ValueError("batch_size deve ser maior que zero")
@@ -324,7 +335,11 @@ def aggregate_file(
     source_metadata = _read_source_metadata(source)
     _validate_source_matches(source_metadata, disease, year, source)
 
-    cnes_lookup = _latest_cnes_lookup()
+    cnes_lookup = (
+        _cnes_lookup_for_batch(cnes_batch_id)
+        if cnes_batch_id is not None
+        else _latest_cnes_lookup()
+    )
     batches = 0
     resolution_metrics = {
         "scope_matched_rows": 0,
@@ -384,6 +399,7 @@ def aggregate_file(
         "aggregation_reduction": aggregation_reduction,
         "batch_size": batch_size,
         "batches_processed": batches,
+        "cnes_batch_id": cnes_batch_id,
         **resolution_metrics,
         "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
         "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,

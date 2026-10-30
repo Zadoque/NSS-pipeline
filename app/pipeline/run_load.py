@@ -27,6 +27,7 @@ def run_load(
     source_path=None,
     catalog: MunicipalityCatalog | None = None,
     geographic_scope: GeographicScope | None = None,
+    cnes_batch_id: str | None = None,
 ) -> None:
     disease = disease.upper()
     run_at = datetime.now(UTC)
@@ -55,6 +56,7 @@ def run_load(
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
         municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
+        cnes_batch_id=cnes_batch_id,
     )
 
     gold_df = pd.read_parquet(gold_path)
@@ -116,6 +118,7 @@ def main() -> None:
     parser.add_argument("--municipios", help="Códigos municipais separados por vírgula")
     parser.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
     parser.add_argument("--all-brazil", action="store_true", help="Seleciona todos os municípios da release IBGE")
+    parser.add_argument("--cnes-batch-id", help="Lote CNES fixado para o enriquecimento da Gold")
     args = parser.parse_args()
     try:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
@@ -132,6 +135,7 @@ def main() -> None:
         run_load(
             args.disease, args.year, allow_empty=args.allow_empty,
             catalog=catalog, geographic_scope=scope,
+            cnes_batch_id=args.cnes_batch_id,
         )
     except Exception:
         logger.exception("Falha na carga SINAN disease=%s year=%s", args.disease, args.year)
