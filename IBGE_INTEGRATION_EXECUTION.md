@@ -60,6 +60,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Publicação SINAN bloqueada quando a Gold reporta código municipal inválido ou
   divergência entre UF declarada e UF canônica; municípios válidos fora do
   escopo continuam sendo contabilizados separadamente.
+- Parser e promoção de alterações toponímicas oficiais para o histórico local,
+  sem inferir criação, extinção ou sucessão municipal.
 - `flake.nix` e `flake.lock` com Python 3.12, PostgreSQL, Docker e ambiente
   virtual reproduzível.
 
@@ -102,8 +104,9 @@ completa. Permanecem necessários:
 1. Incorporar ao processo de distribuição o ZIP oficial bruto da DTB ou um
    mecanismo de cache controlado; o repositório mantém checksum e fixture
    representativa, não o ZIP integral.
-2. Alimentar a tabela histórica com os eventos oficiais de alterações
-   administrativas e definir a política temporal efetiva.
+2. Completar a tabela histórica com eventos oficiais de criação, extinção e
+   sucessão administrativa, além de definir a política temporal efetiva. As
+   alterações toponímicas já possuem parser e promoção local.
 3. Incorporar `resolved_rows`, `discarded_rows` e `aggregation_reduction` aos
    consumidores de auditoria; `dropped_rows` permanece preservado por
    compatibilidade.
