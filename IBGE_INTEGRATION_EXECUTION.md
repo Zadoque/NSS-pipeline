@@ -33,6 +33,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `0977138` | Download e cache da DTB com validação SHA-256 |
 | `c6033cd` | Atualização da contagem final de validação |
 | `5842e91` | Inclusão do commit final no relatório |
+| `3274ac0` | Correção do runner mutante para assets territoriais |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
