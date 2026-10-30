@@ -2,6 +2,8 @@ pandas>=2.0
 pyarrow
 duckdb>=1.5,<2
 PySUS>=2.11.7
+xlrd>=2.0
+odfpy>=1.4
 requests
 shapely
 alembic

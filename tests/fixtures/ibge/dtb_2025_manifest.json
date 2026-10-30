@@ -1,0 +1,10 @@
+{
+  "catalog_id": "ibge-dtb-2025",
+  "reference_year": 2025,
+  "source_name": "IBGE - Divisão Territorial Brasileira",
+  "source_url": "https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip",
+  "sha256": "d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27",
+  "municipality_records_observed": 5571,
+  "retrieved_at": "2026-10-30",
+  "note": "Checksum e contagem observados no artefato oficial baixado durante a execução; o ZIP não é embutido no repositório."
+}

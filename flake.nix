@@ -31,6 +31,7 @@
               pkgs.gcc
               pkgs.stdenv.cc.cc.lib
               pkgs.openssl
+              pkgs.zlib
               pkgs.postgresql
               pkgs.docker
               pkgs.docker-compose
@@ -41,7 +42,7 @@
               export VIRTUAL_ENV="$NSS_REPO_ROOT/.venv"
               export PIP_DISABLE_PIP_VERSION_CHECK=1
               export PYTHONUNBUFFERED=1
-              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+              export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:${pkgs.zlib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
               if [ ! -x "$VIRTUAL_ENV/bin/python" ]; then
                 ${python}/bin/python -m venv "$VIRTUAL_ENV"
