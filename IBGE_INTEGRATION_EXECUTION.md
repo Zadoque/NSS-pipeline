@@ -65,6 +65,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `6f51671` | Reutilização de sessão HTTP no escopo nacional CNES |
 | `163e818` | Promoção atômica e segura de releases IBGE |
 | `36d5942` | Homologação nacional offline do escopo CNES |
+| `a7e99d1` | Contrato explícito de timeout no download da DTB |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -138,6 +139,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   tanto no armazenamento local quanto na publicação PostgreSQL.
 - O carregador rejeita registros cujo `reference_year` diverge do manifesto e
   o refresh não reutiliza releases com identidade ou validação inconsistentes.
+- O contrato de download fixa por teste o timeout padrão de 120 segundos,
+  evitando regressões silenciosas no controle de rede da atualização.
 - `run_load.py` e `run_cnes.py` não dependem mais diretamente de
   `MUNICIPIOS_RJ`; o recorte legado é fornecido por `scope.py`, mantendo o
   alias público para compatibilidade.
@@ -223,6 +226,11 @@ parcial do histórico registrou 193 mortos, 156 sobreviventes e 77 não
 verificados antes da interrupção. A meta de 95% ainda não foi atingida. Os
 sobreviventes permanecem pendência de qualidade; não foram ocultados por
 alteração artificial do escopo.
+
+Após adicionar a asserção do timeout padrão, a consulta dirigida do módulo
+`refresh.py` registrou 1 mutante morto, 188 sobreviventes e 21 sem testes
+associados. Esse resultado continua abaixo da meta e não é apresentado como
+homologação integral de mutação.
 
 ## Compatibilidade preservada
 
