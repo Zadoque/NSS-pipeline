@@ -63,7 +63,12 @@ class MunicipalityCatalog(Protocol):
 
     def get_municipality(self, code7: str) -> Municipality | None: ...
 
-    def resolve(self, value: object, declared_uf: str | None = None) -> ResolutionResult: ...
+    def resolve(
+        self,
+        value: object,
+        declared_uf: str | None = None,
+        reference_year: int | None = None,
+    ) -> ResolutionResult: ...
 
     def municipalities(self) -> tuple[Municipality, ...]: ...
 

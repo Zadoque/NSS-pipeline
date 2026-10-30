@@ -46,7 +46,12 @@ class InMemoryMunicipalityCatalog:
     def get_municipality(self, code7: str) -> Municipality | None:
         return self._by_code7.get(str(code7))
 
-    def resolve(self, value: object, declared_uf: str | None = None) -> ResolutionResult:
+    def resolve(
+        self,
+        value: object,
+        declared_uf: str | None = None,
+        reference_year: int | None = None,
+    ) -> ResolutionResult:
         original = "" if value is None else str(value).strip()
         raw = re.sub(r"\D", "", original)
         if not raw or raw != original:
@@ -68,6 +73,14 @@ class InMemoryMunicipalityCatalog:
 
         if candidate is None:
             return ResolutionResult(original, input_format, ResolutionStatus.UNKNOWN_CODE, reason="código ausente no catálogo")
+        if reference_year is not None and reference_year != self.metadata.reference_year:
+            return ResolutionResult(
+                original,
+                input_format,
+                ResolutionStatus.HISTORICAL_UNRESOLVED,
+                candidate,
+                f"release {self.metadata.reference_year} não resolve referência {reference_year}",
+            )
         if declared_uf and str(declared_uf).strip().upper() not in {candidate.uf_code, candidate.uf_abbr.upper()}:
             return ResolutionResult(original, input_format, ResolutionStatus.UF_MISMATCH, candidate, "UF declarada diverge do catálogo")
         return ResolutionResult(original, input_format, ResolutionStatus.VALID, candidate)

@@ -60,6 +60,13 @@ def test_resolve_detects_uf_mismatch():
     assert catalog().resolve("330100", declared_uf=" rj ").status is ResolutionStatus.VALID
 
 
+def test_resolve_does_not_apply_current_release_to_another_year():
+    result = catalog().resolve("330100", reference_year=2024)
+    assert result.status is ResolutionStatus.HISTORICAL_UNRESOLVED
+    assert result.municipality.code7 == "3301009"
+    assert "2024" in result.reason
+
+
 @pytest.mark.parametrize("value", [None, "", "33010", "33010099", "33A100"])
 def test_resolve_rejects_missing_or_malformed_codes(value):
     result = catalog().resolve(value)
