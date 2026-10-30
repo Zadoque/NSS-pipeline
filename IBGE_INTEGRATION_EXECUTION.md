@@ -53,6 +53,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `6486a09` | Materialização de UFs e crosswalk nas releases |
 | `be6188c` | CLI de atualização controlada do catálogo IBGE |
 | `dea9ad4` | Documentação do refresh controlado |
+| `5e8e78a` | Alinhamento temporal dos registros da API |
+| `23cbd2e` | Validação de SHA-256 nos manifestos e publicações |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -108,6 +110,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   municipal canônico.
 - CLI `python -m app.pipeline.reference.ibge.refresh` para promover DTB local,
   DTB por URL ou API de Localidades com hash e proveniência explícitos.
+- Registros obtidos pela API de Localidades recebem o `reference_year` declarado
+  na release, evitando divergência temporal entre entidade e manifesto.
+- SHA-256 de releases persistidas é validado como hexadecimal de 64 caracteres
+  tanto no armazenamento local quanto na publicação PostgreSQL.
 - Atualização protegida contra reutilização de `catalog_id` com SHA-256
   diferente; a candidata é rejeitada antes de sobrescrever o artefato ou o
   ponteiro ativo.
@@ -120,10 +126,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 333 passed, 25 warnings
+pytest -q                  → 334 passed, 25 warnings
 ```
 
-Os 333 testes foram executados com PostgreSQL real em container isolado,
+Os 334 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
