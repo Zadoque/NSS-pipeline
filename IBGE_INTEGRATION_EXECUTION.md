@@ -56,6 +56,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `5e8e78a` | Alinhamento temporal dos registros da API |
 | `23cbd2e` | Validação de SHA-256 nos manifestos e publicações |
 | `bf2473d` | Derivação segura de diferenças anuais da DTB |
+| `159e97e` | Consistência entre ano dos registros e manifesto |
+| `696e19d` | Verificação completa antes do reuso de releases |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -118,6 +120,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   na release, evitando divergência temporal entre entidade e manifesto.
 - SHA-256 de releases persistidas é validado como hexadecimal de 64 caracteres
   tanto no armazenamento local quanto na publicação PostgreSQL.
+- O carregador rejeita registros cujo `reference_year` diverge do manifesto e
+  o refresh não reutiliza releases com identidade ou validação inconsistentes.
 - Atualização protegida contra reutilização de `catalog_id` com SHA-256
   diferente; a candidata é rejeitada antes de sobrescrever o artefato ou o
   ponteiro ativo.
@@ -130,10 +134,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 335 passed, 25 warnings
+pytest -q                  → 337 passed, 25 warnings
 ```
 
-Os 335 testes foram executados com PostgreSQL real em container isolado,
+Os 337 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
