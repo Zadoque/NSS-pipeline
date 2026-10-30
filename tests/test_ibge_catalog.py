@@ -1,3 +1,7 @@
+from dataclasses import replace
+
+import pytest
+
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
 from app.pipeline.reference.ibge.validation import validate_municipalities
@@ -39,6 +43,21 @@ def test_resolve_codes_and_rejects_invalid_code():
 def test_resolve_detects_uf_mismatch():
     result = catalog().resolve("330100", declared_uf="35")
     assert result.status is ResolutionStatus.UF_MISMATCH
+    assert catalog().resolve("330100", declared_uf=" rj ").status is ResolutionStatus.VALID
+
+
+@pytest.mark.parametrize("value", [None, "", "33010", "33010099", "33A100"])
+def test_resolve_rejects_missing_or_malformed_codes(value):
+    result = catalog().resolve(value)
+    assert result.status is ResolutionStatus.INVALID_FORMAT
+
+
+def test_resolve_distinguishes_unknown_code_and_preserves_input_context():
+    result = catalog().resolve("999999")
+    assert result.status is ResolutionStatus.UNKNOWN_CODE
+    assert result.original_code == "999999"
+    assert result.input_format == "CODE6"
+    assert "ausente" in result.reason
 
 
 def test_legacy_scope_preserves_four_rj_municipalities():
@@ -66,6 +85,33 @@ def test_catalog_rejects_ambiguous_crosswalk():
         assert "code6" in str(error)
     else:
         raise AssertionError("crosswalk ambíguo deveria falhar")
+
+
+def test_validation_rejects_empty_catalog_with_contract_message():
+    with pytest.raises(ValueError, match="catálogo municipal vazio"):
+        validate_municipalities([])
+
+
+def test_validation_rejects_duplicate_code7():
+    record = municipality("3301009", "Campos")
+    with pytest.raises(ValueError, match="code7 duplicado"):
+        validate_municipalities([record, record])
+
+
+@pytest.mark.parametrize(
+    "record, message",
+    [
+        (replace(municipality("3301009", "Campos"), code7="330100"), "código municipal inválido"),
+        (replace(municipality("3301009", "Campos"), code6="33010"), "código municipal inválido"),
+        (replace(municipality("3301009", "Campos"), code6="330101"), "crosswalk inconsistente"),
+        (replace(municipality("3301009", "Campos"), uf_code="35"), "UF inconsistente"),
+        (replace(municipality("3301009", "Campos"), name=""), "atributo obrigatório"),
+        (replace(municipality("3301009", "Campos"), uf_abbr=""), "atributo obrigatório"),
+    ],
+)
+def test_validation_rejects_invalid_canonical_attributes(record, message):
+    with pytest.raises(ValueError, match=message):
+        validate_municipalities([record])
 
 
 def test_storage_writes_parquet_and_active_pointer(tmp_path):
@@ -122,3 +168,6 @@ def test_download_dtb_archive_rejects_hash_without_replacing_previous(tmp_path, 
     else:
         raise AssertionError("hash divergente deveria rejeitar a DTB")
     assert destination.read_bytes() == b"previous"
+from dataclasses import replace
+
+import pytest
