@@ -11,6 +11,7 @@ from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
 from .cnes.silver import transform_cnes
 from .sinan.gold import MUNICIPIOS_RJ
 from .territory_mapping import enrich_cnes_territories
+from .territory_assets import asset_directory
 from .reference.ibge.models import MunicipalityCatalog
 from .scope import GeographicScope, select_scope
 
@@ -49,8 +50,9 @@ def run_cnes(
 
         write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
         silver = transform_cnes(bronze_df)
-        if cod_municipio == "3301009":
-            silver = enrich_cnes_territories(silver, TERRITORY_ASSETS_DIR)
+        territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
+        if territory_assets is not None:
+            silver = enrich_cnes_territories(silver, territory_assets)
         else:
             silver["notification_district_id"] = pd.NA
             silver["notification_neighborhood_id"] = pd.NA

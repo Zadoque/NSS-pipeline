@@ -51,6 +51,13 @@ def test_run_cnes_rejects_empty_scope():
         pipeline.run_cnes({})
 
 
+def test_territory_asset_registry_only_maps_configured_municipalities(tmp_path):
+    from app.pipeline.territory_assets import asset_directory
+
+    assert asset_directory("3301009", root=tmp_path / "territories") is None
+    assert asset_directory("9999999", root=tmp_path / "territories") is None
+
+
 def test_run_cnes_rejects_empty_api_response(monkeypatch):
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code: pd.DataFrame())
 
