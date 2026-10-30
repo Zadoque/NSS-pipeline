@@ -9,13 +9,13 @@ from pathlib import Path
 import pandas as pd
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
-from .sinan.gold import MUNICIPIOS_RJ, aggregate_file, normalize_municipality_codes
+from .sinan.gold import aggregate_file, normalize_municipality_codes
 from .load import get_engine, load_gold_to_postgres
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 from .reference.ibge.models import MunicipalityCatalog
 from .reference.ibge.storage import load_active_catalog
-from .scope import GeographicScope, select_scope
+from .scope import GeographicScope, legacy_rj_mapping, select_scope
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def run_load(
     elif catalog is not None:
         municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
     else:
-        municipios = dict(MUNICIPIOS_RJ)
+        municipios = legacy_rj_mapping()
     silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
     if silver_scope.empty:
         raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")

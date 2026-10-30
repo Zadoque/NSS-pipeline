@@ -20,7 +20,7 @@ from app.pipeline.reference.ibge.refresh import (
     refresh_from_localidades,
     main as refresh_main,
 )
-from app.pipeline.scope import legacy_rj_scope, select_scope
+from app.pipeline.scope import legacy_rj_mapping, legacy_rj_scope, select_scope
 
 
 METADATA = CatalogMetadata("test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "a" * 64)
@@ -83,6 +83,12 @@ def test_resolve_distinguishes_unknown_code_and_preserves_input_context():
 def test_legacy_scope_preserves_four_rj_municipalities():
     scope = legacy_rj_scope(catalog())
     assert scope.codes7 == {"3301009", "3305000", "3302205", "3302403"}
+
+
+def test_legacy_rj_mapping_is_owned_by_scope_and_isolated():
+    mapping = legacy_rj_mapping()
+    mapping.pop("3301009")
+    assert "3301009" in legacy_rj_mapping()
 
 
 def test_scope_can_select_uf_or_municipalities_but_not_both():

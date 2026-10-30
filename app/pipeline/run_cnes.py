@@ -10,12 +10,11 @@ import pandas as pd
 from .atomic_io import write_json_atomic, write_parquet_atomic
 from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
 from .cnes.silver import transform_cnes
-from .sinan.gold import MUNICIPIOS_RJ
 from .territory_mapping import enrich_cnes_territories
 from .territory_assets import asset_directory
 from .reference.ibge.models import MunicipalityCatalog
 from .reference.ibge.storage import load_active_catalog
-from .scope import GeographicScope, select_scope
+from .scope import GeographicScope, legacy_rj_mapping, select_scope
 
 BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
@@ -37,7 +36,7 @@ def run_cnes(
     elif catalog is not None:
         municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
     else:
-        municipios = municipios if municipios is not None else MUNICIPIOS_RJ
+        municipios = municipios if municipios is not None else legacy_rj_mapping()
     if not municipios:
         raise ValueError("Informe ao menos um município para a carga CNES")
     run_at = datetime.now(UTC)

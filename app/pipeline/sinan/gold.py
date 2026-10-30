@@ -14,14 +14,11 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from ..reference.ibge.models import MunicipalityCatalog
+from ..scope import legacy_rj_mapping
  
-MUNICIPIOS_RJ = {
-    "3301009": "Campos dos Goytacazes",
-    "3305000": "São João da Barra",
-    "3302205": "Itaperuna",
-    "3302403": "Macaé",
-    #"3304557": "Rio de Janeiro",
-}
+# Compatibilidade pública para consumidores legados; a definição vive em
+# ``scope.py`` para não acoplar os executores ao módulo Gold.
+MUNICIPIOS_RJ = legacy_rj_mapping()
 
 def decode_sinan_age_years(
     encoded_age: pd.Series,

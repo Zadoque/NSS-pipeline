@@ -11,6 +11,18 @@ LEGACY_RJ_CODES = (
     "3302403",  # Macaé
 )
 
+LEGACY_RJ_MAPPING = {
+    "3301009": "Campos dos Goytacazes",
+    "3305000": "São João da Barra",
+    "3302205": "Itaperuna",
+    "3302403": "Macaé",
+}
+
+
+def legacy_rj_mapping() -> dict[str, str]:
+    """Retorna uma cópia do recorte legado, sem expor estado mutável global."""
+    return dict(LEGACY_RJ_MAPPING)
+
 
 @dataclass(frozen=True)
 class GeographicScope:

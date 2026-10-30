@@ -504,9 +504,9 @@ Itens já identificados e ainda não resolvidos, para não serem esquecidos:
   manualmente hoje. Vale definir uma cadência (ex.: mensal) e automatizá-la,
   já que a Gold sempre usa o lookup mais recente disponível — se ele nunca
   for atualizado, unidades novas nunca aparecerão no enriquecimento.
-- **Municípios de interesse hardcoded em `gold.py` (`MUNICIPIOS_RJ`)**,
-  reutilizados também pelo `run_cnes.py`. Se a lista de municípios da sala
-  de situação crescer, vale mover para um arquivo de configuração externo.
+- **Recorte RJ legado mantido por compatibilidade.** A definição agora vive em
+  `scope.py`; novas execuções devem usar o catálogo IBGE e uma seleção
+  geográfica explícita.
 - **API do CNES sem SLA conhecido.** Já foram observadas falhas
   transitórias de DNS/conexão nessa API durante o desenvolvimento. A
   ingestão usa retry com backoff (`urllib3.util.Retry`, incluindo `connect`)
