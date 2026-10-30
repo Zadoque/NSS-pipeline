@@ -32,6 +32,22 @@ def test_transform_cnes_normalizes_codes_and_keeps_last_duplicate():
     ]
 
 
+def test_transform_cnes_resolves_canonical_municipality_with_catalog():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = cnes_silver.transform_cnes(
+        pd.DataFrame({"codigo_cnes": [12], "codigo_municipio": ["330100"]}),
+        catalog=catalog,
+    )
+    assert result.loc[0, "cd_mun"] == "3301009"
+    assert result.loc[0, "municipality_resolution_status"] == "VALID"
+
+
 def test_transform_cnes_file_publishes_metadata(tmp_path, monkeypatch):
     source = tmp_path / "bronze.parquet"
     pd.DataFrame({"codigo_cnes": [12], "codigo_municipio": [3301009]}).to_parquet(

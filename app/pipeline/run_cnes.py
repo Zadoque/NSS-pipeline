@@ -49,7 +49,11 @@ def run_cnes(
             raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
 
         write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
-        silver = transform_cnes(bronze_df)
+        silver = (
+            transform_cnes(bronze_df, catalog=catalog)
+            if catalog is not None
+            else transform_cnes(bronze_df)
+        )
         territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
         if territory_assets is not None:
             silver = enrich_cnes_territories(silver, territory_assets)

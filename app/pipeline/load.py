@@ -185,14 +185,14 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     present_source_cols = [c for c in source_to_db if c in fact_df.columns]
 
     subset = (
-        fact_df[["cd_unidade", *present_source_cols]]
+        fact_df[["cd_unidade", *present_source_cols, *(["cd_mun"] if "cd_mun" in fact_df.columns else [])]]
         .drop_duplicates(subset=["cd_unidade"])
         .copy()
         .rename(columns=source_to_db)
     )
     subset = subset[~subset["cd_unidade"].isin(_SENTINELAS)]
 
-    db_cols = ["nm_unidade", "razao_social", "tp_unidade"]
+    db_cols = ["nm_unidade", "razao_social", "tp_unidade", "cd_mun"]
     for col in db_cols:
         if col not in subset.columns:
             subset[col] = None

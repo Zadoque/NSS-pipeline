@@ -7,11 +7,17 @@ from pathlib import Path
 import pandas as pd
 
 from ..atomic_io import write_json_atomic, write_parquet_atomic
+from ..reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 
 BASE_DIR = Path("/data")
 
 
-def transform_cnes(df: pd.DataFrame) -> pd.DataFrame:
+def transform_cnes(
+    df: pd.DataFrame,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+    municipality_code7: str | None = None,
+) -> pd.DataFrame:
     columns = [
         "codigo_cnes", "nome_fantasia", "nome_razao_social",
         "codigo_municipio", "codigo_tipo_unidade",
@@ -22,6 +28,17 @@ def transform_cnes(df: pd.DataFrame) -> pd.DataFrame:
 
     out["codigo_cnes"] = out["codigo_cnes"].astype("string").str.zfill(7)
     out["codigo_municipio"] = out["codigo_municipio"].astype("string")
+
+    if catalog is not None:
+        resolutions = out["codigo_municipio"].map(catalog.resolve)
+        out["cd_mun"] = resolutions.map(
+            lambda result: result.municipality.code7
+            if result.status is ResolutionStatus.VALID and result.municipality else pd.NA
+        ).astype("string")
+        out["municipality_resolution_status"] = resolutions.map(lambda result: result.status.value).astype("string")
+    elif municipality_code7 is not None:
+        out["cd_mun"] = municipality_code7
+        out["municipality_resolution_status"] = "VALID_LEGACY_SCOPE"
 
     out = out.drop_duplicates(subset=["codigo_cnes"], keep="last")
     return out.rename(columns={
@@ -35,11 +52,17 @@ def transform_cnes(df: pd.DataFrame) -> pd.DataFrame:
     })
 
 
-def transform_cnes_file(source: Path, municipio: str, run_at: datetime | None = None) -> Path:
+def transform_cnes_file(
+    source: Path,
+    municipio: str,
+    run_at: datetime | None = None,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+) -> Path:
     df = pd.read_parquet(source)
     len_before = len(df)
 
-    result = transform_cnes(df)
+    result = transform_cnes(df, catalog=catalog, municipality_code7=municipio if catalog is None else None)
     len_after = len(result)
 
     now = run_at or datetime.now(UTC)
