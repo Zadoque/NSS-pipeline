@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -13,6 +14,7 @@ from .sinan.gold import MUNICIPIOS_RJ
 from .territory_mapping import enrich_cnes_territories
 from .territory_assets import asset_directory
 from .reference.ibge.models import MunicipalityCatalog
+from .reference.ibge.storage import load_active_catalog
 from .scope import GeographicScope, select_scope
 
 BASE_DIR = Path("/data")
@@ -91,10 +93,42 @@ def run_cnes(
     return parquet
 
 
-if __name__ == "__main__":
+def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    parser = argparse.ArgumentParser(
+        description="Ingere estabelecimentos CNES para um escopo geográfico"
+    )
+    parser.add_argument("--catalog-root", type=Path, help="Diretório local de releases IBGE")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--municipios", help="Códigos municipais separados por vírgula")
+    scope.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
+    scope.add_argument("--all-brazil", action="store_true", help="Seleciona todos os municípios da release IBGE")
+    parser.add_argument(
+        "--page-size", type=int, default=DEFAULT_CNES_PAGE_SIZE,
+        help=f"Quantidade de registros por página da API CNES (padrão: {DEFAULT_CNES_PAGE_SIZE})",
+    )
+    args = parser.parse_args()
     try:
-        run_cnes()
+        catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
+        if (args.municipios or args.ufs or args.all_brazil) and catalog is None:
+            raise ValueError("seleção geográfica exige --catalog-root")
+        geographic_scope = None
+        if catalog is not None:
+            geographic_scope = select_scope(
+                catalog,
+                municipalities=args.municipios.split(",") if args.municipios else None,
+                ufs=args.ufs.split(",") if args.ufs else None,
+                all_brazil=args.all_brazil,
+            )
+        run_cnes(
+            catalog=catalog,
+            geographic_scope=geographic_scope,
+            page_size=args.page_size,
+        )
     except Exception:
         logger.exception("Falha na pipeline CNES")
         raise SystemExit(1) from None
+
+
+if __name__ == "__main__":
+    main()

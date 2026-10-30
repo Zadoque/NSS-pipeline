@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -49,6 +50,31 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
 def test_run_cnes_rejects_empty_scope():
     with pytest.raises(ValueError, match="ao menos"):
         pipeline.run_cnes({})
+
+
+def test_run_cnes_cli_requires_catalog_for_explicit_scope(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["run_cnes", "--ufs", "SP"])
+    with pytest.raises(SystemExit, match="1"):
+        pipeline.main()
+
+
+def test_run_cnes_cli_passes_selected_ufs_and_page_size(mocker, monkeypatch, tmp_path):
+    catalog = mocker.Mock()
+    selected = mocker.Mock()
+    mocker.patch.object(pipeline, "load_active_catalog", return_value=catalog)
+    select = mocker.patch.object(pipeline, "select_scope", return_value=selected)
+    runner = mocker.patch.object(pipeline, "run_cnes")
+    monkeypatch.setattr(
+        sys, "argv", [
+            "run_cnes", "--catalog-root", str(tmp_path), "--ufs", "SP,MG",
+            "--page-size", "250",
+        ],
+    )
+
+    pipeline.main()
+
+    select.assert_called_once_with(catalog, municipalities=None, ufs=["SP", "MG"], all_brazil=False)
+    runner.assert_called_once_with(catalog=catalog, geographic_scope=selected, page_size=250)
 
 
 def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monkeypatch):
