@@ -14,7 +14,7 @@ from .catalog import InMemoryMunicipalityCatalog
 from .client import IbgeLocalidadesClient
 from .dtb import parse_dtb_archive
 from .models import CatalogMetadata
-from .storage import promote_active, write_catalog, write_manifest
+from .storage import promote_active, write_manifest, write_release
 
 
 def download_dtb_archive(
@@ -125,7 +125,7 @@ def refresh_from_localidades(
     if existing is not None:
         promote_active(root / "active.json", catalog_id)
         return existing
-    parquet = write_catalog(release / "municipalities.parquet", records)
+    parquet = write_release(release, records)
     write_manifest(release / "manifest.json", metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet
@@ -154,7 +154,7 @@ def refresh_from_dtb_archive(
     if existing is not None:
         promote_active(root / "active.json", catalog_id)
         return existing
-    parquet = write_catalog(release / "municipalities.parquet", records)
+    parquet = write_release(release, records)
     write_manifest(release / "manifest.json", metadata)
     promote_active(root / "active.json", catalog_id)
     return parquet

@@ -26,6 +26,47 @@ def write_catalog(path: Path, records: list[Municipality] | tuple[Municipality, 
     return path
 
 
+def write_ufs(path: Path, records: list[Municipality] | tuple[Municipality, ...]) -> Path:
+    values = validate_municipalities(records)
+    frame = pd.DataFrame([
+        {"uf_code": item.uf_code, "uf_abbr": item.uf_abbr, "uf_name": item.uf_name}
+        for item in values
+    ]).drop_duplicates(subset=["uf_code"])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        frame.to_parquet(temporary, index=False)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return path
+
+
+def write_crosswalk(path: Path, records: list[Municipality] | tuple[Municipality, ...]) -> Path:
+    values = validate_municipalities(records)
+    frame = pd.DataFrame([
+        {"code6": item.code6, "code7": item.code7, "reference_year": item.reference_year}
+        for item in values
+    ])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.tmp")
+    try:
+        frame.to_parquet(temporary, index=False)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return path
+
+
+def write_release(path: Path, records: list[Municipality] | tuple[Municipality, ...]) -> Path:
+    """Escreve os artefatos canônicos de uma release municipal."""
+    values = validate_municipalities(records)
+    parquet = write_catalog(path / "municipalities.parquet", values)
+    write_ufs(path / "ufs.parquet", values)
+    write_crosswalk(path / "code_crosswalk.parquet", values)
+    return parquet
+
+
 def write_manifest(path: Path, metadata: CatalogMetadata) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.tmp")

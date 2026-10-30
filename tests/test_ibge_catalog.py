@@ -11,6 +11,7 @@ from app.pipeline.reference.ibge.storage import (
     promote_active,
     write_catalog,
     write_manifest,
+    write_release,
 )
 from app.pipeline.reference.ibge.refresh import (
     download_dtb_archive,
@@ -138,6 +139,16 @@ def test_storage_writes_parquet_and_active_pointer(tmp_path):
     assert loaded.get_municipality("3301009").name == "Campos"
     promote_active(tmp_path / "active.json", "test")
     assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
+
+
+def test_storage_writes_ufs_and_crosswalk_artifacts(tmp_path):
+    records = [municipality("3301009", "Campos"), municipality("3550308", "São Paulo", "35", "SP")]
+    release = tmp_path / "release"
+    write_release(release, records)
+
+    assert len(__import__("pandas").read_parquet(release / "ufs.parquet")) == 2
+    crosswalk = __import__("pandas").read_parquet(release / "code_crosswalk.parquet")
+    assert set(crosswalk["code6"]) == {"330100", "355030"}
 
 
 def test_storage_round_trip_loads_active_catalog(tmp_path):
@@ -279,6 +290,8 @@ def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
         client=Client(),
     )
     assert result.exists()
+    assert (result.parent / "ufs.parquet").exists()
+    assert (result.parent / "code_crosswalk.parquet").exists()
     loaded = load_active_catalog(tmp_path)
     assert loaded.metadata.catalog_id == "ibge-api-test"
     assert len(loaded.municipalities()) == 1
