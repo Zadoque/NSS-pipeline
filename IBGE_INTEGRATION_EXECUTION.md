@@ -30,6 +30,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `1e34ae4` | Métricas Gold separadas para resolução, descarte e agregação |
 | `48720cf` | Promoção do histórico oficial de alterações toponímicas |
 | `c5d9964` | Paginação CNES configurável para execução nacional |
+| `0977138` | Download e cache da DTB com validação SHA-256 |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -75,10 +76,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 290 passed, 25 warnings
+pytest -q                  → 292 passed, 25 warnings
 ```
 
-Os 290 testes foram executados com PostgreSQL real em container isolado,
+Os 292 testes foram executados com PostgreSQL real em container isolado,
 incluindo 17 testes de integração e a migration `0006`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
