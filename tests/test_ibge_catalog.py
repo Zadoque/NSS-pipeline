@@ -358,6 +358,29 @@ def test_refresh_rejects_catalog_id_reuse_with_different_hash(tmp_path, mocker):
     assert load_active_catalog(tmp_path).metadata.sha256 == __import__("hashlib").sha256(b"first").hexdigest()
 
 
+def test_refresh_does_not_reuse_unvalidated_existing_release(tmp_path, mocker):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"first")
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.parse_dtb_archive",
+        return_value=[municipality("3301009", "Campos")],
+    )
+    refresh_from_dtb_archive(
+        tmp_path, archive, catalog_id="pending", source_url="fixture://dtb",
+        reference_year=2025,
+    )
+    manifest = tmp_path / "releases" / "pending" / "manifest.json"
+    content = __import__("json").loads(manifest.read_text(encoding="utf-8"))
+    content["validation_status"] = "PENDING"
+    manifest.write_text(__import__("json").dumps(content), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="não está validada"):
+        refresh_from_dtb_archive(
+            tmp_path, archive, catalog_id="pending", source_url="fixture://dtb",
+            reference_year=2025,
+        )
+
+
 def test_refresh_cli_promotes_local_dtb_archive(tmp_path, monkeypatch, mocker, capsys):
     archive = tmp_path / "DTB_2025.zip"
     archive.write_bytes(b"fixture")

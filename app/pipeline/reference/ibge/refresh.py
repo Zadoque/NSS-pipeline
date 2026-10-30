@@ -97,6 +97,12 @@ def _reuse_immutable_release(release: Path, metadata: CatalogMetadata) -> Path |
         current = CatalogMetadata(**json.loads(manifest_path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, TypeError) as exc:
         raise ValueError(f"manifesto inválido na release existente: {release.name}") from exc
+    if current.catalog_id != metadata.catalog_id:
+        raise ValueError(
+            f"catalog_id divergente no manifesto existente: {metadata.catalog_id}"
+        )
+    if current.validation_status != "VALIDATED":
+        raise ValueError(f"release existente não está validada: {metadata.catalog_id}")
     if current.sha256 != metadata.sha256:
         raise ValueError(
             f"catalog_id imutável já associado a outro SHA-256: {metadata.catalog_id}"
