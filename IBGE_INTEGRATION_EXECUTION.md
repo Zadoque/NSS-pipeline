@@ -78,6 +78,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `37bc89d` | Rejeição de municípios duplicados no escopo explícito |
 | `00d4986` | Checkpoint reiniciável para ingestão CNES nacional |
 | `1e4df67` | Hash de integridade das Bronze retomáveis do CNES |
+| `993d6ce` | Bloqueio de resolução contra ano de referência incompatível |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -141,6 +142,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   checkpoints de escopo ou configuração incompatíveis.
 - Cada entrada do checkpoint também registra o SHA-256 da Bronze; adulteração
   ou substituição do arquivo persistido bloqueia a retomada.
+- `resolve(..., reference_year=...)` retorna `HISTORICAL_UNRESOLVED` quando a
+  edição carregada não corresponde ao ano solicitado, evitando aplicar uma
+  territorialidade corrente a uma série histórica silenciosamente.
 - Teste de homologação offline opt-in (`IBGE_DTB_ARCHIVE`) percorre os 5.571
   municípios da DTB, simula a resposta CNES e verifica resolução canônica,
   sessão compartilhada e metadata do lote sem depender da rede.
@@ -190,15 +194,15 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 339 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 358 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 359 passed, 25 warnings
+pytest -q                  → 340 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 359 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 360 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 358 testes foram executados com PostgreSQL real em container isolado,
+Os 359 testes foram executados com PostgreSQL real em container isolado,
 incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
