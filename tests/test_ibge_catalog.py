@@ -3,6 +3,7 @@ from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, Re
 from app.pipeline.reference.ibge.validation import validate_municipalities
 from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
 from app.pipeline.reference.ibge.storage import promote_active, write_catalog
+from app.pipeline.reference.ibge.refresh import download_dtb_archive
 from app.pipeline.scope import legacy_rj_scope, select_scope
 
 
@@ -84,3 +85,40 @@ def test_localidades_client_validates_and_parses_response(mocker):
     result = IbgeLocalidadesClient(session=session).fetch_municipalities()
     assert result[0].code7 == "3301009"
     session.get.assert_called_once()
+
+
+def test_download_dtb_archive_promotes_only_matching_hash(tmp_path, mocker):
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"DTB", b"-2025"]
+    session = mocker.Mock()
+    session.get.return_value = response
+    expected = __import__("hashlib").sha256(b"DTB-2025").hexdigest()
+
+    result = download_dtb_archive(
+        tmp_path, url="https://example.invalid/DTB_2025.zip",
+        reference_year=2025, expected_sha256=expected, session=session,
+    )
+
+    assert result.read_bytes() == b"DTB-2025"
+    assert not list(result.parent.glob("*.tmp"))
+
+
+def test_download_dtb_archive_rejects_hash_without_replacing_previous(tmp_path, mocker):
+    destination = tmp_path / "raw" / "dtb_2025" / "DTB_2025.zip"
+    destination.parent.mkdir(parents=True)
+    destination.write_bytes(b"previous")
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"new"]
+    session = mocker.Mock()
+    session.get.return_value = response
+
+    try:
+        download_dtb_archive(
+            tmp_path, url="https://example.invalid/DTB_2025.zip",
+            reference_year=2025, expected_sha256="0" * 64, session=session,
+        )
+    except ValueError as error:
+        assert "SHA-256" in str(error)
+    else:
+        raise AssertionError("hash divergente deveria rejeitar a DTB")
+    assert destination.read_bytes() == b"previous"

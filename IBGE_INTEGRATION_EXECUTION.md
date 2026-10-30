@@ -43,6 +43,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   limitada com `0330100`.
 - Armazenamento local em Parquet, manifesto e ponteiro `active.json` com
   escrita atômica.
+- Download controlado da DTB para cache bruto, com SHA-256 e promoção somente
+  após validação.
 - Cliente da API de Localidades do IBGE com validação estrutural da resposta.
 - Seleção por município, UF ou Brasil inteiro, mantendo o RJ como default.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
@@ -110,9 +112,10 @@ resultado deve ser tratado como inconclusivo; não foi convertido em aprovação
 Esta execução não deve ser interpretada como homologação de uma carga nacional
 completa. Permanecem necessários:
 
-1. Incorporar ao processo de distribuição o ZIP oficial bruto da DTB ou um
-   mecanismo de cache controlado; o repositório mantém checksum e fixture
-   representativa, não o ZIP integral.
+1. Distribuir o ZIP oficial bruto conforme a política de artefatos do ambiente;
+   o código de atualização já mantém cache bruto, SHA-256 e promoção atômica,
+   enquanto o repositório mantém checksum e fixture representativa, não o ZIP
+   integral.
 2. Completar a tabela histórica com eventos oficiais de criação, extinção e
    sucessão administrativa, além de definir a política temporal efetiva. As
    alterações toponímicas já possuem parser e promoção local.
