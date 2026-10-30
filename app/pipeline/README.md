@@ -326,7 +326,21 @@ python -m app.pipeline.run_cnes
 ```
 
 Sem argumentos — usa `MUNICIPIOS_RJ` como escopo padrão. Ingere a Bronze por
-município e consolida a Silver de lookup do CNES.
+município e consolida a Silver de lookup do CNES. Com uma release IBGE local
+aprovada, o mesmo executor aceita seleção explícita:
+
+```bash
+python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
+  --ufs SP,MG --page-size 250
+python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
+  --municipios 3550308,3301009
+python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
+  --all-brazil
+```
+
+`--municipios`, `--ufs` e `--all-brazil` são mutuamente exclusivos e exigem
+`--catalog-root`; sem eles, o default RJ permanece ativo. O `--page-size`
+controla o tamanho das páginas da API CNES e é registrado no metadata do lote.
 
 ### Executando camadas isoladamente
 
