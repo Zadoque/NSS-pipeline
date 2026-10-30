@@ -2,7 +2,9 @@ import pytest
 
 from app.pipeline.reference.ibge.historical import (
     MunicipalityEvent,
+    parse_administrative_events,
     parse_toponymic_events,
+    promote_administrative_events,
     promote_toponymic_events,
     write_events,
 )
@@ -47,5 +49,44 @@ def test_promote_toponymic_events_writes_manifest(tmp_path):
         encoding="utf-8",
     )
     result = promote_toponymic_events(tmp_path / "catalog", source, reference_year=2025)
+    assert result.exists()
+    assert result.with_name("municipality_events.manifest.json").exists()
+
+
+def test_parse_administrative_events_requires_explicit_codes(tmp_path):
+    source = tmp_path / "administrative.csv"
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7,SOURCE_NAME,TARGET_NAME\n"
+        "SUCCESSION,2025-01-01,5101234,5101837,Origem,Novo\n",
+        encoding="utf-8",
+    )
+    events = parse_administrative_events(source, reference_year=2025)
+    assert events[0].event_type == "SUCCESSION"
+    assert events[0].source_code7 == "5101234"
+    assert events[0].target_code7 == "5101837"
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nSUCCESSION,2025-01-01,5101234,\n",
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nBOGUS,2025-01-01,5101234,5101837\n",
+    ],
+)
+def test_parse_administrative_events_rejects_ambiguous_or_unknown_rows(tmp_path, content):
+    source = tmp_path / "administrative.csv"
+    source.write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError):
+        parse_administrative_events(source, reference_year=2025)
+
+
+def test_promote_administrative_events_writes_versioned_manifest(tmp_path):
+    source = tmp_path / "administrative.csv"
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\n"
+        "CREATION,2025-01-01,,5101837\n",
+        encoding="utf-8",
+    )
+    result = promote_administrative_events(tmp_path / "catalog", source, reference_year=2025)
     assert result.exists()
     assert result.with_name("municipality_events.manifest.json").exists()

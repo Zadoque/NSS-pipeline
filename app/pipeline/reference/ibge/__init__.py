@@ -1,7 +1,13 @@
 """Catálogo municipal versionado baseado em fontes oficiais do IBGE."""
 
 from .catalog import InMemoryMunicipalityCatalog, ParquetMunicipalityCatalog
-from .historical import MunicipalityEvent, parse_toponymic_events, promote_toponymic_events
+from .historical import (
+    MunicipalityEvent,
+    parse_administrative_events,
+    parse_toponymic_events,
+    promote_administrative_events,
+    promote_toponymic_events,
+)
 from .models import (
     CatalogMetadata,
     Municipality,
