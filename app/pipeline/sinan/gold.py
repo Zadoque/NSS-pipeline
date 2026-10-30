@@ -362,6 +362,9 @@ def aggregate_file(
     ]
     result = _sort_gold(result, extra_group_cols)
     len_after = len(result)
+    resolved_rows = resolution_metrics["scope_matched_rows"]
+    discarded_rows = len_before - resolved_rows
+    aggregation_reduction = resolved_rows - int(result["cases_total"].sum()) if not result.empty else resolved_rows
 
 
     write_parquet_atomic(result, parquet)
@@ -376,6 +379,9 @@ def aggregate_file(
         "columns": list(result.columns),
         "gold_target": target,
         "source_rows": len_before,
+        "resolved_rows": resolved_rows,
+        "discarded_rows": discarded_rows,
+        "aggregation_reduction": aggregation_reduction,
         "batch_size": batch_size,
         "batches_processed": batches,
         **resolution_metrics,

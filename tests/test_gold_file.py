@@ -83,6 +83,9 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
     assert metadata["batch_size"] == batch_size
     assert metadata["batches_processed"] == (8 + batch_size - 1) // batch_size
     assert metadata["gold_target"] == target
+    assert metadata["resolved_rows"] == 7
+    assert metadata["discarded_rows"] == 1
+    assert metadata["aggregation_reduction"] == 0
 
 
 @pytest.mark.parametrize("empty_source", [False, True])

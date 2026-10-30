@@ -103,8 +103,9 @@ completa. Permanecem necessários:
    representativa, não o ZIP integral.
 2. Alimentar a tabela histórica com os eventos oficiais de alterações
    administrativas e definir a política temporal efetiva.
-3. Separar definitivamente `dropped_rows` em métricas de redução por agregação
-   e descarte efetivo, preservando o campo legado durante a migração.
+3. Incorporar `resolved_rows`, `discarded_rows` e `aggregation_reduction` aos
+   consumidores de auditoria; `dropped_rows` permanece preservado por
+   compatibilidade.
 4. Paginação e carga CNES dimensionadas e observadas para todas as UFs.
 5. Investigação dos mutantes e obtenção de uma taxa de mutação válida; a
    execução atual foi inconclusiva no runner após uma falha em cenário mutado.
