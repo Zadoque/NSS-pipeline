@@ -51,6 +51,38 @@ def test_run_cnes_rejects_empty_scope():
         pipeline.run_cnes({})
 
 
+def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3305000", "330500", "São João da Barra", "33", "RJ", "Rio", 2025),
+            Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    calls = []
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pipeline, "fetch_estabelecimentos",
+        lambda code, **kwargs: calls.append((code, kwargs)) or _bronze(code),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes(catalog=catalog, page_size=250)
+
+    assert calls == [
+        (code, {"limit": 250, "catalog": catalog})
+        for code in ("3301009", "3305000", "3302205", "3302403")
+    ]
+
+
 def test_territory_asset_registry_only_maps_configured_municipalities(tmp_path):
     from app.pipeline.territory_assets import asset_directory
 

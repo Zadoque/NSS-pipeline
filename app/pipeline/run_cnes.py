@@ -18,6 +18,7 @@ from .scope import GeographicScope, select_scope
 BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 logger = logging.getLogger(__name__)
+DEFAULT_CNES_PAGE_SIZE = 100
 
 
 def run_cnes(
@@ -25,7 +26,10 @@ def run_cnes(
     *,
     catalog: MunicipalityCatalog | None = None,
     geographic_scope: GeographicScope | None = None,
+    page_size: int = DEFAULT_CNES_PAGE_SIZE,
 ) -> Path:
+    if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
+        raise ValueError("page_size CNES deve ser um inteiro maior que zero")
     if geographic_scope is not None:
         municipios = {item.code7: item.name for item in geographic_scope.municipalities}
     elif catalog is not None:
@@ -41,7 +45,7 @@ def run_cnes(
     for cod_municipio in municipios:
         logger.info("Processando CNES municipio=%s", cod_municipio)
         bronze_df = (
-            fetch_estabelecimentos(cod_municipio, catalog=catalog)
+            fetch_estabelecimentos(cod_municipio, limit=page_size, catalog=catalog)
             if catalog is not None
             else fetch_estabelecimentos(cod_municipio)
         )
@@ -79,6 +83,7 @@ def run_cnes(
         "municipios": list(municipios),
         "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
         "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+        "cnes_page_size": page_size,
         "columns": list(consolidated.columns),
     }
     write_json_atomic(metadata, directory / "metadata.json")

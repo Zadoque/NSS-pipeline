@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 
 import pandas as pd
+import pytest
 
 from app.pipeline.cnes import bronze as cnes_bronze
 from app.pipeline.cnes import silver as cnes_silver
@@ -46,6 +47,11 @@ def test_transform_cnes_resolves_canonical_municipality_with_catalog():
     )
     assert result.loc[0, "cd_mun"] == "3301009"
     assert result.loc[0, "municipality_resolution_status"] == "VALID"
+
+
+def test_fetch_estabelecimentos_rejeita_limit_invalido(monkeypatch):
+    with pytest.raises(ValueError, match="maior que zero"):
+        cnes_bronze.fetch_estabelecimentos("3301009", limit=0)
 
 
 def test_transform_cnes_file_publishes_metadata(tmp_path, monkeypatch):

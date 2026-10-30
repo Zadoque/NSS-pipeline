@@ -35,6 +35,8 @@ def fetch_estabelecimentos(
     *,
     catalog: MunicipalityCatalog | None = None,
 ) -> pd.DataFrame:
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+        raise ValueError("limit CNES deve ser um inteiro maior que zero")
     if catalog is not None:
         resolved = catalog.resolve(codigo_municipio_7)
         if resolved.status is not ResolutionStatus.VALID or resolved.municipality is None:

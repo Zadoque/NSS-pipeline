@@ -62,6 +62,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   escopo continuam sendo contabilizados separadamente.
 - Parser e promoção de alterações toponímicas oficiais para o histórico local,
   sem inferir criação, extinção ou sucessão municipal.
+- Paginação CNES configurável e validada, com `page_size` registrado no
+  metadata do lote; o caminho legado mantém sua chamada compatível.
 - `flake.nix` e `flake.lock` com Python 3.12, PostgreSQL, Docker e ambiente
   virtual reproduzível.
 
@@ -110,7 +112,9 @@ completa. Permanecem necessários:
 3. Incorporar `resolved_rows`, `discarded_rows` e `aggregation_reduction` aos
    consumidores de auditoria; `dropped_rows` permanece preservado por
    compatibilidade.
-4. Paginação e carga CNES dimensionadas e observadas para todas as UFs.
+4. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
+   `page_size` já está disponível, mas o limite operacional máximo da API ainda
+   precisa ser confirmado em homologação.
 5. Investigação dos mutantes e obtenção de uma taxa de mutação válida; a
    execução atual foi inconclusiva no runner após uma falha em cenário mutado.
 6. Execução nacional de homologação com dados autorizados e reconciliação dos
