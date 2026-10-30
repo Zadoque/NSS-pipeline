@@ -32,6 +32,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `c5d9964` | Paginação CNES configurável para execução nacional |
 | `0977138` | Download e cache da DTB com validação SHA-256 |
 | `c6033cd` | Atualização da contagem final de validação |
+| `5842e91` | Inclusão do commit final no relatório |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -70,6 +71,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   sem inferir criação, extinção ou sucessão municipal.
 - Paginação CNES configurável e validada, com `page_size` registrado no
   metadata do lote; o caminho legado mantém sua chamada compatível.
+- Configuração do `mutmut` incluindo os assets territoriais necessários aos
+  testes-base dos executores CNES.
 - `flake.nix` e `flake.lock` com Python 3.12, PostgreSQL, Docker e ambiente
   virtual reproduzível.
 
@@ -97,9 +100,12 @@ toponímicas municipais de 2025: 136 eventos, abrangendo 124 geocódigos. Esses
 eventos preservam o mesmo geocódigo na origem e no destino; não representam
 sucessões territoriais.
 
-A rodada de `mutmut` foi iniciada, mas terminou sem relatório estatístico final
-ao encontrar uma falha durante a execução de um cenário mutado de CNES. O
-resultado deve ser tratado como inconclusivo; não foi convertido em aprovação.
+A configuração do `mutmut` foi corrigida para copiar os assets `territories/`.
+A rodada integral continua grande para o hardware local e foi interrompida após
+739 de 4.691 mutantes. A rodada dirigida dos módulos IBGE terminou de forma
+classificável com 615 mutantes: 284 mortos, 206 sobreviventes e nenhum timeout,
+sem atingir a meta de 95%. Os sobreviventes permanecem pendência de qualidade;
+não foram ocultados por alteração artificial do escopo.
 
 ## Compatibilidade preservada
 

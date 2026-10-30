@@ -4,7 +4,7 @@
 source_paths = ["app"]
 # O mutmut reconhece automaticamente ``tests/``, mas precisa também do
 # pacote-raiz para importar ``app.pipeline`` a partir da cópia mutada.
-also_copy = ["app/__init__.py", "pytest.ini"]
+also_copy = ["app/__init__.py", "pytest.ini", "territories"]
 only_mutate = [
     "app/pipeline/atomic_io.py",
     "app/pipeline/sinan/columns.py",
