@@ -212,7 +212,12 @@ def _sort_gold(result: pd.DataFrame, extra_group_cols: list[str]) -> pd.DataFram
     return result.sort_values(sort_cols).reset_index(drop=True)
 
 
-def _resolution_metrics(series: pd.Series, municipios: dict[str, str], catalog: MunicipalityCatalog | None) -> dict[str, int]:
+def _resolution_metrics(
+    series: pd.Series,
+    municipios: dict[str, str],
+    catalog: MunicipalityCatalog | None,
+    declared_ufs: pd.Series | None = None,
+) -> dict[str, int]:
     metrics = {
         "scope_matched_rows": 0,
         "invalid_municipality_rows": 0,
@@ -223,8 +228,10 @@ def _resolution_metrics(series: pd.Series, municipios: dict[str, str], catalog: 
         normalized = normalize_municipality_codes(series, municipios)
         metrics["scope_matched_rows"] = int(normalized.isin(municipios).sum())
         return metrics
-    for value in series.tolist():
-        resolution = catalog.resolve(value)
+    values = series.tolist()
+    ufs = declared_ufs.tolist() if declared_ufs is not None else [None] * len(values)
+    for value, declared_uf in zip(values, ufs):
+        resolution = catalog.resolve(value, declared_uf=declared_uf)
         if resolution.status.value == "VALID" and resolution.municipality is not None:
             if resolution.municipality.code7 in municipios:
                 metrics["scope_matched_rows"] += 1
@@ -332,7 +339,10 @@ def aggregate_file(
         len_before = original.metadata.num_rows
         for batch in original.iter_batches(batch_size=batch_size, columns=schema.names):
             batch_frame = batch.to_pandas()
-            current_metrics = _resolution_metrics(batch_frame["ID_MUNICIP"], municipios or MUNICIPIOS_RJ, catalog)
+            current_metrics = _resolution_metrics(
+                batch_frame["ID_MUNICIP"], municipios or MUNICIPIOS_RJ, catalog,
+                batch_frame.get("SG_UF_NOT"),
+            )
             for key, value in current_metrics.items():
                 resolution_metrics[key] += value
             partial = aggregate(

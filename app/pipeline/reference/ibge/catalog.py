@@ -23,6 +23,7 @@ def _as_municipality(row: object) -> Municipality:
         uf_name=str(values["uf_name"]),
         reference_year=int(values["reference_year"]),
         source=str(values.get("source", "IBGE_DTB")),
+        administrative_type=str(values.get("administrative_type", "MUNICIPALITY")),
     )
 
 

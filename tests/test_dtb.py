@@ -23,6 +23,18 @@ def test_dtb_names_are_not_identity_keys():
     assert {item.code7 for item in bom_jesus} == {"2401701", "2502201"}
 
 
+def test_dtb_marks_distrito_federal_as_special_administrative_type(tmp_path):
+    path = tmp_path / "df.csv"
+    path.write_text(
+        "a,b,c,d,e,f,g,h,i\n" * 6
+        + "UF,Nome_UF,x,x,x,x,Município,Código Município Completo,Nome_Município\n"
+        + "53,Distrito Federal,1,1,1,1,00010,5300108,Brasília\n",
+        encoding="utf-8",
+    )
+    records = parse_dtb_table(path, 2025)
+    assert records[0].administrative_type == "FEDERAL_DISTRICT"
+
+
 def test_refresh_dtb_writes_release_and_active_pointer(tmp_path, monkeypatch):
     import app.pipeline.reference.ibge.refresh as refresh
 

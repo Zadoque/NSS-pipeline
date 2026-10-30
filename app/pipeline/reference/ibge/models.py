@@ -24,6 +24,7 @@ class Municipality:
     uf_name: str
     reference_year: int
     source: str = "IBGE_DTB"
+    administrative_type: str = "MUNICIPALITY"
 
 
 @dataclass(frozen=True)

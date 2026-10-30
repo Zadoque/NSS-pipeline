@@ -64,6 +64,7 @@ def parse_dtb_table(path: Path, reference_year: int) -> tuple[Municipality, ...]
             uf_name=str(row[uf_name]).strip(),
             reference_year=reference_year,
             source="IBGE_DTB",
+            administrative_type="FEDERAL_DISTRICT" if uf == "53" else "MUNICIPALITY",
         ))
     return validate_municipalities(records)
 
