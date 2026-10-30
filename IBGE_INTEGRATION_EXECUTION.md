@@ -229,8 +229,10 @@ sobreviventes permanecem pendência de qualidade; não foram ocultados por
 alteração artificial do escopo.
 
 Após adicionar a asserção do timeout padrão, a consulta dirigida do módulo
-`refresh.py` registrou 2 mutantes mortos, 188 sobreviventes e 20 sem testes
-associados. Esse resultado continua abaixo da meta e não é apresentado como
+`refresh.py` registrou 22 mutantes mortos e 188 sobreviventes; os 20 casos que
+estavam sem associação foram reexecutados após a atualização da coleta de
+testes e passaram a ser classificados. Esse resultado continua abaixo da meta
+e não é apresentado como
 homologação integral de mutação.
 
 ## Compatibilidade preservada
