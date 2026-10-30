@@ -34,6 +34,10 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `c6033cd` | Atualização da contagem final de validação |
 | `5842e91` | Inclusão do commit final no relatório |
 | `3274ac0` | Correção do runner mutante para assets territoriais |
+| `726042a` | Cobertura dos contratos de resolução do catálogo |
+| `9f01fc2` | Diagnósticos de resolução e leitura Parquet |
+| `8d6de55` | Limpeza de temporários em metadados atômicos |
+| `3b0f828` | Testes dos fluxos de promoção de releases |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -81,10 +85,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 292 passed, 25 warnings
+pytest -q                  → 315 passed, 25 warnings
 ```
 
-Os 292 testes foram executados com PostgreSQL real em container isolado,
+Os 315 testes foram executados com PostgreSQL real em container isolado,
 incluindo 17 testes de integração e a migration `0006`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
@@ -103,10 +107,12 @@ sucessões territoriais.
 
 A configuração do `mutmut` foi corrigida para copiar os assets `territories/`.
 A rodada integral continua grande para o hardware local e foi interrompida após
-739 de 4.691 mutantes. A rodada dirigida dos módulos IBGE terminou de forma
-classificável com 615 mutantes: 284 mortos, 206 sobreviventes e nenhum timeout,
-sem atingir a meta de 95%. Os sobreviventes permanecem pendência de qualidade;
-não foram ocultados por alteração artificial do escopo.
+739 de 4.691 mutantes. As rodadas dirigidas foram executadas por grupo: a
+rodada consolidada anterior dos módulos IBGE registrou 615 mutantes, 284 mortos
+e 206 sobreviventes; as rodadas adicionais registraram 120 mortos, 57
+sobreviventes e 21 sem testes associados em `refresh`. A meta de 95% ainda não
+foi atingida. Os sobreviventes permanecem pendência de qualidade; não foram
+ocultados por alteração artificial do escopo.
 
 ## Compatibilidade preservada
 
@@ -134,8 +140,9 @@ completa. Permanecem necessários:
 4. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
    `page_size` já está disponível, mas o limite operacional máximo da API ainda
    precisa ser confirmado em homologação.
-5. Investigação dos mutantes e obtenção de uma taxa de mutação válida; a
-   execução atual foi inconclusiva no runner após uma falha em cenário mutado.
+5. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
+   de produção; a configuração e as rodadas dirigidas são classificáveis, mas
+   a meta de 95% ainda não foi alcançada.
 6. Execução nacional de homologação com dados autorizados e reconciliação dos
    totais da Silver, Gold e PostgreSQL.
 
