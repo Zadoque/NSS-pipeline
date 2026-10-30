@@ -63,6 +63,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `c61f36c` | Relatórios tipados de validação do catálogo |
 | `fc49691` | Ordenação determinística dos artefatos de release |
 | `6f51671` | Reutilização de sessão HTTP no escopo nacional CNES |
+| `163e818` | Promoção atômica e segura de releases IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -122,6 +123,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   `code_crosswalk.parquet`; leitores antigos continuam usando o catálogo
   municipal canônico. Os três artefatos são ordenados por suas chaves canônicas,
   independentemente da ordem de entrada.
+- A release inteira é escrita em staging e promovida por troca atômica depois
+  da validação do manifesto; falhas removem o staging e não alteram o ponteiro
+  ativo. `catalog_id` também não pode escapar da raiz de releases.
 - CLI `python -m app.pipeline.reference.ibge.refresh` para promover DTB local,
   DTB por URL ou API de Localidades com hash e proveniência explícitos.
 - Registros obtidos pela API de Localidades recebem o `reference_year` declarado
@@ -150,8 +154,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 324 passed, 18 skipped, 25 warnings
-pytest -q com PostgreSQL  → 342 passed, 25 warnings
+pytest -q                  → 326 passed, 18 skipped, 25 warnings
+pytest -q com PostgreSQL  → 344 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 ```
 
