@@ -44,6 +44,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `8983ca3` | Validação de ponteiro e manifesto da release ativa |
 | `ab37650` | Fixação do lote CNES para Gold reprodutível |
 | `a7ae190` | Documentação de lotes CNES fixados |
+| `1c3c99b` | Suporte a eventos administrativos explícitos |
+| `c0dc947` | Isolamento do fixture de metadata nos testes |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -80,6 +82,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   escopo continuam sendo contabilizados separadamente.
 - Parser e promoção de alterações toponímicas oficiais para o histórico local,
   sem inferir criação, extinção ou sucessão municipal.
+- Parser e promoção de eventos administrativos declarados para criação,
+  extinção, sucessão, fusão e desmembramento, exigindo códigos de origem e
+  destino explícitos quando aplicáveis.
 - Paginação CNES configurável e validada, com `page_size` registrado no
   metadata do lote; o caminho legado mantém sua chamada compatível.
 - Fixação opcional de `cnes_batch_id` na Gold e nos executores SINAN, com
@@ -98,10 +103,10 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 324 passed, 25 warnings
+pytest -q                  → 328 passed, 25 warnings
 ```
 
-Os 324 testes foram executados com PostgreSQL real em container isolado,
+Os 328 testes foram executados com PostgreSQL real em container isolado,
 incluindo 18 testes de integração e as migrations até `0007`.
 
 Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
@@ -144,9 +149,10 @@ completa. Permanecem necessários:
    o código de atualização já mantém cache bruto, SHA-256 e promoção atômica,
    enquanto o repositório mantém checksum e fixture representativa, não o ZIP
    integral.
-2. Completar a tabela histórica com eventos oficiais de criação, extinção e
-   sucessão administrativa, além de definir a política temporal efetiva. As
-   alterações toponímicas já possuem parser e promoção local.
+2. Obter e promover a tabela oficial completa de criação, extinção e sucessão
+   administrativa, além de definir a política temporal efetiva. O contrato e
+   o parser para esses eventos já existem, mas nenhum evento é inferido sem
+   fonte declarada.
 3. Observar e calibrar a paginação CNES para todas as UFs; a configuração de
    `page_size` já está disponível, mas o limite operacional máximo da API ainda
    precisa ser confirmado em homologação.
