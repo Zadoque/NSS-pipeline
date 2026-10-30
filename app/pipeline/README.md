@@ -445,6 +445,27 @@ Na Silver SINAN, `source_rows`, `invalid_date_rows`, `outside_year_rows` e
 `dropped_rows` continua sendo a soma dos descartes. `batch_size` e
 `batches_processed` registram como a leitura foi dividida.
 
+### Catálogo IBGE e atualização controlada
+
+O catálogo municipal é local e versionado. A promoção pode ser executada pelo
+CLI abaixo, sem que SINAN ou CNES dependam de uma consulta HTTP durante o
+processamento:
+
+```bash
+python -m app.pipeline.reference.ibge.refresh \
+  --root /data/reference/ibge \
+  --catalog-id ibge-dtb-2025 \
+  --reference-year 2025 \
+  --dtb-url 'https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip' \
+  --expected-sha256 d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27
+```
+
+Também é possível usar `--dtb-archive ARQUIVO --source-url URL` ou
+`--localidades`. A candidata é validada, as releases são imutáveis por
+`catalog_id`/SHA-256 e a troca de `active.json` ocorre somente após a
+promoção. Cada release nova contém o catálogo municipal, as 27 UFs e o
+crosswalk validado entre códigos de seis e sete dígitos.
+
 ---
 
 ## Limitações conhecidas e roadmap
