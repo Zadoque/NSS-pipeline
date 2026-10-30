@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import requests
@@ -112,7 +112,10 @@ def refresh_from_localidades(
     reference_year: int,
     client: IbgeLocalidadesClient | None = None,
 ) -> Path:
-    records = (client or IbgeLocalidadesClient()).fetch_municipalities()
+    records = tuple(
+        replace(record, reference_year=reference_year)
+        for record in (client or IbgeLocalidadesClient()).fetch_municipalities()
+    )
     release = root / "releases" / catalog_id
     metadata = CatalogMetadata(
         catalog_id=catalog_id,

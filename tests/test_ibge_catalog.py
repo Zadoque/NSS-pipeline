@@ -297,6 +297,7 @@ def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
     loaded = load_active_catalog(tmp_path)
     assert loaded.metadata.catalog_id == "ibge-api-test"
     assert len(loaded.municipalities()) == 1
+    assert loaded.municipalities()[0].reference_year == 2025
     assert len(loaded.metadata.sha256) == 64
 
 
