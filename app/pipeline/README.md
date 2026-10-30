@@ -360,6 +360,19 @@ python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
 controla o tamanho das páginas e `--request-timeout` o limite de cada chamada
 à API CNES; ambos são registrados no metadata do lote.
 
+Para uma execução longa ou sujeita a interrupções, informe um checkpoint local:
+
+```bash
+python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
+  --all-brazil --checkpoint /data/reference/cnes-2025.json
+```
+
+O checkpoint registra os municípios concluídos, os caminhos das respectivas
+Bronze e os parâmetros imutáveis da execução. Se a API falhar, a mesma chamada
+retoma os municípios pendentes sem consultar novamente os que já foram
+persistidos. A retomada rejeita mudanças no escopo, na release IBGE, no
+`--page-size` ou no timeout; isso evita misturar lotes incompatíveis.
+
 ### Executando camadas isoladamente
 
 A Bronze do SINAN baixa o Parquet original para o cache em `source/sinan`

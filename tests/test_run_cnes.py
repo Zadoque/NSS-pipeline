@@ -126,3 +126,60 @@ def test_run_cnes_rejects_empty_api_response(monkeypatch):
 
     with pytest.raises(RuntimeError, match="retornou vazio"):
         pipeline.run_cnes({"3301009": "Campos"})
+
+
+def test_run_cnes_checkpoint_resumes_after_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    checkpoint = tmp_path / "cnes-checkpoint.json"
+    calls: list[str] = []
+    fail_second = {"value": True}
+
+    def fetch(code):
+        calls.append(code)
+        if code == "3302403" and fail_second["value"]:
+            raise TimeoutError("simulated interruption")
+        return _bronze(code)
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    with pytest.raises(TimeoutError):
+        pipeline.run_cnes(
+            {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+        )
+
+    state = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))
+    assert state["status"] == "IN_PROGRESS"
+    assert list(state["completed"]) == ["3301009"]
+
+    fail_second["value"] = False
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+    )
+
+    assert calls == ["3301009", "3302403", "3302403"]
+    assert result.exists()
+    assert __import__("json").loads(checkpoint.read_text(encoding="utf-8"))["status"] == "COMPLETED"
+
+
+def test_run_cnes_checkpoint_rejects_changed_parameters(tmp_path, monkeypatch):
+    checkpoint = tmp_path / "checkpoint.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="não corresponde"):
+        pipeline.run_cnes(
+            {"3301009": "Campos"}, checkpoint_path=checkpoint, page_size=250,
+        )

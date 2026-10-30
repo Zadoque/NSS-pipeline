@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
@@ -31,6 +32,7 @@ def run_cnes(
     page_size: int = DEFAULT_CNES_PAGE_SIZE,
     session=None,
     request_timeout: float = DEFAULT_CNES_REQUEST_TIMEOUT,
+    checkpoint_path: Path | None = None,
 ) -> Path:
     if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
         raise ValueError("page_size CNES deve ser um inteiro maior que zero")
@@ -44,7 +46,29 @@ def run_cnes(
         municipios = municipios if municipios is not None else legacy_rj_mapping()
     if not municipios:
         raise ValueError("Informe ao menos um município para a carga CNES")
-    run_at = datetime.now(UTC)
+    checkpoint = None
+    if checkpoint_path is not None and checkpoint_path.exists():
+        try:
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"checkpoint CNES inválido: {checkpoint_path}") from exc
+        expected = {
+            "municipios": list(municipios),
+            "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+            "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+            "cnes_page_size": page_size,
+            "cnes_request_timeout": request_timeout,
+        }
+        actual = {key: checkpoint.get(key) for key in expected}
+        if actual != expected:
+            raise ValueError("checkpoint CNES não corresponde ao escopo ou parâmetros solicitados")
+        try:
+            run_at = datetime.fromisoformat(checkpoint["ingested_at"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("checkpoint CNES sem ingested_at válido") from exc
+    else:
+        run_at = datetime.now(UTC)
+    completed = (checkpoint or {}).get("completed", {})
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []
@@ -56,18 +80,47 @@ def run_cnes(
     try:
         for cod_municipio in municipios:
             logger.info("Processando CNES municipio=%s", cod_municipio)
-            bronze_df = (
-                fetch_estabelecimentos(
-                    cod_municipio, limit=page_size, catalog=catalog, session=request_session,
-                    timeout=request_timeout,
+            checkpoint_entry = completed.get(cod_municipio)
+            if checkpoint_entry is not None:
+                bronze_path = Path(checkpoint_entry.get("bronze_path", ""))
+                if not bronze_path.is_file():
+                    raise ValueError(f"checkpoint CNES aponta para Bronze ausente: {bronze_path}")
+                bronze_df = pd.read_parquet(bronze_path)
+            else:
+                bronze_df = (
+                    fetch_estabelecimentos(
+                        cod_municipio, limit=page_size, catalog=catalog, session=request_session,
+                        timeout=request_timeout,
+                    )
+                    if catalog is not None
+                    else fetch_estabelecimentos(cod_municipio)
                 )
-                if catalog is not None
-                else fetch_estabelecimentos(cod_municipio)
-            )
             if bronze_df.empty:
                 raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
 
-            write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
+            bronze_path = (
+                Path(checkpoint_entry["bronze_path"])
+                if checkpoint_entry is not None
+                else write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
+            )
+            if checkpoint_path is not None and checkpoint_entry is None:
+                completed[cod_municipio] = {
+                    "bronze_path": str(bronze_path),
+                    "rows": len(bronze_df),
+                }
+                write_json_atomic(
+                    {
+                        "status": "IN_PROGRESS",
+                        "ingested_at": run_at.isoformat(),
+                        "municipios": list(municipios),
+                        "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+                        "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+                        "cnes_page_size": page_size,
+                        "cnes_request_timeout": request_timeout,
+                        "completed": completed,
+                    },
+                    checkpoint_path,
+                )
             silver = (
                 transform_cnes(bronze_df, catalog=catalog)
                 if catalog is not None
@@ -106,6 +159,21 @@ def run_cnes(
         "columns": list(consolidated.columns),
     }
     write_json_atomic(metadata, directory / "metadata.json")
+    if checkpoint_path is not None:
+        write_json_atomic(
+            {
+                "status": "COMPLETED",
+                "ingested_at": run_at.isoformat(),
+                "municipios": list(municipios),
+                "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+                "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+                "cnes_page_size": page_size,
+                "cnes_request_timeout": request_timeout,
+                "completed": completed,
+                "output_path": str(parquet),
+            },
+            checkpoint_path,
+        )
     logger.info("CNES concluído: %s (linhas=%s)", parquet, len(consolidated))
     return parquet
 
@@ -128,6 +196,10 @@ def main() -> None:
         "--request-timeout", type=float, default=DEFAULT_CNES_REQUEST_TIMEOUT,
         help=f"Timeout de cada requisição CNES em segundos (padrão: {DEFAULT_CNES_REQUEST_TIMEOUT:g})",
     )
+    parser.add_argument(
+        "--checkpoint", type=Path,
+        help="Arquivo JSON para retomar a ingestão CNES após falha ou interrupção",
+    )
     args = parser.parse_args()
     try:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
@@ -141,12 +213,15 @@ def main() -> None:
                 ufs=args.ufs.split(",") if args.ufs else None,
                 all_brazil=args.all_brazil,
             )
-        run_cnes(
+        run_kwargs = dict(
             catalog=catalog,
             geographic_scope=geographic_scope,
             page_size=args.page_size,
             request_timeout=args.request_timeout,
         )
+        if args.checkpoint is not None:
+            run_kwargs["checkpoint_path"] = args.checkpoint
+        run_cnes(**run_kwargs)
     except Exception:
         logger.exception("Falha na pipeline CNES")
         raise SystemExit(1) from None
