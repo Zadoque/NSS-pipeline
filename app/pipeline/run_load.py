@@ -58,10 +58,21 @@ def run_load(
     )
 
     gold_df = pd.read_parquet(gold_path)
+    quality_metrics = {}
+    metadata_path = gold_path.with_name("metadata.json")
+    if metadata_path.exists():
+        gold_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+        quality_metrics = {
+            key: int(gold_metadata[key])
+            for key in (
+                "source_rows", "resolved_rows", "discarded_rows", "aggregation_reduction",
+                "invalid_municipality_rows", "out_of_scope_rows", "uf_mismatch_rows",
+            )
+            if key in gold_metadata
+        }
+    else:
+        gold_metadata = {}
     if catalog is not None:
-        gold_metadata = json.loads(
-            gold_path.with_name("metadata.json").read_text(encoding="utf-8")
-        )
         invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
         uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
         if invalid_rows or uf_mismatch_rows:
@@ -81,6 +92,7 @@ def run_load(
             source_extracted_at=run_at, allow_empty=allow_empty,
             ibge_catalog=catalog,
             geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
+            quality_metrics=quality_metrics,
         )
     finally:
         engine.dispose()

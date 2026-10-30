@@ -237,6 +237,23 @@ def test_load_rejects_unknown_scope_type():
         )
 
 
+def test_load_rejects_unknown_or_negative_quality_metric():
+    with pytest.raises(ValueError, match="desconhecidas"):
+        load_gold_to_postgres(
+            _Engine(_Connection()), _gold_minima(), "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=5,
+            snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+            quality_metrics={"unknown": 1},
+        )
+    with pytest.raises(ValueError, match="métrica Gold inválida"):
+        load_gold_to_postgres(
+            _Engine(_Connection()), _gold_minima(), "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=5,
+            snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+            quality_metrics={"source_rows": -1},
+        )
+
+
 @pytest.mark.parametrize(
     ("overrides", "message"),
     [

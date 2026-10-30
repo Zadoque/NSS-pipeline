@@ -140,6 +140,32 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
     assert row.reference_year == 2025
 
 
+def test_publicacao_registra_metricas_de_reconciliacao(postgres_engine):
+    _publish(
+        postgres_engine,
+        _gold_exemplo(),
+        "DENG",
+        "metrics-b1",
+        quality_metrics={
+            "source_rows": 10,
+            "resolved_rows": 6,
+            "discarded_rows": 4,
+            "aggregation_reduction": 1,
+            "invalid_municipality_rows": 0,
+            "out_of_scope_rows": 4,
+            "uf_mismatch_rows": 0,
+        },
+    )
+    with postgres_engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT source_rows, resolved_rows, discarded_rows, aggregation_reduction,
+                   invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows
+            FROM analytics.pipeline_publications
+            WHERE batch_id = 'metrics-b1'
+        """)).one()
+    assert tuple(row) == (10, 6, 4, 1, 0, 4, 0)
+
+
 def test_snapshot_substitui_contagem_em_vez_de_duplicar(postgres_engine):
     # Simula o SINAN "corrigindo" o número de um período já carregado
     # anteriormente (atualização retroativa) — não deve duplicar a linha.

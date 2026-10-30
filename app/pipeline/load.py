@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -36,6 +36,16 @@ FACT_KEY_COLUMNS = [
     "age_band", "notification_district_id", "notification_neighborhood_id",
     "notification_territory_status",
 ]
+
+QUALITY_METRIC_COLUMNS = (
+    "source_rows",
+    "resolved_rows",
+    "discarded_rows",
+    "aggregation_reduction",
+    "invalid_municipality_rows",
+    "out_of_scope_rows",
+    "uf_mismatch_rows",
+)
 
 
 def get_engine() -> Engine:
@@ -342,6 +352,7 @@ def load_gold_to_postgres(
     year: int, municipios: Sequence[str], expected_cases_total: int,
     snapshot_complete: bool, source_extracted_at: datetime, allow_empty: bool = False,
     ibge_catalog=None, geographic_scope_type: str = "MUNICIPALITIES",
+    quality_metrics: Mapping[str, int] | None = None,
 ) -> None:
     """Publica o snapshot completo somente no recorte declarado.
 
@@ -357,6 +368,17 @@ def load_gold_to_postgres(
     params = {"disease": disease_codigo, "year": year, "municipios": scope}
     if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
         raise ValueError("tipo de escopo geográfico inválido")
+    quality = {column: 0 for column in QUALITY_METRIC_COLUMNS}
+    if quality_metrics is not None:
+        if not isinstance(quality_metrics, Mapping):
+            raise ValueError("quality_metrics deve ser um mapeamento")
+        unknown = set(quality_metrics) - set(QUALITY_METRIC_COLUMNS)
+        if unknown:
+            raise ValueError(f"métricas Gold desconhecidas: {sorted(unknown)}")
+        for column, value in quality_metrics.items():
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"métrica Gold inválida: {column}")
+            quality[column] = value
     with engine.begin() as conn:
         # Serializa também recortes parcialmente sobrepostos da mesma doença/ano.
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
@@ -395,6 +417,7 @@ def load_gold_to_postgres(
             "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
             "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
             "geographic_scope_type": geographic_scope_type,
+            **quality,
         } for code in scope]
         _upsert(conn, "analytics.pipeline_publications", rows,
                 conflict_cols=["disease_codigo", "ano", "cd_mun", "batch_id"])
