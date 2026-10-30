@@ -100,6 +100,27 @@ def test_aggregate_usa_uf_canonica_do_catalogo():
     assert result.loc[0, "nm_uf"] == "Rio de Janeiro"
 
 
+def test_resolution_metrics_separa_escopo_e_codigo_invalido():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.sinan.gold import _resolution_metrics
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+            Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    metrics = _resolution_metrics(pd.Series(["330100", "3550308", "9999999"]), {"3301009": "Campos"}, catalog)
+    assert metrics == {
+        "scope_matched_rows": 1,
+        "invalid_municipality_rows": 1,
+        "out_of_scope_rows": 1,
+        "uf_mismatch_rows": 0,
+    }
+
+
 def test_aggregate_inclui_disease_como_primeira_coluna():
     df = _silver_minima()
     result = aggregate(df, disease="deng", municipios=MUNICIPIOS_TESTE)

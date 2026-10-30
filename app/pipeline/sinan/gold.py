@@ -211,6 +211,31 @@ def _sort_gold(result: pd.DataFrame, extra_group_cols: list[str]) -> pd.DataFram
     sort_cols = ["disease", "year", "month", "cd_uf", "cd_mun", "sex", "birth_year", "not_week", *extra_group_cols]
     return result.sort_values(sort_cols).reset_index(drop=True)
 
+
+def _resolution_metrics(series: pd.Series, municipios: dict[str, str], catalog: MunicipalityCatalog | None) -> dict[str, int]:
+    metrics = {
+        "scope_matched_rows": 0,
+        "invalid_municipality_rows": 0,
+        "out_of_scope_rows": 0,
+        "uf_mismatch_rows": 0,
+    }
+    if catalog is None:
+        normalized = normalize_municipality_codes(series, municipios)
+        metrics["scope_matched_rows"] = int(normalized.isin(municipios).sum())
+        return metrics
+    for value in series.tolist():
+        resolution = catalog.resolve(value)
+        if resolution.status.value == "VALID" and resolution.municipality is not None:
+            if resolution.municipality.code7 in municipios:
+                metrics["scope_matched_rows"] += 1
+            else:
+                metrics["out_of_scope_rows"] += 1
+        elif resolution.status.value == "UF_MISMATCH":
+            metrics["uf_mismatch_rows"] += 1
+        else:
+            metrics["invalid_municipality_rows"] += 1
+    return metrics
+
 def _read_source_metadata(source: Path) -> dict:
     metadata_path = source.with_name("metadata.json")
     if not metadata_path.exists():
@@ -294,14 +319,24 @@ def aggregate_file(
 
     cnes_lookup = _latest_cnes_lookup()
     batches = 0
+    resolution_metrics = {
+        "scope_matched_rows": 0,
+        "invalid_municipality_rows": 0,
+        "out_of_scope_rows": 0,
+        "uf_mismatch_rows": 0,
+    }
     with pq.ParquetFile(source) as original:
         schema = _gold_input_schema(original.schema_arrow, selected_columns)
         empty = pa.Table.from_batches([], schema=schema).to_pandas()
         result = aggregate(empty, disease, selected_columns, municipios, cnes_lookup=cnes_lookup, catalog=catalog)
         len_before = original.metadata.num_rows
         for batch in original.iter_batches(batch_size=batch_size, columns=schema.names):
+            batch_frame = batch.to_pandas()
+            current_metrics = _resolution_metrics(batch_frame["ID_MUNICIP"], municipios or MUNICIPIOS_RJ, catalog)
+            for key, value in current_metrics.items():
+                resolution_metrics[key] += value
             partial = aggregate(
-                batch.to_pandas(), disease, selected_columns, municipios,
+                batch_frame, disease, selected_columns, municipios,
                 cnes_lookup=cnes_lookup, catalog=catalog,
             )
             batches += 1
@@ -333,6 +368,9 @@ def aggregate_file(
         "source_rows": len_before,
         "batch_size": batch_size,
         "batches_processed": batches,
+        **resolution_metrics,
+        "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+        "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet
