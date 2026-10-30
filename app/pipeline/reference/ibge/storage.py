@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from .catalog import ParquetMunicipalityCatalog
 from .models import CatalogMetadata, Municipality
 from .validation import validate_municipalities
 
@@ -39,3 +40,13 @@ def promote_active(active_path: Path, catalog_id: str) -> Path:
     temporary.write_text(json.dumps({"catalog_id": catalog_id}, indent=2) + "\n", encoding="utf-8")
     os.replace(temporary, active_path)
     return active_path
+
+
+def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
+    active = json.loads((root / "active.json").read_text(encoding="utf-8"))
+    catalog_id = active.get("catalog_id")
+    if not catalog_id:
+        raise ValueError("active.json não informa catalog_id")
+    release = root / "releases" / catalog_id
+    metadata = CatalogMetadata(**json.loads((release / "manifest.json").read_text(encoding="utf-8")))
+    return ParquetMunicipalityCatalog(release / "municipalities.parquet", metadata)
