@@ -194,6 +194,18 @@ def test_active_catalog_rejects_untrusted_pointer_and_manifest(
         load_active_catalog(tmp_path)
 
 
+def test_active_catalog_rejects_reference_year_mismatch(tmp_path):
+    release = tmp_path / "releases" / "test"
+    write_catalog(release / "municipalities.parquet", [
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2024),
+    ])
+    write_manifest(release / "manifest.json", METADATA)
+    promote_active(tmp_path / "active.json", "test")
+
+    with pytest.raises(ValueError, match="reference_year"):
+        load_active_catalog(tmp_path)
+
+
 def test_load_active_catalog_rejects_pointer_without_release_id(tmp_path):
     (tmp_path / "active.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="catalog_id"):

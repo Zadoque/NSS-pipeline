@@ -126,4 +126,11 @@ def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
     if metadata.catalog_id != catalog_id:
         raise ValueError("catalog_id do manifesto diverge do ponteiro ativo")
     _validate_metadata(metadata)
-    return ParquetMunicipalityCatalog(release / "municipalities.parquet", metadata)
+    catalog = ParquetMunicipalityCatalog(release / "municipalities.parquet", metadata)
+    mismatched_years = sorted({item.reference_year for item in catalog.municipalities() if item.reference_year != metadata.reference_year})
+    if mismatched_years:
+        raise ValueError(
+            "reference_year dos municípios diverge do manifesto: "
+            f"manifesto={metadata.reference_year}, registros={mismatched_years}"
+        )
+    return catalog
