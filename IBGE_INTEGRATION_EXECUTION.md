@@ -76,6 +76,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `b61e7e3` | Serialização concorrente do registro de releases IBGE |
 | `dc1da0b` | Verificação do hash lógico do conteúdo do catálogo |
 | `37bc89d` | Rejeição de municípios duplicados no escopo explícito |
+| `00d4986` | Checkpoint reiniciável para ingestão CNES nacional |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -134,6 +135,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   retries e reduzindo o overhead de milhares de municípios no escopo nacional.
 - Timeout de requisição CNES configurável pela API e CLI, registrado no
   metadata do lote para tornar falhas e homologações reproduzíveis.
+- Checkpoint opcional da ingestão CNES registra Bronze concluída e parâmetros
+  imutáveis; uma nova execução retoma somente municípios pendentes e rejeita
+  checkpoints de escopo ou configuração incompatíveis.
 - Teste de homologação offline opt-in (`IBGE_DTB_ARCHIVE`) percorre os 5.571
   municípios da DTB, simula a resposta CNES e verifica resolução canônica,
   sessão compartilhada e metadata do lote sem depender da rede.
@@ -183,15 +187,15 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 336 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 355 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 356 passed, 25 warnings
+pytest -q                  → 338 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 357 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 358 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 355 testes foram executados com PostgreSQL real em container isolado,
+Os 357 testes foram executados com PostgreSQL real em container isolado,
 incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
@@ -284,10 +288,10 @@ completa. Permanecem necessários:
    administrativa, além de definir a política temporal efetiva. O contrato e
    o parser para esses eventos já existem, mas nenhum evento é inferido sem
    fonte declarada.
-3. Observar e calibrar a paginação CNES para todas as UFs; `page_size`, timeout
-   e reutilização de sessão já estão disponíveis, mas o limite operacional
-   máximo e a execução de todas as requisições ainda precisam ser confirmados
-   em homologação.
+3. Observar e calibrar a paginação CNES para todas as UFs; `page_size`, timeout,
+   reutilização de sessão e checkpoint reiniciável já estão disponíveis, mas o
+   limite operacional máximo e a execução de todas as requisições ainda
+   precisam ser confirmados em homologação.
 4. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
    de produção; a configuração e as rodadas dirigidas são classificáveis, mas
    a meta de 95% ainda não foi alcançada.
