@@ -54,6 +54,11 @@ def test_fetch_estabelecimentos_rejeita_limit_invalido(monkeypatch):
         cnes_bronze.fetch_estabelecimentos("3301009", limit=0)
 
 
+def test_fetch_estabelecimentos_rejeita_timeout_invalido():
+    with pytest.raises(ValueError, match="timeout CNES"):
+        cnes_bronze.fetch_estabelecimentos("3301009", timeout=0)
+
+
 def test_transform_cnes_file_publishes_metadata(tmp_path, monkeypatch):
     source = tmp_path / "bronze.parquet"
     pd.DataFrame({"codigo_cnes": [12], "codigo_municipio": [3301009]}).to_parquet(
@@ -87,6 +92,7 @@ def test_fetch_estabelecimentos_paginates_until_empty(mocker):
 
     assert result.to_dict("records") == [{"id": 1}, {"id": 2}]
     assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 1, 2]
+    assert all(call.kwargs["timeout"] == 60 for call in session.get.call_args_list)
 
 
 def test_fetch_estabelecimentos_respeita_teto_da_api_sem_pular_registros(mocker):

@@ -40,9 +40,12 @@ def fetch_estabelecimentos(
     *,
     catalog: MunicipalityCatalog | None = None,
     session: requests.Session | None = None,
+    timeout: float = 60,
 ) -> pd.DataFrame:
     if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
         raise ValueError("limit CNES deve ser um inteiro maior que zero")
+    if not isinstance(timeout, (int, float)) or isinstance(timeout, bool) or timeout <= 0:
+        raise ValueError("timeout CNES deve ser maior que zero")
     if catalog is not None:
         resolved = catalog.resolve(codigo_municipio_7)
         if resolved.status is not ResolutionStatus.VALID or resolved.municipality is None:
@@ -62,7 +65,7 @@ def fetch_estabelecimentos(
             resp = client.get(
                 API_BASE,
                 params={"codigo_municipio": codigo_municipio_6, "limit": limit, "offset": offset},
-                timeout=60,
+                timeout=timeout,
             )
             resp.raise_for_status()
             pagina = resp.json().get("estabelecimentos", [])

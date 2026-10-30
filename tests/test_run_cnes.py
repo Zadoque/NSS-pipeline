@@ -44,6 +44,7 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     metadata, _ = written["metadata"]
     assert metadata["rows"] == 2
     assert metadata["municipios"] == ["3301009", "3302403"]
+    assert metadata["cnes_request_timeout"] == 60.0
     assert parquet == result
 
 
@@ -67,14 +68,16 @@ def test_run_cnes_cli_passes_selected_ufs_and_page_size(mocker, monkeypatch, tmp
     monkeypatch.setattr(
         sys, "argv", [
             "run_cnes", "--catalog-root", str(tmp_path), "--ufs", "SP,MG",
-            "--page-size", "250",
+        "--page-size", "250", "--request-timeout", "12",
         ],
     )
 
     pipeline.main()
 
     select.assert_called_once_with(catalog, municipalities=None, ufs=["SP", "MG"], all_brazil=False)
-    runner.assert_called_once_with(catalog=catalog, geographic_scope=selected, page_size=250)
+    runner.assert_called_once_with(
+        catalog=catalog, geographic_scope=selected, page_size=250, request_timeout=12,
+    )
 
 
 def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monkeypatch):
@@ -106,7 +109,7 @@ def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monke
     pipeline.run_cnes(catalog=catalog, page_size=250)
 
     assert calls == [
-        (code, {"limit": 250, "catalog": catalog, "session": request_session})
+        (code, {"limit": 250, "catalog": catalog, "session": request_session, "timeout": 60.0})
         for code in ("3301009", "3305000", "3302205", "3302403")
     ]
 

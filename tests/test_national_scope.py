@@ -61,3 +61,4 @@ def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypat
     assert frame["municipality_resolution_status"].eq("VALID").all()
     assert published["metadata"]["ibge_catalog_id"] == "ibge-dtb-national-test"
     assert published["metadata"]["cnes_page_size"] == 250
+    assert published["metadata"]["cnes_request_timeout"] == 60.0

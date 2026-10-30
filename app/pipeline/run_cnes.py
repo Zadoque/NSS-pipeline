@@ -20,6 +20,7 @@ BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 logger = logging.getLogger(__name__)
 DEFAULT_CNES_PAGE_SIZE = 100
+DEFAULT_CNES_REQUEST_TIMEOUT = 60.0
 
 
 def run_cnes(
@@ -29,9 +30,12 @@ def run_cnes(
     geographic_scope: GeographicScope | None = None,
     page_size: int = DEFAULT_CNES_PAGE_SIZE,
     session=None,
+    request_timeout: float = DEFAULT_CNES_REQUEST_TIMEOUT,
 ) -> Path:
     if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
         raise ValueError("page_size CNES deve ser um inteiro maior que zero")
+    if not isinstance(request_timeout, (int, float)) or isinstance(request_timeout, bool) or request_timeout <= 0:
+        raise ValueError("request_timeout CNES deve ser maior que zero")
     if geographic_scope is not None:
         municipios = {item.code7: item.name for item in geographic_scope.municipalities}
     elif catalog is not None:
@@ -55,6 +59,7 @@ def run_cnes(
             bronze_df = (
                 fetch_estabelecimentos(
                     cod_municipio, limit=page_size, catalog=catalog, session=request_session,
+                    timeout=request_timeout,
                 )
                 if catalog is not None
                 else fetch_estabelecimentos(cod_municipio)
@@ -97,6 +102,7 @@ def run_cnes(
         "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
         "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
         "cnes_page_size": page_size,
+        "cnes_request_timeout": request_timeout,
         "columns": list(consolidated.columns),
     }
     write_json_atomic(metadata, directory / "metadata.json")
@@ -118,6 +124,10 @@ def main() -> None:
         "--page-size", type=int, default=DEFAULT_CNES_PAGE_SIZE,
         help=f"Quantidade de registros por página da API CNES (padrão: {DEFAULT_CNES_PAGE_SIZE})",
     )
+    parser.add_argument(
+        "--request-timeout", type=float, default=DEFAULT_CNES_REQUEST_TIMEOUT,
+        help=f"Timeout de cada requisição CNES em segundos (padrão: {DEFAULT_CNES_REQUEST_TIMEOUT:g})",
+    )
     args = parser.parse_args()
     try:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
@@ -135,6 +145,7 @@ def main() -> None:
             catalog=catalog,
             geographic_scope=geographic_scope,
             page_size=args.page_size,
+            request_timeout=args.request_timeout,
         )
     except Exception:
         logger.exception("Falha na pipeline CNES")
