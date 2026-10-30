@@ -19,6 +19,12 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `ec0910b` | Registro configurável de assets territoriais |
 | `4425236` | UF e município canônicos na Gold |
 | `603526b` | Reprocessamento SINAN quando a release IBGE muda |
+| `a5bf89f` | Parser e promoção da DTB oficial 2025 |
+| `425dab0` | Correção do encadeamento das migrations (`0006`) |
+| `069bef4` | Métricas de resolução municipal na Gold |
+| `820a135` | Histórico territorial e classificação do Distrito Federal |
+| `5f2fea3` | Teste de linhagem IBGE na publicação PostgreSQL |
+| `d8414c1` | Hash lógico para releases obtidas pela API |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -53,11 +59,20 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 259 passed, 16 skipped
+pytest -q                  → 284 passed, 25 warnings
 ```
 
-Os testes pulados são os testes de integração PostgreSQL, pois
-`TEST_DATABASE_URL` não estava configurada nesta execução.
+Os 284 testes foram executados com PostgreSQL real em container isolado,
+incluindo 17 testes de integração e a migration `0006`.
+
+Também foi executada a leitura do artefato oficial `DTB_2025.zip`:
+
+```text
+SHA-256: d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27
+Registros municipais: 5571
+UFs: 27
+Campos dos Goytacazes: 3301009 / 330100
+```
 
 A rodada de `mutmut` foi iniciada, mas terminou sem relatório estatístico final
 ao encontrar uma falha durante a execução de um cenário mutado de CNES. O
@@ -76,15 +91,17 @@ resultado deve ser tratado como inconclusivo; não foi convertido em aprovação
 Esta execução não deve ser interpretada como homologação de uma carga nacional
 completa. Permanecem necessários:
 
-1. Parser e fixture versionada da DTB oficial, com SHA-256 real do artefato.
-2. Tabela histórica de eventos administrativos e política temporal efetiva.
-3. Relatório separado de códigos inválidos, fora do escopo e divergentes de UF
+1. Incorporar ao processo de distribuição o ZIP oficial bruto da DTB ou um
+   mecanismo de cache controlado; o repositório mantém checksum e fixture
+   representativa, não o ZIP integral.
+2. Alimentar a tabela histórica com os eventos oficiais de alterações
+   administrativas e definir a política temporal efetiva.
+3. Bloqueio operacional explícito para códigos inválidos e divergentes de UF
    na Gold, além do `dropped_rows` legado.
-4. Paginação e carga CNES dimensionadas para todas as UFs.
-5. Execução dos testes com migrations reais e PostgreSQL temporário.
-6. Testes oficiais multi-UF, homônimos, Distrito Federal e município recém-criado.
-7. Investigação dos mutantes e obtenção de uma taxa de mutação válida.
-8. Execução nacional de homologação com dados autorizados e reconciliação dos
+4. Paginação e carga CNES dimensionadas e observadas para todas as UFs.
+5. Investigação dos mutantes e obtenção de uma taxa de mutação válida; a
+   execução atual foi inconclusiva no runner após uma falha em cenário mutado.
+6. Execução nacional de homologação com dados autorizados e reconciliação dos
    totais da Silver, Gold e PostgreSQL.
 
 ## Conclusão
