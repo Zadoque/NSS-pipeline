@@ -2,6 +2,7 @@ from pathlib import Path
 
 from app.pipeline.reference.ibge.dtb import parse_dtb_table
 from app.pipeline.reference.ibge.refresh import refresh_from_dtb_archive
+from app.pipeline.reference.ibge.refresh import refresh_from_localidades
 
 
 FIXTURE = Path(__file__).parent / "fixtures/ibge/dtb_2025_municipalities_sample.csv"
@@ -48,3 +49,14 @@ def test_refresh_dtb_writes_release_and_active_pointer(tmp_path, monkeypatch):
     assert result.exists()
     assert (tmp_path / "reference/active.json").exists()
     assert "ibge-dtb-2025" in (tmp_path / "reference/releases/ibge-dtb-2025/manifest.json").read_text()
+
+
+def test_refresh_api_release_has_logical_hash(tmp_path, mocker):
+    client = mocker.Mock()
+    client.fetch_municipalities.return_value = parse_dtb_table(FIXTURE, 2025)
+    refresh_from_localidades(
+        tmp_path / "reference", catalog_id="ibge-api-test", source_url="https://example.invalid",
+        reference_year=2025, client=client,
+    )
+    manifest = (tmp_path / "reference/releases/ibge-api-test/manifest.json").read_text()
+    assert '"sha256": ""' not in manifest
