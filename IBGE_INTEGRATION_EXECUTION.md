@@ -769,14 +769,15 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **481 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **484 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
 incompatibilidade de sistema.
 
-O último commit funcional desta rodada foi `4cf6523`
-(`fix(cnes): enforce ascii municipality codes`), seguido do registro da
+O último commit funcional desta rodada foi `95b99b0`
+(`fix(ibge): reject non-ascii municipality codes`), precedido por `4cf6523`
+(`fix(cnes): enforce ascii municipality codes`) e seguido do registro da
 preservação histórica em `ce08236` e do teste de conversão de registros
 Parquet em `0d029e6` (`test(ibge): cover mapping catalog records`), seguido
 dos testes de metadados em `4d90061` e da distinção de proveniência em
@@ -794,6 +795,10 @@ Como verificação dirigida posterior, os 30 sobreviventes então associados a
 22 morreram e 8 continuaram sobrevivendo. A execução dirigida regenerou 115 mutantes ainda
 não verificados em outros módulos; por isso ela não substitui a última rodada
 global limpa acima.
+
+O commit `95b99b0` tornou explícita a rejeição de códigos municipais não ASCII
+e adicionou regressão para algarismos Unicode; a suíte completa posterior passou
+em 484 testes.
 
 ## Conclusão
 
