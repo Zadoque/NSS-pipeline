@@ -1219,6 +1219,11 @@ exceder as linhas resolvidas. A regressão cobre metadata aritmeticamente
 inconsistente. A suíte integral passou em **581 testes**, com **3 pulados** e
 **25 warnings**.
 
+Na rodada dirigida posterior, os **20 mutantes** novos dessa reconciliação
+(`mutmut_261` a `mutmut_280`) morreram. A contagem global exibida pelo
+mutmut não foi usada como baseline, pois a execução foi seletiva e o cache
+contém resultados de rodadas anteriores.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
