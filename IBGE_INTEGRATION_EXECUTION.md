@@ -277,8 +277,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 372 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
+pytest -q                  → 410 passed, 25 warnings
+pytest -q com PostgreSQL  → 410 passed, 25 warnings
 pytest -q nacional + PostgreSQL → 410 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
@@ -287,8 +287,8 @@ controlled refresh after safe promotion → release recarregada via active.json,
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 373 testes foram executados com PostgreSQL real em container isolado,
-incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
+A suíte completa foi executada com PostgreSQL real em container isolado,
+incluindo os testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
 
@@ -328,6 +328,9 @@ Validações operacionais adicionais:
 DTB 2025 em escopo BRAZIL: 5571 municípios, 27 UFs, 92 municípios no RJ
 Release Parquet temporária: 5571 municípios recarregados via active.json
 Refresh controlado real: DTB_2025.zip promovida em staging e recarregada pelo ponteiro ativo
+Refresh end-to-end pós-implementação: release `ibge-dtb-2025-final`, 5571
+municípios, 27 UFs e `330100` resolvido para `3301009` após recarga do
+`active.json`
 API CNES com limit=250: teto observado de 20 registros por resposta
 Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
 Homologação CNES offline: 1 passed em 45,87 s com `IBGE_DTB_ARCHIVE=DTB_2025.zip`
