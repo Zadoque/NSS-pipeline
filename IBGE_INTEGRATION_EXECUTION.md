@@ -1341,6 +1341,10 @@ contra o arquivo oficial (SHA-256
 **2.149 eventos toponímicos observáveis**. Os testes históricos passaram em
 **77 casos**.
 
+Após a integração do parser histórico, a suíte integral com PostgreSQL passou
+em **602 testes**, com **3 pulados** e **25 warnings**. O `flake check` também
+permaneceu aprovado.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
