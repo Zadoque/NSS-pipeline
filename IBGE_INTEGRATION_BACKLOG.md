@@ -171,6 +171,9 @@ IBGE-012 ──> IBGE-013
   crosswalk IBGE.
 - O contrato CLI de `run_load.py` possui testes para obrigatoriedade de doença e
   ano, tipos, defaults, ajuda e encaminhamento de escopo/lote CNES.
+- A Gold possui teste em lotes que reconcilia simultaneamente resolução válida,
+  código inválido, município fora do escopo, UF divergente e metadados da
+  release IBGE.
 - A Gold usa o mesmo resolvedor canônico quando o catálogo está ativo; a
   normalização textual legada ficou restrita ao modo sem catálogo.
 - `dropped_rows` na Gold representa somente linhas descartadas; a redução por
