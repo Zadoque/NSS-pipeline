@@ -68,6 +68,18 @@ ou localmente:
 python -m app.pipeline.run --disease DENG --year 2026 --columns ""
 ```
 
+Para uma publicação `serving`, informe explicitamente o lote CNES já
+homologado. A seleção implícita do lote mais recente não é permitida em
+produção, pois tornaria a Gold não reprodutível:
+
+```bash
+python -m app.pipeline.run \
+  --disease DENG \
+  --year 2026 \
+  --cnes-batch-id 20261031T120000Z \
+  --columns ""
+```
+
 Para selecionar uma doença do catálogo PySUS e um recorte territorial:
 
 ```bash
@@ -126,6 +138,22 @@ docker compose run --rm --entrypoint python pipeline \
 
 Consulte `--help` para os parâmetros de checkpoint, concorrência, timeout e
 seleção geográfica.
+
+### Observabilidade local
+
+A stack inspirada na branch `prometheus/grafana` é isolada em um profile
+opcional e não altera a execução quando o Pushgateway não está disponível:
+
+```bash
+PROMETHEUS_PUSHGATEWAY_URL=http://pushgateway:9091 \
+  docker compose --profile observability up -d
+```
+
+Depois, o Grafana fica em `http://localhost:3000` e o Prometheus em
+`http://localhost:9090`. O dashboard operacional acompanha Bronze, Silver,
+Gold e PostgreSQL por quantidade de linhas, descartes, duração e estado. As
+métricas usam somente labels operacionais de baixa cardinalidade; municípios,
+unidades e semanas não são labels Prometheus.
 
 ## Qualidade e CI
 

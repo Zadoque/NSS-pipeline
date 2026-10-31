@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import tempfile
+from time import monotonic
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -25,6 +26,7 @@ from .territory_assets import asset_directory
 from .reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 from .reference.ibge.storage import load_active_catalog
 from .scope import GeographicScope, legacy_rj_mapping, select_scope, validate_scope_catalog
+from .observability import export_stage_metrics
 
 BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
@@ -221,6 +223,7 @@ def run_cnes(
     continue_on_error: bool = False,
     workers: int = 1,
 ) -> Path:
+    stage_started = monotonic()
     if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
         raise ValueError("page_size CNES deve ser um inteiro maior que zero")
     if not isinstance(request_timeout, (int, float)) or isinstance(request_timeout, bool) or request_timeout <= 0:
@@ -421,6 +424,20 @@ def run_cnes(
         "columns": pq.ParquetFile(parquet).schema.names,
     }
     write_json_atomic(metadata, directory / "metadata.json")
+    export_stage_metrics(
+        pipeline="cnes",
+        layer="silver",
+        disease="CNES",
+        year=run_at.year,
+        rows=rows,
+        duration_seconds=monotonic() - stage_started,
+        status="success" if metadata["status"] == "COMPLETED" else "failure",
+        dropped_rows=len(failed),
+        extra={
+            "scope": "CATALOG" if catalog is not None else "LEGACY",
+            "batch_status": metadata["status"],
+        },
+    )
     if checkpoint_path is not None:
         write_json_atomic(
             {
