@@ -300,6 +300,8 @@ controlled refresh after safe promotion → release recarregada via active.json,
   5571 municípios e SHA do ZIP confirmado
 IBGE Localidades real → 5571 municípios, 27 UFs; Boa Esperança do Norte
   (`5101837`) resolvida via hierarquia de região imediata/intermediária
+Refresh end-to-end da API de Localidades → release `ibge-api-2026-final`,
+  5571 municípios, 27 UFs e ponteiro `active.json` recarregado com sucesso
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
