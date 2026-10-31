@@ -15,6 +15,8 @@ import pandas as pd
 import pyarrow.parquet as pq
 import requests
 
+import fcntl
+
 from .atomic_io import write_json_atomic, write_parquet_atomic
 from .cnes.bronze import fetch_estabelecimentos, session_with_retries, write_bronze_cnes
 from .cnes.silver import transform_cnes
@@ -172,8 +174,13 @@ def _write_cnes_consolidated(
     if not silver_paths:
         raise RuntimeError("CNES não produziu nenhum município com dados")
     destination.parent.mkdir(parents=True, exist_ok=True)
-    temporary = destination.with_name(f".{destination.name}.streaming.tmp")
-    temporary.unlink(missing_ok=True)
+    lock_path = destination.with_name(f".{destination.name}.lock")
+    temporary_handle = tempfile.NamedTemporaryFile(
+        prefix=f".{destination.name}.", suffix=".streaming.tmp",
+        dir=destination.parent, delete=False,
+    )
+    temporary = Path(temporary_handle.name)
+    temporary_handle.close()
     escaped_paths = [str(path).replace("'", "''") for path in silver_paths]
     paths_sql = "[" + ", ".join(f"'{path}'" for path in escaped_paths) + "]"
     query = f"""
@@ -190,12 +197,15 @@ def _write_cnes_consolidated(
         ) TO '{str(temporary).replace("'", "''")}' (FORMAT PARQUET)
     """
     try:
-        connection = duckdb.connect()
-        try:
-            connection.execute(query)
-        finally:
-            connection.close()
-        os.replace(temporary, destination)
+        with lock_path.open("w", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            connection = duckdb.connect()
+            try:
+                connection.execute(query)
+            finally:
+                connection.close()
+            os.replace(temporary, destination)
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
     finally:
         temporary.unlink(missing_ok=True)
     return int(pq.ParquetFile(destination).metadata.num_rows)

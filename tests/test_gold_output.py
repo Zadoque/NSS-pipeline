@@ -38,6 +38,7 @@ def test_aggregate_file_grava_ad_hoc_e_serving_em_arvores_distintas(
         }
     ).to_parquet(source)
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
+    monkeypatch.setattr(gold, "_cnes_lookup_for_batch", lambda _: None)
     run_at = datetime(2026, 1, 6, tzinfo=UTC)
 
     ad_hoc = gold.aggregate_file(
@@ -46,7 +47,7 @@ def test_aggregate_file_grava_ad_hoc_e_serving_em_arvores_distintas(
     )
     serving = gold.aggregate_file(
         source, "DENG", 2026, municipios={"1234567": "Cidade Teste"}, run_at=run_at,
-        target="serving",
+        target="serving", cnes_batch_id="20260105T000000Z",
     )
 
     assert "/gold/ad_hoc/sinan/" in ad_hoc.as_posix()

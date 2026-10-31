@@ -285,6 +285,75 @@ def test_load_gold_to_postgres_popula_unidade_saude_quando_presente(postgres_eng
     assert row.nm_unidade == "BEDALAB"
 
 
+def test_publicacao_cadastra_municipio_da_unidade_fora_da_notificacao(postgres_engine):
+    municipalities = [
+        Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio de Janeiro", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata(
+            "ibge-dtb-cnes-fk", 2025, "fixture", "fixture://dtb-cnes-fk",
+            "2026-01-01T00:00:00Z", "f" * 64, content_sha256="e" * 64,
+        ),
+    )
+    gold = _gold_exemplo()
+    gold["ID_UNIDADE"] = "0729884"
+    gold["cd_mun_unidade"] = "3302403"
+    gold["nm_unidade"] = "Unidade de Macaé"
+
+    _publish(
+        postgres_engine, gold, batch_id="cnes-fk-b1", ibge_catalog=catalog,
+    )
+
+    with postgres_engine.connect() as conn:
+        unit = conn.execute(text(
+            "SELECT cd_mun FROM analytics.dim_unidade_saude "
+            "WHERE cd_unidade = '0729884'"
+        )).scalar_one()
+        municipality = conn.execute(text(
+            "SELECT nm_mun FROM analytics.dim_municipio WHERE cd_mun = '3302403'"
+        )).scalar_one()
+
+    assert unit == "3302403"
+    assert municipality == "Macaé"
+
+
+def test_carga_sem_enriquecimento_nao_apaga_municipio_da_unidade(postgres_engine):
+    municipalities = [
+        Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio de Janeiro", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata(
+            "ibge-dtb-cnes-preserve", 2025, "fixture", "fixture://dtb-cnes-preserve",
+            "2026-01-01T00:00:00Z", "1" * 64, content_sha256="2" * 64,
+        ),
+    )
+    first = _gold_exemplo()
+    first["ID_UNIDADE"] = "0729884"
+    first["cd_mun_unidade"] = "3302403"
+    first["nm_unidade"] = "Unidade de Macaé"
+    _publish(postgres_engine, first, batch_id="cnes-preserve-b1", ibge_catalog=catalog)
+
+    second = _gold_exemplo()
+    second["ID_UNIDADE"] = "0729884"
+    second["nm_unidade"] = None
+    _publish(
+        postgres_engine, second, batch_id="cnes-preserve-b2", ibge_catalog=catalog,
+        source_extracted_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+
+    with postgres_engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT cd_mun, nm_unidade FROM analytics.dim_unidade_saude "
+            "WHERE cd_unidade = '0729884'"
+        )).one()
+
+    assert tuple(row) == ("3302403", "Unidade de Macaé")
+
+
 def test_sentinela_unidade_nao_identificada_preserva_descricao_curada(postgres_engine):
     # Gold sem ID_UNIDADE -> cai no código sentinela ('0000000'). A
     # descrição "Não identificado", seedada pela migration, não pode ser

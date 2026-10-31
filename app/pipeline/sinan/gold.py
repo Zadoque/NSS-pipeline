@@ -432,6 +432,11 @@ def aggregate_file(
     disease = disease.upper()
     if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
         raise ValueError("tipo de escopo geográfico inválido")
+    if target == "serving" and cnes_batch_id is None:
+        raise ValueError(
+            "Gold serving exige --cnes-batch-id explícito para garantir "
+            "reprodutibilidade da publicação"
+        )
     if municipios is None:
         municipios = catalog.as_mapping() if catalog is not None else legacy_rj_mapping()
         scope_codes = sorted(municipios)

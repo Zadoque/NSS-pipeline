@@ -454,6 +454,44 @@ def test_dimension_upserts_filter_duplicates_and_sentinels(mocker):
     assert doenca_rows == [{"codigo": "DENG", "nome": "Dengue"}]
 
 
+def test_municipio_upsert_inclui_municipio_da_unidade_com_catalogo(mocker):
+    conn = mocker.Mock()
+    municipality = SimpleNamespace(
+        code7="3550308", name="São Paulo", uf_code="35", uf_name="São Paulo"
+    )
+    catalog = mocker.Mock()
+    catalog.get_municipality.return_value = municipality
+    fact = _gold_minima(cd_mun_unidade=["3550308"])
+
+    upsert_dim_municipio(conn, fact, catalog=catalog, require_unit_municipalities=True)
+
+    rows = conn.execute.call_args.args[1]
+    assert {row["cd_mun"] for row in rows} == {"3301009", "3550308"}
+    catalog.get_municipality.assert_called_once_with("3550308")
+
+
+def test_municipio_upsert_rejeita_unidade_fora_do_catalogo(mocker):
+    conn = mocker.Mock()
+    catalog = mocker.Mock()
+    catalog.get_municipality.return_value = None
+    fact = _gold_minima(cd_mun_unidade=["3550308"])
+
+    with pytest.raises(ValueError, match="ausente no catálogo IBGE"):
+        upsert_dim_municipio(conn, fact, catalog=catalog, require_unit_municipalities=True)
+    conn.execute.assert_not_called()
+
+
+def test_unidade_upsert_preserva_valores_existentes_quando_nulos(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({"cd_unidade": ["0000001"], "cd_mun_unidade": [None]})
+
+    upsert_dim_unidade_saude(conn, fact)
+
+    statement = str(conn.execute.call_args.args[0])
+    assert "COALESCE(EXCLUDED.nm_unidade" in statement
+    assert "COALESCE(EXCLUDED.cd_mun" in statement
+
+
 def test_catalogo_de_doencas_cobre_grupos_sinan_disponiveis_no_pysus():
     from pysus.api.ftp.databases import SINAN
 

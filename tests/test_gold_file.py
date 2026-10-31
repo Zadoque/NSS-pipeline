@@ -62,6 +62,9 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
     cnes = lookup if with_cnes else None
     expected = gold.aggregate(raw, "DENG", SELECTED, MUNICIPIOS, cnes)
     monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: cnes)
+    cnes_batch_id = "20261014T120000Z" if target == "serving" else None
+    if cnes_batch_id is not None:
+        monkeypatch.setattr(gold, "_cnes_lookup_for_batch", lambda _: cnes)
     monkeypatch.setattr(gold.pd, "read_parquet", lambda *args, **kwargs: pytest.fail("leitura integral"))
     aggregate = gold.aggregate
     def check_batch(frame, *args, **kwargs):
@@ -70,9 +73,9 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
         return aggregate(frame, *args, **kwargs)
     monkeypatch.setattr(gold, "aggregate", check_batch)
     result = gold.aggregate_file(
-        source, "DENG", 2024, SELECTED, MUNICIPIOS, RUN_AT, target,
-        batch_size=batch_size,
-    )
+            source, "DENG", 2024, SELECTED, MUNICIPIOS, RUN_AT, target,
+            batch_size=batch_size, cnes_batch_id=cnes_batch_id,
+        )
     actual = pq.ParquetFile(result).read().to_pandas()
     pd.testing.assert_frame_equal(actual, expected)
     assert actual["cases_total"].sum() == 7
@@ -175,6 +178,11 @@ def test_latest_cnes_lookup_retorna_o_batch_mais_recente(tmp_path, monkeypatch):
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
     result = gold._latest_cnes_lookup()
     assert result.attrs["cnes_metadata"]["batch_id"] == "20260201"
+
+
+def test_gold_serving_exige_lote_cnes_explicito(source):
+    with pytest.raises(ValueError, match="cnes-batch-id explícito"):
+        gold.aggregate_file(source, "DENG", 2024, target="serving")
 
 
 def test_gold_fixa_lote_cnes_explicitamente(source, lookup, tmp_path, monkeypatch):

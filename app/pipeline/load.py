@@ -101,7 +101,14 @@ def get_engine() -> Engine:
     return create_engine(url)
 
 
-def _upsert(conn: Connection, table: str, rows: list[dict], conflict_cols: list[str]) -> None:
+def _upsert(
+    conn: Connection,
+    table: str,
+    rows: list[dict],
+    conflict_cols: list[str],
+    *,
+    preserve_existing_on_null: bool = False,
+) -> None:
     if not rows:
         return
 
@@ -110,7 +117,12 @@ def _upsert(conn: Connection, table: str, rows: list[dict], conflict_cols: list[
     update_cols = [c for c in cols if c not in conflict_cols]
 
     if update_cols:
-        set_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
+        if preserve_existing_on_null:
+            set_clause = ", ".join(
+                f"{c} = COALESCE(EXCLUDED.{c}, {table}.{c})" for c in update_cols
+            )
+        else:
+            set_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
         conflict_clause = f"DO UPDATE SET {set_clause}"
     else:
         conflict_clause = "DO NOTHING"
@@ -197,7 +209,13 @@ def upsert_dim_doenca(conn: Connection, disease_codigo: str) -> None:
     )
 
 
-def upsert_dim_municipio(conn: Connection, fact_df: pd.DataFrame) -> None:
+def upsert_dim_municipio(
+    conn: Connection,
+    fact_df: pd.DataFrame,
+    *,
+    catalog=None,
+    require_unit_municipalities: bool = False,
+) -> None:
     required = {"cd_mun", "nm_mun", "cd_uf", "nm_uf"}
     if not required.issubset(fact_df.columns):
         return
@@ -208,6 +226,32 @@ def upsert_dim_municipio(conn: Connection, fact_df: pd.DataFrame) -> None:
         .drop_duplicates(subset=["cd_mun"])
         .to_dict(orient="records")
     )
+    notification_codes = {row["cd_mun"] for row in rows}
+    unit_codes = set(
+        fact_df.get("cd_mun_unidade", pd.Series(dtype="string"))
+        .dropna()
+        .astype("string")
+    )
+    missing_unit_codes = unit_codes - notification_codes
+    if missing_unit_codes and catalog is not None:
+        for code in sorted(missing_unit_codes):
+            municipality = catalog.get_municipality(code)
+            if municipality is None:
+                raise ValueError(
+                    f"município da unidade CNES ausente no catálogo IBGE: {code}"
+                )
+            rows.append({
+                "cd_mun": municipality.code7,
+                "nm_mun": municipality.name,
+                "cd_uf": municipality.uf_code,
+                "nm_uf": municipality.uf_name,
+            })
+    elif missing_unit_codes and require_unit_municipalities:
+        raise ValueError(
+            "Gold referencia municípios CNES fora do recorte de notificações; "
+            "publique com uma release IBGE para cadastrar a dimensão canônica"
+        )
+    rows = list({row["cd_mun"]: row for row in rows}.values())
     _upsert(conn, "analytics.dim_municipio", rows, conflict_cols=["cd_mun"])
 
 
@@ -301,7 +345,13 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     )
 
     rows = subset[["cd_unidade", *db_cols]].to_dict(orient="records")
-    _upsert(conn, "analytics.dim_unidade_saude", rows, conflict_cols=["cd_unidade"])
+    _upsert(
+        conn,
+        "analytics.dim_unidade_saude",
+        rows,
+        conflict_cols=["cd_unidade"],
+        preserve_existing_on_null=True,
+    )
 
 
 def upsert_dim_classificacao(conn: Connection, fact_df: pd.DataFrame) -> None:
@@ -485,7 +535,12 @@ def load_gold_to_postgres(
             raise ValueError("Snapshot antigo: já existe publicação mais recente no recorte")
         upsert_dim_doenca(conn, disease_codigo)
         _register_catalog_release(conn, ibge_catalog)
-        upsert_dim_municipio(conn, fact_df)
+        upsert_dim_municipio(
+            conn,
+            fact_df,
+            catalog=ibge_catalog,
+            require_unit_municipalities=True,
+        )
         upsert_dim_unidade_saude(conn, fact_df)
         upsert_dim_classificacao(conn, fact_df)
         upsert_dim_evolucao(conn, fact_df)
