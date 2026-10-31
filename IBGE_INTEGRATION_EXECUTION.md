@@ -595,12 +595,12 @@ classificados; a ferramenta mantém alguns resultados anteriores no cache, por
 isso esses números não são comparáveis a uma rodada global limpa.
 
 Também foi executada novamente a rodada global configurada no `pyproject.toml`,
-com 6.416 mutantes classificados: 3.340 mortos, 1.887 sobreviventes, 1.187
-sem testes associados e 2 timeouts. A taxa entre os mutantes classificáveis
-(`mortos / (mortos + sobreviventes)`) foi de aproximadamente 63,9%. O resultado
-continua abaixo da meta de 95%; sobreviventes, casos sem testes e timeouts
-permanecem pendências de qualidade. A rodada anterior, de 6.257 mutantes,
-está preservada no histórico acima para comparação.
+com 7.000 mutantes: 3.969 mortos, 2.286 sobreviventes, 744 sem testes
+associados e 1 timeout. A taxa entre os mutantes classificáveis
+(`mortos / (mortos + sobreviventes)`) foi de 63,44%. O resultado continua
+abaixo da meta de 95%; sobreviventes, casos sem testes e timeout permanecem
+pendências de qualidade. As medições anteriores permanecem no histórico acima
+para comparação, mas esta é a medição global atual após a cobertura Gold e CLI.
 
 Os seis mutantes da validação estrutural de `completed` no checkpoint CNES
 foram reexecutados após testes unitários diretos e classificados como mortos
@@ -668,7 +668,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; genealogia de sucessões ainda não promovida | Parcial; sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
-| Mutação ≥95% | Última medição global: 63,9% entre mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Última medição global: 63,44% entre 6.255 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:
