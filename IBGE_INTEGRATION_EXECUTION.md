@@ -110,6 +110,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `08fb037` | Teste de linhagem do catálogo no executor de carga |
 | `e29cf60` | Rejeição de linhas DTB municipais malformadas |
 | `89a0f17` | Validação completa antes da promoção de `active.json` |
+| `f9fda72` | Integração PostgreSQL multi-UF com linhagem IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -155,6 +156,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - `promote_active()` valida a release candidata antes de trocar o ponteiro;
   releases ausentes, inválidas, com ano divergente ou conteúdo adulterado não
   podem deixar um `active.json` quebrado.
+- A integração PostgreSQL possui teste multi-UF com RJ e SP, verificando fatos,
+  dimensões, FKs municipais e linhagem da release IBGE na mesma publicação.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
   executores SINAN e CNES, com `--page-size` no CNES.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
@@ -267,7 +270,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 372 passed, 20 skipped, 25 warnings
 pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 403 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 404 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
