@@ -586,6 +586,38 @@ def test_download_dtb_archive_rejects_hash_without_replacing_previous(tmp_path, 
     assert destination.read_bytes() == b"previous"
 
 
+def test_download_dtb_archive_closes_response_after_http_error(tmp_path, mocker):
+    response = mocker.Mock()
+    response.raise_for_status.side_effect = RuntimeError("http failure")
+    session = mocker.Mock()
+    session.get.return_value = response
+
+    with pytest.raises(RuntimeError, match="http failure"):
+        download_dtb_archive(
+            tmp_path, url="https://example.invalid/DTB_2025.zip",
+            reference_year=2025, session=session,
+        )
+
+    response.close.assert_called_once_with()
+    assert not list((tmp_path / "raw" / "dtb_2025").glob("*.tmp"))
+
+
+def test_download_dtb_archive_cleans_temporary_after_stream_error(tmp_path, mocker):
+    response = mocker.Mock()
+    response.iter_content.side_effect = OSError("stream interrupted")
+    session = mocker.Mock()
+    session.get.return_value = response
+
+    with pytest.raises(OSError, match="stream interrupted"):
+        download_dtb_archive(
+            tmp_path, url="https://example.invalid/DTB_2025.zip",
+            reference_year=2025, session=session,
+        )
+
+    response.close.assert_called_once_with()
+    assert not list((tmp_path / "raw" / "dtb_2025").glob("*.tmp"))
+
+
 def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
     class Client:
         def fetch_municipalities(self):
@@ -618,6 +650,19 @@ def test_refresh_from_localidades_fecha_cliente_próprio(mocker, tmp_path):
         tmp_path, catalog_id="ibge-api-test", source_url="fixture://localidades",
         reference_year=2025, require_national=False,
     )
+
+    client.return_value.close.assert_called_once_with()
+
+
+def test_refresh_from_localidades_fecha_cliente_próprio_quando_fetch_falha(mocker, tmp_path):
+    client = mocker.patch("app.pipeline.reference.ibge.refresh.IbgeLocalidadesClient")
+    client.return_value.fetch_municipalities.side_effect = RuntimeError("api failure")
+
+    with pytest.raises(RuntimeError, match="api failure"):
+        refresh_from_localidades(
+            tmp_path, catalog_id="ibge-api-test", source_url="fixture://localidades",
+            reference_year=2025, require_national=False,
+        )
 
     client.return_value.close.assert_called_once_with()
 
@@ -721,6 +766,42 @@ def test_refresh_does_not_reuse_unvalidated_existing_release(tmp_path, mocker):
             tmp_path, archive, catalog_id="pending", source_url="fixture://dtb",
             reference_year=2025,
             require_national=False,
+        )
+
+
+@pytest.mark.parametrize("manifest_body", ["{", '{"catalog_id": "other"}'])
+def test_refresh_rejeita_release_existente_com_manifesto_invalido(tmp_path, mocker, manifest_body):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"first")
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.parse_dtb_archive",
+        return_value=[municipality("3301009", "Campos")],
+    )
+    release = tmp_path / "releases" / "broken"
+    release.mkdir(parents=True)
+    (release / "municipalities.parquet").write_bytes(b"placeholder")
+    (release / "manifest.json").write_text(manifest_body, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifesto"):
+        refresh_from_dtb_archive(
+            tmp_path, archive, catalog_id="broken", source_url="fixture://dtb",
+            reference_year=2025, require_national=False,
+        )
+
+
+def test_refresh_rejeita_release_existente_incompleta(tmp_path, mocker):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"first")
+    mocker.patch(
+        "app.pipeline.reference.ibge.refresh.parse_dtb_archive",
+        return_value=[municipality("3301009", "Campos")],
+    )
+    (tmp_path / "releases" / "incomplete").mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="release incompleta"):
+        refresh_from_dtb_archive(
+            tmp_path, archive, catalog_id="incomplete", source_url="fixture://dtb",
+            reference_year=2025, require_national=False,
         )
 
 
