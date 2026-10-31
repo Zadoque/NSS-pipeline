@@ -159,3 +159,10 @@ def test_derive_annual_event_series_keeps_creation_and_extinction_separate():
         ("CREATION", None, "5101837"),
     }
     assert all(event.source == "https://example.invalid/DTB_2025.zip" for event in events)
+
+
+def test_derive_annual_event_series_allows_unchanged_intervals():
+    from app.pipeline.reference.ibge.models import Municipality
+
+    item = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2024)
+    assert derive_annual_event_series({2024: [item], 2025: [item]}) == []

@@ -45,10 +45,24 @@ def _find_column(frame: pd.DataFrame, *names: str) -> str:
 
 def parse_dtb_table(path: Path, reference_year: int) -> tuple[Municipality, ...]:
     frame = _read_table(path)
-    uf_code = _find_column(frame, "UF")
+    try:
+        uf_code = _find_column(frame, "UF")
+    except ValueError:
+        # As edições legadas de 2011–2019 não possuem as seis linhas
+        # institucionais usadas pelas DTBs recentes; a tabela começa na
+        # primeira linha da planilha.
+        if path.suffix.lower() not in {".xls", ".xlsx", ".ods"}:
+            raise
+        frame = pd.read_excel(path, header=0, dtype=str)
+        uf_code = _find_column(frame, "UF")
     uf_name = _find_column(frame, "Nome_UF", "Nome UF")
-    code7 = _find_column(frame, "Código Município Completo", "Codigo Municipio Completo")
-    name = _find_column(frame, "Nome_Município", "Nome Municipio")
+    code7 = _find_column(
+        frame, "Código Município Completo", "Codigo Municipio Completo",
+        "Município", "Municipio", "Munic",
+    )
+    name = _find_column(
+        frame, "Nome_Município", "Nome Municipio", "Nome_Munic",
+    )
     records = []
     for index, row in enumerate(frame.to_dict(orient="records"), start=7):
         raw_code = row[code7]
@@ -57,6 +71,8 @@ def parse_dtb_table(path: Path, reference_year: int) -> tuple[Municipality, ...]
             continue
         code = "".join(str(raw_code).split())
         uf = "".join(str(raw_uf).split()).zfill(2) if not pd.isna(raw_uf) else ""
+        if len(code) == 5 and len(uf) == 2 and uf.isdigit():
+            code = uf + code
         if len(code) != 7 or not code.isdigit():
             raise ValueError(f"geocódigo municipal inválido na linha {index}: {raw_code!r}")
         if uf not in UF_ABBR:
@@ -72,12 +88,30 @@ def parse_dtb_table(path: Path, reference_year: int) -> tuple[Municipality, ...]
             source="IBGE_DTB",
             administrative_type="FEDERAL_DISTRICT" if uf == "53" else "MUNICIPALITY",
         ))
-    return validate_municipalities(records)
+    # Algumas edições legadas repetem o município uma vez por distrito ou
+    # subdistrito. Repetições idênticas são colapsadas; registros com o mesmo
+    # código e atributos divergentes continuam sendo rejeitados pela validação.
+    unique_by_code: dict[str, Municipality] = {}
+    for record in records:
+        previous = unique_by_code.get(record.code7)
+        if previous is not None and previous != record:
+            raise ValueError(f"registros conflitantes para o código municipal: {record.code7}")
+        unique_by_code[record.code7] = record
+    return validate_municipalities(tuple(unique_by_code.values()))
 
 
 def parse_dtb_archive(path: Path, reference_year: int) -> tuple[Municipality, ...]:
     with ZipFile(path) as archive, tempfile.TemporaryDirectory(prefix="dtb-") as directory:
-        candidates = [name for name in archive.namelist() if "MUNICIPIOS" in name.upper() and name.lower().endswith((".xls", ".xlsx", ".ods", ".csv"))]
+        candidates = [
+            name for name in archive.namelist()
+            if "MUNICIP" in name.upper()
+            and name.lower().endswith((".xls", ".xlsx", ".ods", ".csv"))
+        ]
+        if not candidates:
+            candidates = [
+                name for name in archive.namelist()
+                if name.lower().endswith((".xls", ".xlsx", ".ods", ".csv"))
+            ]
         if not candidates:
             raise ValueError("arquivo DTB não contém tabela de municípios")
         candidate = next((name for name in candidates if name.lower().endswith(".xls")), candidates[0])

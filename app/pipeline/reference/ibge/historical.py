@@ -154,12 +154,16 @@ def derive_annual_event_series(
         raise ValueError("série DTB exige pelo menos dois anos consecutivos")
     events: list[MunicipalityEvent] = []
     for previous_year, current_year in zip(years, years[1:]):
-        events.extend(derive_annual_events(
-            editions[previous_year], editions[current_year],
-            reference_year=current_year,
-            effective_date=f"{current_year}-01-01",
-            source_url=(source_urls or {}).get(current_year),
-        ))
+        try:
+            events.extend(derive_annual_events(
+                editions[previous_year], editions[current_year],
+                reference_year=current_year,
+                effective_date=f"{current_year}-01-01",
+                source_url=(source_urls or {}).get(current_year),
+            ))
+        except ValueError as error:
+            if str(error) != "nenhuma diferença territorial observável entre as edições":
+                raise
     by_id: dict[str, MunicipalityEvent] = {}
     for event in events:
         previous = by_id.get(event.event_id)
