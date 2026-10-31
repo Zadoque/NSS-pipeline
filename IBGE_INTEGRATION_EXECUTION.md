@@ -1036,7 +1036,7 @@ A suíte integral posterior passou em **535 testes**, com **3 testes pulados** e
 **25 warnings**. `nix flake check --no-build` também passou após essa mudança.
 
 Após a regressão de quarentena de UF, a suíte integral foi executada novamente:
-**539 testes passaram, 3 foram pulados e 25 warnings foram emitidos**.
+**540 testes passaram, 3 foram pulados e 25 warnings foram emitidos**.
 
 O commit `213c94c` (`test(sinan): cover catalog normalization contract`)
 adicionou uma regressão direta para o caminho que recebe um
