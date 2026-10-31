@@ -358,6 +358,18 @@ def test_localidades_client_validates_and_parses_response(mocker):
     }]
     result = IbgeLocalidadesClient(session=session).fetch_municipalities()
     assert result[0].code7 == "3301009"
+    assert result[0].code6 == "330100"
+    assert result[0].uf_code == "33"
+    assert result[0].uf_name == "Rio"
+    assert result[0].reference_year == 0
+    assert result[0].source == "IBGE_API_LOCALIDADES"
+    parsed = IbgeLocalidadesClient._parse({
+        "id": 3301009,
+        "nome": "Campos",
+        "microrregiao": {"mesorregiao": {"UF": {"id": 33, "sigla": "RJ", "nome": "Rio"}}},
+    })
+    assert parsed.uf_code == "33"
+    assert parsed.reference_year == 0
     session.get.assert_called_once_with(
         "https://servicodados.ibge.gov.br/api/v1/localidades/municipios", timeout=60
     )
@@ -380,13 +392,38 @@ def test_localidades_client_faz_fallback_para_hierarquia_de_regiao_imediata(mock
 
     assert result[0].code7 == "5101837"
     assert result[0].uf_abbr == "MT"
+    assert result[0].uf_name == "Mato Grosso"
+    assert result[0].source == "IBGE_API_LOCALIDADES"
 
 
-@pytest.mark.parametrize("payload", [{}, [None]])
-def test_localidades_client_rejects_invalid_payload_or_record(mocker, payload):
+def test_localidades_client_normaliza_url_e_ownership_da_sessao(mocker):
     session = mocker.Mock()
-    session.get.return_value.json.return_value = payload
-    with pytest.raises(ValueError, match="IBGE|registro"):
+    client = IbgeLocalidadesClient(session=session, base_url="https://example.invalid/X///")
+
+    assert client.base_url == "https://example.invalid/X"
+    assert client._owns_session is False
+    client.close()
+    session.close.assert_not_called()
+
+    owned_session = mocker.Mock()
+    mocker.patch("app.pipeline.reference.ibge.client.requests.Session", return_value=owned_session)
+    owned = IbgeLocalidadesClient()
+    assert owned._owns_session is True
+    owned.close()
+    owned_session.close.assert_called_once_with()
+
+
+def test_localidades_client_rejects_non_array_payload(mocker):
+    session = mocker.Mock()
+    session.get.return_value.json.return_value = {}
+    with pytest.raises(ValueError, match="^resposta IBGE inválida: esperado um array de municípios$"):
+        IbgeLocalidadesClient(session=session).fetch_municipalities()
+
+
+def test_localidades_client_rejects_non_object_record(mocker):
+    session = mocker.Mock()
+    session.get.return_value.json.return_value = [None]
+    with pytest.raises(ValueError, match="^registro IBGE inválido$"):
         IbgeLocalidadesClient(session=session).fetch_municipalities()
 
 
