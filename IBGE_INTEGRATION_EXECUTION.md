@@ -1162,6 +1162,12 @@ inválidas. Os **3 mutantes** direcionados restantes desse contrato morreram.
 A suíte integral posterior passou em **566 testes**, com **3 pulados** e **25
 warnings**.
 
+O commit `6bbc6a0` (`feat(ibge): require historical source provenance`)
+passou a exigir `source_url` e `reference_period` tanto na aquisição quanto na
+promoção de fontes históricas. Foram adicionadas regressões para os dois
+campos ausentes, impedindo artefatos `RAW_ONLY` sem origem auditável. A suíte
+integral posterior passou em **570 testes**, com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
