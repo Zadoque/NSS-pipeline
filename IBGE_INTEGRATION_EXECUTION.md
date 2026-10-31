@@ -769,7 +769,7 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **496 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **497 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
@@ -854,6 +854,13 @@ limpeza do arquivo temporário incondicional quando o download da DTB falha na
 troca atômica, incluindo regressão para erro de `os.replace`. A suíte completa
 posterior passou em **496 testes**. O grafo Alembic permaneceu com head `0009`
 e `nix flake check --no-build` passou novamente.
+
+O commit `ebe81fd` (`test(ibge): cover official toponymic schema`) adicionou
+uma fixture contratual com os cabeçalhos e colunas extras publicados na planilha
+de Alterações Toponímicas Municipais 2025. O parser converte o registro para
+evento toponímico mantendo o mesmo código de origem e destino. A suíte completa
+posterior passou em **497 testes**; isso valida o formato da fonte, mas não
+transforma a planilha toponímica em sucessão territorial.
 
 Os commits mais recentes desta continuação foram `44abf2c`
 (`test(ibge): strengthen historical source contracts`) e `89c5402`

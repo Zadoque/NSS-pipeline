@@ -61,6 +61,8 @@ IBGE-012 ──> IBGE-013
   inválido.
 - Evidência adicional: `d7439d4` garante que falhas na troca atômica do ZIP DTB
   não deixam temporários no cache bruto; a suíte posterior passou em 496 testes.
+- Evidência adicional: `ebe81fd` cobre o esquema oficial 2025 de alterações
+  toponímicas com colunas extras; a suíte posterior passou em 497 testes.
 
 ### IBGE-004 — SINAN Gold canônica
 
