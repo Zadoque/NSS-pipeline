@@ -125,6 +125,30 @@ def run_load(
                 "Publicação bloqueada: métricas Gold não reconciliam "
                 "(source_rows, resolved_rows, discarded_rows, aggregation_reduction)"
             )
+        expected_catalog_id = catalog.metadata.catalog_id
+        expected_catalog_sha256 = catalog.metadata.sha256
+        if (
+            gold_metadata.get("ibge_catalog_id") != expected_catalog_id
+            or gold_metadata.get("ibge_catalog_sha256") != expected_catalog_sha256
+        ):
+            raise ValueError(
+                "Publicação bloqueada: release IBGE da Gold diverge da release "
+                f"selecionada ({gold_metadata.get('ibge_catalog_id')!r}/"
+                f"{gold_metadata.get('ibge_catalog_sha256')!r})"
+            )
+        expected_scope_type = geographic_scope.kind if geographic_scope else "MUNICIPALITIES"
+        expected_scope_sha256 = scope_sha256(municipios)
+        gold_scope = gold_metadata.get("geographic_scope")
+        if (
+            not isinstance(gold_scope, dict)
+            or gold_scope.get("type") != expected_scope_type
+            or gold_scope.get("municipality_count") != len(municipios)
+            or gold_scope.get("scope_sha256") != expected_scope_sha256
+        ):
+            raise ValueError(
+                "Publicação bloqueada: escopo geográfico da Gold diverge do escopo "
+                "selecionado"
+            )
         invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
         uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
         if invalid_rows or uf_mismatch_rows:

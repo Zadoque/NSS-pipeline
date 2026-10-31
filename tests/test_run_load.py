@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -7,6 +8,20 @@ from app.pipeline import run_load as runner
 from app.pipeline.load import load_gold_to_postgres
 from app.pipeline.sinan.gold import MUNICIPIOS_RJ
 from app.pipeline.scope import scope_sha256
+
+
+def _add_catalog_lineage(metadata_path, catalog, municipality_codes, scope_type="MUNICIPALITIES"):
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata.update({
+        "ibge_catalog_id": catalog.metadata.catalog_id,
+        "ibge_catalog_sha256": catalog.metadata.sha256,
+        "geographic_scope": {
+            "type": scope_type,
+            "municipality_count": len(municipality_codes),
+            "scope_sha256": scope_sha256(municipality_codes),
+        },
+    })
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
 
 
 @pytest.mark.parametrize("arguments", [
@@ -332,6 +347,9 @@ def test_catalogo_ibge_bloqueia_publicacao_com_resolucao_invalida(mocker, pipeli
         '"aggregation_reduction": 0, "invalid_municipality_rows": 1, '
         '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8"
     )
+    _add_catalog_lineage(metadata_path, catalog, [
+        "3301009", "3305000", "3302205", "3302403",
+    ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     with pytest.raises(ValueError, match="resoluções municipais inválidas"):
@@ -374,6 +392,9 @@ def test_catalogo_ibge_bloqueia_publicacao_com_uf_divergente(
         '"out_of_scope_rows": 0, "uf_mismatch_rows": 1}',
         encoding="utf-8",
     )
+    _add_catalog_lineage(metadata_path, catalog, [
+        "3301009", "3305000", "3302205", "3302403",
+    ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     with pytest.raises(ValueError, match="resoluções municipais inválidas"):
@@ -411,6 +432,9 @@ def test_catalogo_ibge_bloqueia_metadata_gold_incompleto(mocker, pipeline, tmp_p
     metadata_path.write_text(
         '{"source_rows": 1, "resolved_rows": 1}', encoding="utf-8"
     )
+    _add_catalog_lineage(metadata_path, catalog, [
+        "3301009", "3305000", "3302205", "3302403",
+    ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     with pytest.raises(ValueError, match="métricas obrigatórias"):
@@ -450,6 +474,9 @@ def test_catalogo_ibge_bloqueia_metadata_gold_com_metrica_invalida(mocker, pipel
         '"out_of_scope_rows": 0, "uf_mismatch_rows": "0"}',
         encoding="utf-8",
     )
+    _add_catalog_lineage(metadata_path, catalog, [
+        "3301009", "3305000", "3302205", "3302403",
+    ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     with pytest.raises(ValueError, match="métricas Gold inválidas"):
@@ -488,9 +515,96 @@ def test_catalogo_ibge_bloqueia_metadata_gold_inconsistente(mocker, pipeline, tm
         '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
         '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
     )
+    _add_catalog_lineage(metadata_path, catalog, [
+        "3301009", "3305000", "3302205", "3302403",
+    ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     with pytest.raises(ValueError, match="não reconciliam"):
+        runner.run_load("DENG", 2026, catalog=catalog)
+
+    load.assert_not_called()
+    get_engine.assert_not_called()
+
+
+def test_catalogo_ibge_bloqueia_release_gold_diferente(mocker, pipeline, tmp_path):
+    aggregate, _, get_engine, load = pipeline
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    municipalities = [
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+        Municipality("3305000", "330500", "São João", "33", "RJ", "Rio", 2025),
+        Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+        Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+    aggregate.return_value = Path("gold.parquet")
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        '{"source_rows": 1, "resolved_rows": 1, "discarded_rows": 0, '
+        '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
+        '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
+    )
+    _add_catalog_lineage(metadata_path, catalog, [item.code7 for item in municipalities])
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["ibge_catalog_id"] = "ibge-dtb-old"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    mocker.patch.object(Path, "with_name", return_value=metadata_path)
+
+    with pytest.raises(ValueError, match="release IBGE da Gold diverge"):
+        runner.run_load("DENG", 2026, catalog=catalog)
+
+    load.assert_not_called()
+    get_engine.assert_not_called()
+
+
+def test_catalogo_ibge_bloqueia_escopo_gold_diferente(mocker, pipeline, tmp_path):
+    aggregate, _, get_engine, load = pipeline
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    municipalities = [
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+        Municipality("3305000", "330500", "São João", "33", "RJ", "Rio", 2025),
+        Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+        Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+    aggregate.return_value = Path("gold.parquet")
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        '{"source_rows": 1, "resolved_rows": 1, "discarded_rows": 0, '
+        '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
+        '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
+    )
+    _add_catalog_lineage(metadata_path, catalog, [item.code7 for item in municipalities])
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["geographic_scope"]["scope_sha256"] = "b" * 64
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    mocker.patch.object(Path, "with_name", return_value=metadata_path)
+
+    with pytest.raises(ValueError, match="escopo geográfico da Gold diverge"):
         runner.run_load("DENG", 2026, catalog=catalog)
 
     load.assert_not_called()
@@ -540,6 +654,7 @@ def test_run_load_transmite_catalogo_e_escopo_ate_publicacao(mocker, pipeline, t
         '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
         '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
     )
+    _add_catalog_lineage(metadata_path, catalog, ["3301009", "3550308"], "UFs")
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     runner.run_load(
@@ -582,6 +697,7 @@ def test_run_load_nao_conta_codigo_ibge_7_invalido_no_total_independente(
         '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
         '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
     )
+    _add_catalog_lineage(metadata_path, catalog, ["3301009"])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
@@ -612,6 +728,7 @@ def test_run_load_nao_conta_uf_divergente_no_total_independente(mocker, pipeline
         '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
         '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
     )
+    _add_catalog_lineage(metadata_path, catalog, ["3301009"])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
     runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
