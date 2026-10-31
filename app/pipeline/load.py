@@ -49,6 +49,8 @@ QUALITY_METRIC_COLUMNS = (
     "uf_mismatch_rows",
 )
 
+FACT_INSERT_BATCH_SIZE = 10_000
+
 
 def get_engine() -> Engine:
     url = os.environ.get("DATABASE_URL")
@@ -251,10 +253,13 @@ def insert_fato_casos(conn: Connection, fact_df: pd.DataFrame) -> None:
         columns={"year": "ano", "month": "mes"}
     )
     columns = list(frame.columns)
-    conn.execute(text(
+    statement = text(
         f"INSERT INTO analytics.fato_casos ({', '.join(columns)}) "
         f"VALUES ({', '.join(':' + column for column in columns)})"
-    ), frame.to_dict(orient="records"))
+    )
+    for start in range(0, len(frame), FACT_INSERT_BATCH_SIZE):
+        batch = frame.iloc[start:start + FACT_INSERT_BATCH_SIZE]
+        conn.execute(statement, batch.to_dict(orient="records"))
 
 
 def _validate_snapshot(

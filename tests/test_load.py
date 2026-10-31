@@ -407,6 +407,36 @@ def test_insert_fato_cases_handles_empty_and_renames_dimensions(mocker):
     assert rows[0]["mes"] == 1
 
 
+def test_insert_fato_cases_processa_registros_em_lotes(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame(
+        {
+            "disease_codigo": ["DENG"] * 10_001,
+            "year": [2026] * 10_001,
+            "month": [1] * 10_001,
+            "cd_mun": ["3301009"] * 10_001,
+            "cd_unidade": ["0000000"] * 10_001,
+            "cd_classificacao": ["NI"] * 10_001,
+            "cd_evolucao": ["NI"] * 10_001,
+            "cd_sexo": ["I"] * 10_001,
+            "semana_notif": [0] * 10_001,
+            "ano_nascimento": [0] * 10_001,
+            "age_band": ["NI"] * 10_001,
+            "notification_district_id": [pd.NA] * 10_001,
+            "notification_neighborhood_id": [pd.NA] * 10_001,
+            "notification_territory_status": ["UNMAPPED_NOTIFICATION_UNIT"] * 10_001,
+            "cases_total": [1] * 10_001,
+            "batch_id": ["b1"] * 10_001,
+        }
+    )
+
+    insert_fato_casos(conn, fact)
+
+    assert conn.execute.call_count == 2
+    assert len(conn.execute.call_args_list[0].args[1]) == 10_000
+    assert len(conn.execute.call_args_list[1].args[1]) == 1
+
+
 class _Result:
     def __init__(self, *, newest=None, groups_total=1, cases_total=5):
         self.newest = newest
