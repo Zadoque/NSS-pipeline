@@ -917,6 +917,12 @@ entradas e mensagens de erro. A rodada dirigida matou **7 mutantes** previamente
 selecionados nesses validadores. A suíte integral posterior passou em **513
 testes**, com **3 testes pulados** e **25 warnings**.
 
+O commit `8c84ac7` (`test(cnes): cover error classification contract`) adicionou
+uma matriz explícita para as seis classes de falha do CNES. Os **8 mutantes**
+selecionados do classificador morreram. A suíte integral posterior, com
+PostgreSQL de integração, passou em **519 testes**, com **3 testes pulados** e
+**25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

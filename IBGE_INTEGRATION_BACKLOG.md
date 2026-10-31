@@ -278,6 +278,10 @@ IBGE-012 ──> IBGE-013
     dirigida matou **7 mutantes** selecionados de validação de hash, contagem,
     tipos e mensagens. A suíte integral posterior passou em **513 testes**, com
     **3 pulados** e **25 warnings**.
+  - O commit `8c84ac7` cobriu a classificação de timeout, conexão, HTTP,
+    validação, API e processamento; os **8 mutantes** selecionados morreram.
+    A suíte integral posterior passou em **519 testes**, com **3 pulados** e
+    **25 warnings**.
 
 ### IBGE-013 — Rollout nacional de produção
 
