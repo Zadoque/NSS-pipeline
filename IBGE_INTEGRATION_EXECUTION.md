@@ -1168,6 +1168,13 @@ promoção de fontes históricas. Foram adicionadas regressões para os dois
 campos ausentes, impedindo artefatos `RAW_ONLY` sem origem auditável. A suíte
 integral posterior passou em **570 testes**, com **3 pulados** e **25 warnings**.
 
+O commit `236acfc` (`fix(ibge): reject malformed historical manifests`)
+passou a rejeitar explicitamente manifests com `sources` que não seja um mapa
+de objetos na preservação de fontes ou uma lista de objetos no histórico de
+eventos. Foram adicionadas regressões para os dois caminhos, evitando perda
+silenciosa de linhagem. A suíte integral posterior passou em **572 testes**,
+com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
