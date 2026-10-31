@@ -38,6 +38,110 @@ def test_cli_run_load_preserva_contrato_dos_argumentos_geograficos():
     assert args.cnes_batch_id == "batch-1"
 
 
+@pytest.mark.parametrize(
+    "missing",
+    [
+        [],
+        ["--year", "2026"],
+        ["--disease", "DENG"],
+    ],
+)
+def test_cli_run_load_exige_doenca_e_ano(missing):
+    with pytest.raises(SystemExit) as exc_info:
+        runner._build_parser().parse_args(missing)
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_run_load_converte_ano_e_catalogo_e_preserva_defaults():
+    args = runner._build_parser().parse_args(["--disease", "DENG", "--year", "2026"])
+
+    assert args.year == 2026
+    assert isinstance(args.year, int)
+    assert args.allow_empty is False
+    assert args.catalog_root is None
+    assert args.municipios is None
+    assert args.ufs is None
+    assert args.all_brazil is False
+    assert args.cnes_batch_id is None
+
+
+def test_cli_run_load_rejeita_ano_nao_numerico():
+    with pytest.raises(SystemExit) as exc_info:
+        runner._build_parser().parse_args(["--disease", "DENG", "--year", "abc"])
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_run_load_documenta_opcoes_de_operacao():
+    help_text = runner._build_parser().format_help()
+
+    assert "Roda a pipeline SINAN completa (grão fixo)" in help_text
+    assert "Ex.: DENG, TOXC, ZIKA" in help_text
+    assert "Permite publicar zero no recorte" in help_text
+    assert "Diretório local de releases IBGE" in help_text
+    assert "Códigos municipais separados por vírgula" in help_text
+    assert "UFs ou códigos de UF separados por vírgula" in help_text
+    assert "Seleciona todos os municípios da release IBGE" in help_text
+    assert "Lote CNES fixado para o enriquecimento da Gold" in help_text
+
+
+def test_main_exige_catalogo_para_selecao_geografica(mocker):
+    mocker.patch.object(
+        runner,
+        "_build_parser",
+        return_value=runner._build_parser(),
+    )
+    mocker.patch(
+        "sys.argv",
+        ["run_load", "--disease", "DENG", "--year", "2026", "--ufs", "RJ"],
+    )
+    execute = mocker.patch.object(runner, "run_load")
+
+    with pytest.raises(SystemExit) as exc_info:
+        runner.main()
+
+    assert exc_info.value.code == 1
+    execute.assert_not_called()
+
+
+def test_main_encaminha_escopo_e_lote_cnes(mocker, tmp_path):
+    catalog = mocker.Mock()
+    scope = mocker.Mock()
+    mocker.patch.object(runner, "load_active_catalog", return_value=catalog)
+    select = mocker.patch.object(runner, "select_scope", return_value=scope)
+    execute = mocker.patch.object(runner, "run_load")
+    mocker.patch(
+        "sys.argv",
+        [
+            "run_load",
+            "--disease", "deng",
+            "--year", "2026",
+            "--catalog-root", str(tmp_path),
+            "--all-brazil",
+            "--allow-empty",
+            "--cnes-batch-id", "cnes-2026",
+        ],
+    )
+
+    runner.main()
+
+    select.assert_called_once_with(
+        catalog,
+        municipalities=None,
+        ufs=None,
+        all_brazil=True,
+    )
+    execute.assert_called_once_with(
+        "deng",
+        2026,
+        allow_empty=True,
+        catalog=catalog,
+        geographic_scope=scope,
+        cnes_batch_id="cnes-2026",
+    )
+
+
 @pytest.fixture
 def pipeline(mocker):
     mocker.patch.object(runner, "fetch_sinan", return_value=Path("source.parquet"))
