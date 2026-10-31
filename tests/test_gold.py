@@ -212,6 +212,32 @@ def test_resolution_metrics_separa_escopo_e_codigo_invalido():
     }
 
 
+def test_resolution_metrics_conta_todas_as_linhas_de_cada_status():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.sinan.gold import _resolution_metrics
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+            Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    metrics = _resolution_metrics(
+        pd.Series(["330100", "330100", "3550308", "3550308", "9999999", "9999999", "330100", "330100"]),
+        {"3301009": "Campos"}, catalog,
+        pd.Series([None, None, None, None, None, None, "35", "35"], dtype="string"),
+    )
+
+    assert metrics == {
+        "scope_matched_rows": 2,
+        "invalid_municipality_rows": 2,
+        "out_of_scope_rows": 2,
+        "uf_mismatch_rows": 2,
+    }
+
+
 def test_aggregate_inclui_disease_como_primeira_coluna():
     df = _silver_minima()
     result = aggregate(df, disease="deng", municipios=MUNICIPIOS_TESTE)

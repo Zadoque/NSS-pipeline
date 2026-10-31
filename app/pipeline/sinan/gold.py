@@ -257,6 +257,8 @@ def _resolution_metrics(
     values = series.tolist()
     ufs = declared_ufs.tolist() if declared_ufs is not None else [None] * len(values)
     for value, declared_uf in zip(values, ufs):
+        if declared_uf is not None and pd.isna(declared_uf):
+            declared_uf = None
         resolution = catalog.resolve(value, declared_uf=declared_uf)
         if resolution.status.value == "VALID" and resolution.municipality is not None:
             if resolution.municipality.code7 in municipios:
