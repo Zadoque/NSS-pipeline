@@ -104,6 +104,10 @@ IBGE-012 ──> IBGE-013
   - Repetição de página interrompe o loop.
   - Checkpoint valida catálogo, escopo, parâmetros e checksum dos Bronzes.
   - Município sem malha recebe `UNAVAILABLE`, sem inferência territorial.
+  - Checkpoints rejeitam caminhos Bronze inválidos, hashes não hexadecimais e
+    contagens de linhas inválidas, sem perder a possibilidade de retomar o lote.
+  - Contratos críticos do checkpoint possuem regressões e mutantes direcionados
+    mortos.
 
 ## Execução, publicação e atualização
 

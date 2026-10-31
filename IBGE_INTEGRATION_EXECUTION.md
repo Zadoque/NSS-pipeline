@@ -1056,6 +1056,23 @@ regressão para `uf_mismatch_rows > 0`. A rodada dirigida matou **3 mutantes**
 desse caminho (`_run_load`), garantindo que a carga não abra conexão nem
 publique uma Gold territorialmente inconsistente.
 
+O commit `093add6` (`test(cnes): harden checkpoint artifact validation`)
+completou a matriz de invariantes do checkpoint CNES. Foram adicionados casos
+para caminho Bronze não textual ou vazio, hash SHA-256 hexadecimal em maiúsculas
+e caracteres fora do alfabeto hexadecimal. Os **5 mutantes** direcionados
+correspondentes morreram, incluindo variantes que aceitavam caminhos inválidos
+ou rejeitavam hashes válidos em maiúsculas. A suíte específica do executor CNES
+passou em **59 testes**.
+
+Essa evidência é complementar à baseline global: a última rodada global limpa
+continua sendo a de **7.459 mutantes**, com **5.586 mortos**, **1.779
+sobreviventes**, **93 sem testes** e **1 timeout**; mutantes dirigidos
+posteriores não devem ser somados a essa taxa sem uma nova rodada global limpa.
+
+A suíte integral posterior, executada com PostgreSQL de integração local, passou
+em **544 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
+--no-build` permanece como verificação adicional do ambiente reprodutível.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
