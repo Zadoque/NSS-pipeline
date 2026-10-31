@@ -257,6 +257,15 @@ IBGE-012 ──> IBGE-013
   - Após `44abf2c` e `89c5402`, uma rodada dirigida matou mais **10 mutantes
     históricos** de identidade de evento, erros de fonte e caminhos de artefato;
     essa medição é complementar e não substitui a baseline global limpa.
+  - O commit `627e9c1` adicionou o contrato de encaminhamento das métricas da
+    Gold; a rodada dirigida de `run_load` matou mais **13 mutantes relevantes**
+    de fonte, ano, colunas, lote CNES, escopo e qualidade. Essa evidência é
+    complementar à medição global.
+  - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
+    mutante de normalização de `pd.NA` morreu. A variante `None` versus string
+    vazia foi classificada como equivalente pelo contrato atual.
+  - A suíte integral posterior passou em **500 testes**, com **3 pulados** e
+    **25 warnings**, incluindo PostgreSQL de integração local.
 
 ### IBGE-013 — Rollout nacional de produção
 

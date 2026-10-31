@@ -877,6 +877,26 @@ estruturada de sucessões. Portanto, ela continua em `RAW_ONLY` e não produz
 crosswalk histórico automático. A série anual DTB registra apenas diferenças
 observáveis entre edições consecutivas.
 
+### Atualização final desta continuação — 31/10/2026
+
+O commit `627e9c1` (`test(load): cover Gold metadata forwarding`) adicionou
+regressão para garantir que as métricas do `metadata.json` da Gold sejam
+encaminhadas à publicação PostgreSQL. A rodada dirigida do contrato de
+`run_load` matou **13 mutantes relevantes** (incluindo fonte/ano, colunas
+selecionadas, lote CNES, escopo padrão e métricas de qualidade); essa evidência
+é complementar e não altera a baseline global de 74,94%.
+
+O commit `44cfbdc` (`test(sinan): cover missing declared municipality uf`)
+adicionou cobertura para UF declarada ausente (`pd.NA`) durante a resolução
+municipal. O mutante que deixava esse valor sem normalização morreu na rodada
+dirigida; a variante que troca `None` por string vazia foi classificada como
+equivalente porque ambas são tratadas como ausência pelo contrato do catálogo.
+
+A validação integral posterior, usando o PostgreSQL de integração local,
+passou em **500 testes**, com **3 testes pulados** e **25 warnings**. O teste
+de contrato usa fixtures locais e não depende da disponibilidade do IBGE ou do
+CNES durante a execução normal.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
