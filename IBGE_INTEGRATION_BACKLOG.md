@@ -302,6 +302,10 @@ IBGE-012 ──> IBGE-013
     **34/34 mutantes mortos**, incluindo SHA-256, status de validação e
     `promoted_at` com timezone. O identificador utilizado pelo `mutmut` inclui
     `x__` para funções privadas; essa medição não substitui a rodada global.
+  - O commit `da5ebff` cobriu ponteiro ativo ausente, JSON inválido e
+    `catalog_id` não textual. Na rodada dirigida, **4/5 mutantes selecionados**
+    morreram; o quinto foi classificado como equivalente por depender do
+    encoding UTF-8 padrão do ambiente.
 
 ### IBGE-013 — Rollout nacional de produção
 

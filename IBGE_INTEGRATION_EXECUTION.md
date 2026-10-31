@@ -972,6 +972,13 @@ A rodada dirigida de mutação executada com o identificador privado correto do
 abrange as validações de hashes, status da release e timestamp de promoção; ela
 é específica do contrato e não é apresentada como a taxa global de mutação.
 
+O commit `da5ebff` (`test(ibge): harden active pointer errors`) adicionou
+regressões para ponteiro ausente, JSON inválido e `catalog_id` não textual. A
+rodada dirigida correspondente matou **4 de 5 mutantes** selecionados; o
+sobrevivente restante é equivalente no ambiente Linux por usar o encoding UTF-8
+implícito de `Path.read_text(encoding=None)`. A suíte integral posterior passou
+em **533 testes**, com **3 testes pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
