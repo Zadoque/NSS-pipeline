@@ -85,6 +85,78 @@ def test_update_one_reprocessa_quando_release_ibge_muda(tmp_path, monkeypatch):
     assert manifest["DENG:2026"]["ibgeCatalogSha256"] == "b" * 64
 
 
+@pytest.mark.parametrize(
+    ("manifest_catalog_id", "manifest_catalog_sha256"),
+    [("ibge-dtb-2024", "b" * 64), ("ibge-dtb-2025", "a" * 64)],
+)
+def test_update_one_reprocessa_quando_uma_identidade_ibge_diverge(
+    tmp_path, monkeypatch, manifest_catalog_id, manifest_catalog_sha256,
+):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
+    remote = RemoteSinanFile("DENG", 2026, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "b" * 64),
+    )
+    manifest = {
+        "DENG:2026": {
+            "remoteSizeBytes": 4,
+            "ibgeCatalogId": manifest_catalog_id,
+            "ibgeCatalogSha256": manifest_catalog_sha256,
+        },
+    }
+    loaded = []
+    monkeypatch.setattr("app.pipeline.update_sinan.is_changed", lambda item: False)
+    monkeypatch.setattr("app.pipeline.update_sinan.download_remote_file", lambda item: item.local_path)
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.run_load",
+        lambda disease, year, **options: loaded.append((disease, year, options)),
+    )
+
+    result = update_one(remote, manifest, catalog=catalog)
+
+    assert result == "DENG:2026: updated (4 bytes)"
+    assert loaded[0][2]["catalog"] is catalog
+
+
+def test_update_one_nao_reprocessa_quando_release_ibge_e_arquivo_sao_iguais(
+    tmp_path, monkeypatch,
+):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
+    remote = RemoteSinanFile("DENG", 2026, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "b" * 64),
+    )
+    manifest = {
+        "DENG:2026": {
+            "remoteSizeBytes": 4,
+            "ibgeCatalogId": "ibge-dtb-2025",
+            "ibgeCatalogSha256": "b" * 64,
+        },
+    }
+    monkeypatch.setattr("app.pipeline.update_sinan.is_changed", lambda item: False)
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.run_load",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("não deveria reprocessar")),
+    )
+
+    result = update_one(remote, manifest, catalog=catalog)
+
+    assert result == "DENG:2026: unchanged (4 bytes)"
+    assert manifest["DENG:2026"]["status"] == "UNCHANGED"
+
+
 @pytest.mark.parametrize("raw,expected", [(None, None), ("2026, 2024,2026", [2024, 2026])])
 def test_parse_years_normalizes_and_defaults_to_current_year(raw, expected, monkeypatch):
     if expected is None:
