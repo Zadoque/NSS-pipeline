@@ -328,3 +328,45 @@ def promote_toponymic_events(
         root, events, source_path=source_path, reference_year=reference_year,
         source_url=source_url,
     )
+
+
+def promote_annual_dtb_events(
+    root: Path,
+    archives: Mapping[int, Path],
+    *,
+    source_urls: Mapping[int, str] | None = None,
+) -> Path:
+    """Promove eventos observáveis derivados de edições anuais oficiais da DTB."""
+    from .dtb import parse_dtb_archive
+
+    editions = {
+        year: parse_dtb_archive(path, reference_year=year)
+        for year, path in sorted(archives.items())
+    }
+    events = derive_annual_event_series(editions, source_urls=source_urls)
+    result_path = root / "historical" / "municipality_events.parquet"
+    existing = {event.event_id: event for event in _read_events(result_path)}
+    for event in events:
+        previous = existing.get(event.event_id)
+        if previous is not None and previous != event:
+            raise ValueError(f"event_id conflitante no histórico municipal: {event.event_id}")
+        existing[event.event_id] = event
+    write_events(result_path, list(existing.values()))
+    manifest = {
+        "reference_year_start": min(editions),
+        "reference_year_end": max(editions),
+        "rows": len(existing),
+        "event_types": sorted({event.event_type for event in existing.values()}),
+        "inference_policy": "OBSERVABLE_ANNUAL_DIFF_ONLY",
+        "sources": [
+            {
+                "reference_year": year,
+                "source_path": str(path),
+                "source_url": (source_urls or {}).get(year),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+            for year, path in sorted(archives.items())
+        ],
+    }
+    write_json_atomic(manifest, result_path.with_name("municipality_events.manifest.json"))
+    return result_path

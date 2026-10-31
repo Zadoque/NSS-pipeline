@@ -7,6 +7,7 @@ from app.pipeline.reference.ibge.historical import (
     parse_administrative_events,
     parse_toponymic_events,
     promote_administrative_events,
+    promote_annual_dtb_events,
     promote_toponymic_events,
     write_events,
 )
@@ -166,3 +167,30 @@ def test_derive_annual_event_series_allows_unchanged_intervals():
 
     item = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2024)
     assert derive_annual_event_series({2024: [item], 2025: [item]}) == []
+
+
+def test_promote_annual_dtb_events_writes_hashes_and_policy(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge import dtb
+    from app.pipeline.reference.ibge.models import Municipality
+
+    previous = Municipality("3301009", "330100", "Origem", "33", "RJ", "Rio", 2024)
+    current = Municipality("5101837", "510183", "Novo", "51", "MT", "Mato Grosso", 2025)
+    archives = {2024: tmp_path / "DTB_2024.zip", 2025: tmp_path / "DTB_2025.zip"}
+    for path in archives.values():
+        path.write_bytes(b"official-fixture")
+    monkeypatch.setattr(
+        dtb, "parse_dtb_archive",
+        lambda path, reference_year: [previous] if reference_year == 2024 else [current],
+    )
+
+    result = promote_annual_dtb_events(
+        tmp_path / "catalog", archives,
+        source_urls={year: f"fixture://DTB_{year}.zip" for year in archives},
+    )
+    manifest = __import__("json").loads(
+        result.with_name("municipality_events.manifest.json").read_text(encoding="utf-8")
+    )
+    assert result.exists()
+    assert manifest["rows"] == 2
+    assert manifest["inference_policy"] == "OBSERVABLE_ANNUAL_DIFF_ONLY"
+    assert len(manifest["sources"]) == 2
