@@ -8,7 +8,7 @@ import pytest
 
 from app.pipeline import run_cnes as pipeline
 from app.pipeline.reference.ibge.dtb import parse_dtb_archive
-from app.pipeline.reference.ibge.models import CatalogMetadata
+from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
 from app.pipeline.scope import select_scope
 from app.pipeline.sinan.gold import aggregate
@@ -16,21 +16,32 @@ from app.pipeline.sinan.gold import aggregate
 
 pytestmark = pytest.mark.integration
 
+FIXTURE_PARQUET = Path(__file__).parent / "fixtures" / "ibge" / "dtb_2025_municipalities.parquet"
+DTB_SHA256 = "d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27"
 
-def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypatch):
+
+def _national_records() -> list[Municipality]:
     archive_path = os.environ.get("IBGE_DTB_ARCHIVE")
-    if not archive_path:
-        pytest.skip("IBGE_DTB_ARCHIVE não definida — homologação nacional pulada")
+    if archive_path:
+        return list(parse_dtb_archive(Path(archive_path), reference_year=2025))
+    frame = pd.read_parquet(FIXTURE_PARQUET)
+    return [Municipality(**row) for row in frame.to_dict(orient="records")]
 
-    archive = Path(archive_path)
-    records = parse_dtb_archive(archive, reference_year=2025)
-    catalog = InMemoryMunicipalityCatalog(
+
+def _national_catalog(catalog_id: str) -> InMemoryMunicipalityCatalog:
+    records = _national_records()
+    source = os.environ.get("IBGE_DTB_ARCHIVE", str(FIXTURE_PARQUET))
+    return InMemoryMunicipalityCatalog(
         records,
         CatalogMetadata(
-            "ibge-dtb-national-test", 2025, "IBGE DTB fixture", str(archive),
-            "2026-10-30T00:00:00Z", "a" * 64,
+            catalog_id, 2025, "IBGE - Divisão Territorial Brasileira", source,
+            "2026-10-30T00:00:00Z", DTB_SHA256,
         ),
     )
+
+
+def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypatch):
+    catalog = _national_catalog("ibge-dtb-national-test")
     scope = select_scope(catalog, all_brazil=True)
     assert scope.count == 5571
 
@@ -68,19 +79,7 @@ def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypat
 
 
 def test_national_dtb_catalog_resolves_sinan_gold_across_ufs(monkeypatch):
-    archive_path = os.environ.get("IBGE_DTB_ARCHIVE")
-    if not archive_path:
-        pytest.skip("IBGE_DTB_ARCHIVE não definida — homologação nacional pulada")
-
-    archive = Path(archive_path)
-    records = parse_dtb_archive(archive, reference_year=2025)
-    catalog = InMemoryMunicipalityCatalog(
-        records,
-        CatalogMetadata(
-            "ibge-dtb-national-gold-test", 2025, "IBGE DTB fixture", str(archive),
-            "2026-10-30T00:00:00Z", "a" * 64,
-        ),
-    )
+    catalog = _national_catalog("ibge-dtb-national-gold-test")
     selected = [
         catalog.get_municipality(code)
         for code in ("3301009", "3550308", "1302603", "2611606", "4305108")
@@ -106,19 +105,8 @@ def test_national_dtb_catalog_resolves_sinan_gold_across_ufs(monkeypatch):
 
 
 def test_national_dtb_catalog_reconciles_one_synthetic_sinan_row_per_municipality(monkeypatch):
-    archive_path = os.environ.get("IBGE_DTB_ARCHIVE")
-    if not archive_path:
-        pytest.skip("IBGE_DTB_ARCHIVE não definida — homologação nacional pulada")
-
-    archive = Path(archive_path)
-    records = parse_dtb_archive(archive, reference_year=2025)
-    catalog = InMemoryMunicipalityCatalog(
-        records,
-        CatalogMetadata(
-            "ibge-dtb-national-gold-all", 2025, "IBGE DTB fixture", str(archive),
-            "2026-10-30T00:00:00Z", "a" * 64,
-        ),
-    )
+    catalog = _national_catalog("ibge-dtb-national-gold-all")
+    records = catalog.municipalities()
     frame = pd.DataFrame({
         "DT_NOTIFIC": pd.Timestamp("2026-01-05"),
         "ID_MUNICIP": [item.code6 for item in records],

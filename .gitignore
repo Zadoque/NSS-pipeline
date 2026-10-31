@@ -7,6 +7,7 @@ venv/
 .vscode/
 data/
 *.parquet
+!tests/fixtures/ibge/dtb_2025_municipalities.parquet
 *.log
 .pytest_cache/
 .coverage

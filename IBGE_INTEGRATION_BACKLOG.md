@@ -183,13 +183,14 @@ IBGE-012 ──> IBGE-013
     divergente.
   - Soma de casos elegíveis coincide com a expectativa independente.
   - Resultados são reproduzíveis com Silver, release IBGE e lote CNES fixos.
-- Evidência local: fixture sintética com uma linha por cada um dos 5.571
-  municípios passa pela Gold sem perdas; isso não substitui uma carga SINAN
-  nacional real/autorizada.
-- Homologação repetida em 31/10/2026 contra o ZIP oficial DTB 2025, SHA-256
+- Evidência local: fixture Parquet derivada do ZIP oficial DTB 2025 contém os
+  5.571 municípios e é usada pelos três testes nacionais offline, sem HTTP e
+  sem `IBGE_DTB_ARCHIVE`; isso não substitui uma carga SINAN nacional
+  real/autorizada.
+- Homologação repetida contra o ZIP oficial DTB 2025, SHA-256
   `d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27`:
-  `tests/test_national_scope.py` passou com 3 testes, sem persistir o artefato
-  de 1.635.600 bytes no repositório.
+  `tests/test_national_scope.py` passou com 3 testes; a fixture Parquet
+  versionada tem 133.325 bytes e o ZIP bruto continua fora do repositório.
 - O total independente de `run_load.py` usa o mesmo resolvedor IBGE quando há
   catálogo ativo; códigos completos inválidos não são mais aceitos por
   truncamento para seis dígitos.

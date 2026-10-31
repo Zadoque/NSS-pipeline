@@ -1513,3 +1513,15 @@ passou e o branch permaneceu limpo no commit `d6ab4e1`.
 Após a regressão de promoção concorrente, a suíte integral passou em **623
 testes**, com **3 pulados** e **25 warnings**; o `flake check` permaneceu
 aprovado e o branch está limpo no commit `e0336bf`.
+
+Os testes nacionais deixaram de depender exclusivamente de `IBGE_DTB_ARCHIVE`:
+foi adicionada a fixture canônica
+`tests/fixtures/ibge/dtb_2025_municipalities.parquet`, derivada do ZIP oficial
+DTB 2025, com 5.571 municípios, 133.325 bytes e SHA-256
+`92e28921c915b7310d6168b1276c5820af6f65b962089f610662f6f7628a1f5c`. Os três
+testes de `tests/test_national_scope.py` passaram offline em **30,24 s**; o ZIP
+bruto continua aceito por variável de ambiente para homologação de proveniência.
+
+Após versionar essa fixture e habilitar o fallback offline, a suíte integral
+passou em **626 testes**, com **0 skips** e **25 warnings**; `nix flake check
+--no-build` também passou.

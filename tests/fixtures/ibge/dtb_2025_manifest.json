@@ -6,5 +6,8 @@
   "sha256": "d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27",
   "municipality_records_observed": 5571,
   "retrieved_at": "2026-10-30",
-  "note": "Checksum e contagem observados no artefato oficial baixado durante a execução; o ZIP não é embutido no repositório."
+  "fixture_path": "tests/fixtures/ibge/dtb_2025_municipalities.parquet",
+  "fixture_sha256": "92e28921c915b7310d6168b1276c5820af6f65b962089f610662f6f7628a1f5c",
+  "fixture_size_bytes": 133325,
+  "note": "O ZIP bruto não é embutido; a fixture Parquet canônica é derivada dele e permite testes nacionais offline."
 }
