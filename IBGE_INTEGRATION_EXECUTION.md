@@ -1019,6 +1019,9 @@ ordenar eventos históricos por data de vigência e `event_id` antes de gravar o
 Parquet. A regressão compara duas entradas equivalentes em ordens opostas e
 confirma a mesma materialização, reforçando a reprodutibilidade do histórico.
 
+A suíte integral posterior passou em **535 testes**, com **3 testes pulados** e
+**25 warnings**. `nix flake check --no-build` também passou após essa mudança.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

@@ -249,7 +249,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-012 — Mutação dos contratos críticos
 
 - Prioridade: **P1**
-- Estado: **Parcial; 76,03% classificável na última rodada global**
+- Estado: **Parcial; 76,07% classificável na última rodada global**
 - Dependências: IBGE-001 a IBGE-008
 - Escopo: normalização, filtro, cache, promoção, checkpoint, linhagem e
   reprocessamento.
