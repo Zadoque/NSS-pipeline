@@ -27,7 +27,11 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code: _bronze(code))
     monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda df, code, run_at: calls.append(("bronze", code)))
-    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(
+        pipeline,
+        "transform_cnes",
+        lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
     monkeypatch.setattr(pipeline, "enrich_cnes_territories", lambda df, assets: df.assign(notification_territory_status="MAPPED"))
 
     written: dict[str, object] = {}
@@ -72,6 +76,58 @@ def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monke
     pipeline.run_cnes(geographic_scope=scope)
 
     assert calls == ["3301009"]
+
+
+def test_run_cnes_checkpoint_binds_ibge_release_identity(tmp_path, monkeypatch, mocker):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = InMemoryMunicipalityCatalog(
+        [municipality],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope((municipality,))
+    checkpoint = tmp_path / "catalog-checkpoint.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": "ibge-dtb-2025",
+            "ibge_catalog_sha256": "a" * 64,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {},
+        }),
+        encoding="utf-8",
+    )
+    request_session = mocker.Mock()
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "session_with_retries", lambda: request_session)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: _bronze(code),
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "transform_cnes",
+        lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes(
+        catalog=catalog,
+        geographic_scope=scope,
+        checkpoint_path=checkpoint,
+    )
+
+    request_session.close.assert_called_once()
 
 
 def test_run_cnes_rejects_empty_scope():
