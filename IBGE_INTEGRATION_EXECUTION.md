@@ -90,6 +90,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `8839764` | Documentação da retomada de lotes CNES parciais |
 | `17cdf1d` | Defaults locais para PostgreSQL de desenvolvimento |
 | `44e07b4` | Retentativa de municípios falhos na retomada CNES |
+| `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
@@ -506,9 +507,9 @@ O checkpoint também fixa esse parâmetro junto da release IBGE, do escopo, do
 page size e do timeout. Municípios já concluídos são lidos da Bronze validada,
 sem nova consulta à API.
 
-Os defaults de `.env.example` agora permitem iniciar o PostgreSQL local com
-credenciais de desenvolvimento explícitas (`nss`/`nss`) e banco
-`situacao_saude`; nenhuma credencial de produção é versionada.
+Os defaults de `.env.example` e do próprio Compose permitem iniciar o
+PostgreSQL local com credenciais de desenvolvimento explícitas (`nss`/`nss`)
+e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 
 ## Compatibilidade preservada
 
