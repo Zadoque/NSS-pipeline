@@ -120,6 +120,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `ea9c0b6` | Exclusividade da seleção geográfica nas CLIs SINAN |
 | `285aea0` | Backlog versionado da integração IBGE |
 | `0b12965` | Resultado final da suíte de regressão |
+| `3413f09` | Refresh real da release DTB 2025 após a implementação |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
