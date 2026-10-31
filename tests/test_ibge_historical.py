@@ -25,6 +25,20 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
     assert frame.loc[0, "target_code7"] == "5101837"
 
 
+def test_write_events_materializes_order_deterministic(tmp_path):
+    events = [
+        MunicipalityEvent("later", "CREATION", "2025-01-02", None, "5101837"),
+        MunicipalityEvent("earlier", "CREATION", "2025-01-01", None, "3301009"),
+    ]
+    first = write_events(tmp_path / "first.parquet", events)
+    second = write_events(tmp_path / "second.parquet", list(reversed(events)))
+
+    first_frame = __import__("pandas").read_parquet(first)
+    second_frame = __import__("pandas").read_parquet(second)
+    __import__("pandas").testing.assert_frame_equal(first_frame, second_frame)
+    assert first_frame["event_id"].tolist() == ["earlier", "later"]
+
+
 def test_event_id_is_deterministic_delimited_and_fixed_width():
     assert _event_id("2025", "CREATION", "5101837") == "9287a6172fd94922cf52"
     assert _event_id("a", "bc") != _event_id("ab", "c")

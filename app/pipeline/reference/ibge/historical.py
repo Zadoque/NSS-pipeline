@@ -297,7 +297,11 @@ def derive_annual_event_series(
 def write_events(path: Path, events: list[MunicipalityEvent] | tuple[MunicipalityEvent, ...]) -> Path:
     if not events:
         raise ValueError("histórico municipal vazio")
-    frame = pd.DataFrame([asdict(event) for event in events])
+    ordered_events = sorted(
+        events,
+        key=lambda event: (event.effective_date, event.event_id),
+    )
+    frame = pd.DataFrame([asdict(event) for event in ordered_events])
     if frame["event_id"].duplicated().any():
         raise ValueError("event_id duplicado no histórico municipal")
     unknown_types = sorted(set(frame["event_type"]) - ADMINISTRATIVE_EVENT_TYPES - {"TOPONYMIC_CHANGE"})
