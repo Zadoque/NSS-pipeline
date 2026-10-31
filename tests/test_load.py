@@ -245,6 +245,52 @@ def test_register_release_serializa_por_catalog_id(mocker):
     assert first_call.args[1] == {"key": "nss:ibge-release:ibge-dtb-2025"}
 
 
+def test_register_release_rejeita_content_sha256_diferente(mocker):
+    conn = mocker.Mock()
+    conn.execute.return_value.one_or_none.return_value = SimpleNamespace(
+        sha256="a" * 64, content_sha256="b" * 64,
+    )
+    catalog = mocker.Mock()
+    catalog.metadata.catalog_id = "ibge-dtb-2025"
+    catalog.metadata.sha256 = "a" * 64
+    catalog.metadata.content_sha256 = "c" * 64
+
+    with pytest.raises(ValueError, match="imutável"):
+        _register_catalog_release(conn, catalog)
+
+    assert not any("INSERT INTO analytics.reference_catalog_releases" in str(call.args[0])
+                   for call in conn.execute.call_args_list)
+
+
+def test_register_release_insere_todos_os_metadados_da_release(mocker):
+    conn = mocker.Mock()
+    conn.execute.return_value.one_or_none.return_value = None
+    catalog = mocker.Mock()
+    catalog.metadata.catalog_id = "ibge-dtb-2025-r1"
+    catalog.metadata.sha256 = "a" * 64
+    catalog.metadata.content_sha256 = "b" * 64
+    catalog.metadata.reference_year = 2025
+    catalog.metadata.source_name = "IBGE - DTB"
+    catalog.metadata.source_url = "https://example.test/DTB_2025.zip"
+    catalog.metadata.retrieved_at = "2026-10-29T19:00:00Z"
+
+    _register_catalog_release(conn, catalog)
+
+    insert_call = next(
+        call for call in conn.execute.call_args_list
+        if "INSERT INTO analytics.reference_catalog_releases" in str(call.args[0])
+    )
+    assert insert_call.args[1] == {
+        "catalog_id": "ibge-dtb-2025-r1",
+        "sha256": "a" * 64,
+        "content_sha256": "b" * 64,
+        "reference_year": 2025,
+        "source_name": "IBGE - DTB",
+        "source_url": "https://example.test/DTB_2025.zip",
+        "retrieved_at": "2026-10-29T19:00:00Z",
+    }
+
+
 def test_load_rejects_unknown_scope_type():
     with pytest.raises(ValueError, match="escopo"):
         load_gold_to_postgres(
