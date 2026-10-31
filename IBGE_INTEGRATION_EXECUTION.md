@@ -1571,3 +1571,9 @@ O commit `3479a30` configurou `on_dependency_change = "rerun"` no
 `pyproject.toml`. Assim, alterações nas fixtures oficiais não deixam resultados
 de mutação obsoletos em cache; a configuração foi validada executando novamente
 o mutante de validação equivalente.
+
+Homologação adicional do caminho remoto: `IbgeLocalidadesClient` consultou a
+API oficial de Localidades sem fixture, retornou **5.571 municípios e 27 UFs**,
+e `validate_national_municipalities()` aprovou a resposta. O primeiro registro
+foi interpretado como `1100015` / `110001`, Rondônia. A execução normal continua
+sem depender dessa chamada em tempo real, usando releases locais aprovadas.

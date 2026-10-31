@@ -191,6 +191,9 @@ IBGE-012 ──> IBGE-013
   `d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27`:
   `tests/test_national_scope.py` passou com 3 testes; a fixture Parquet
   versionada tem 133.325 bytes e o ZIP bruto continua fora do repositório.
+- Homologação remota adicional em 31/10/2026: `IbgeLocalidadesClient` retornou
+  5.571 municípios e 27 UFs pela API oficial, com aprovação da validação
+  nacional. A rede não é usada durante o processamento de releases locais.
 - O total independente de `run_load.py` usa o mesmo resolvedor IBGE quando há
   catálogo ativo; códigos completos inválidos não são mais aceitos por
   truncamento para seis dígitos.
