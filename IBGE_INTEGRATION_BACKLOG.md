@@ -50,6 +50,9 @@ IBGE-012 ──> IBGE-013
   esses artefatos contra `municipalities.parquet` no carregamento; divergências
   de esquema ou conteúdo são rejeitadas. Releases legadas sem os auxiliares
   continuam legíveis por compatibilidade.
+- A promoção também rejeita releases parcialmente materializadas: se um
+  auxiliar estiver presente, o par correspondente precisa existir e ser
+  consistente antes da troca de `active.json`.
 
 ### IBGE-003 — Escopo geográfico explícito
 

@@ -1584,3 +1584,8 @@ exatamente os atributos derivados de `municipalities.parquet`; divergências de
 esquema ou conteúdo falham antes da publicação. Foram adicionados dois testes
 de corrupção/divergência, e a suíte integral posterior passou em **629 testes**,
 com **0 skips** e **25 warnings**.
+
+O commit `5b36b47` estendeu o contrato para rejeitar releases parcialmente
+materializadas: a presença de apenas um dos auxiliares agora impede a promoção
+para `active.json`. A regressão correspondente foi adicionada, e a suíte
+integral posterior passou em **630 testes**, com **0 skips** e **25 warnings**.
