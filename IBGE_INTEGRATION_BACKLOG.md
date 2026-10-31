@@ -164,6 +164,8 @@ IBGE-012 ──> IBGE-013
 - O total independente de `run_load.py` usa o mesmo resolvedor IBGE quando há
   catálogo ativo; códigos completos inválidos não são mais aceitos por
   truncamento para seis dígitos.
+- A UF declarada na Silver (`SG_UF_NOT`) também participa dessa resolução
+  independente, evitando contar notificações com município/UF divergentes.
 
 ### IBGE-011 — Histórico territorial explícito
 
