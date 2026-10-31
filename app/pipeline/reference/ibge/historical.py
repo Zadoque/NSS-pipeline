@@ -651,10 +651,14 @@ def promote_annual_dtb_events(
             sources.append(entry)
             source_keys.add(key)
     prior_policy = previous_manifest.get("inference_policy")
-    policies = {
-        str(policy) for policy in previous_manifest.get("inference_policies", [])
-        if policy
-    }
+    raw_policies = previous_manifest.get("inference_policies", [])
+    if not isinstance(raw_policies, list) or any(
+        not isinstance(policy, str) or not policy.strip() for policy in raw_policies
+    ):
+        raise ValueError(
+            "manifesto histórico inválido: inference_policies deve ser uma lista de textos"
+        )
+    policies = set(raw_policies)
     if prior_policy:
         policies.add(str(prior_policy))
     policies.add("OBSERVABLE_ANNUAL_DIFF_ONLY")

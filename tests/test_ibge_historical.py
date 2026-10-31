@@ -739,6 +739,30 @@ def test_promote_annual_dtb_events_rejeita_manifesto_sources_invalido(tmp_path, 
         promote_annual_dtb_events(root, archives)
 
 
+def test_promote_annual_dtb_events_rejeita_politicas_invalidas(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge import dtb
+    from app.pipeline.reference.ibge.models import Municipality
+
+    previous = Municipality("3301009", "330100", "Origem", "33", "RJ", "Rio", 2024)
+    current = Municipality("5101837", "510183", "Novo", "51", "MT", "Mato Grosso", 2025)
+    archives = {2024: tmp_path / "DTB_2024.zip", 2025: tmp_path / "DTB_2025.zip"}
+    for path in archives.values():
+        path.write_bytes(b"official-fixture")
+    monkeypatch.setattr(
+        dtb, "parse_dtb_archive",
+        lambda path, reference_year: [previous] if reference_year == 2024 else [current],
+    )
+    root = tmp_path / "catalog"
+    promote_annual_dtb_events(root, archives)
+    manifest_path = root / "historical" / "municipality_events.manifest.json"
+    payload = __import__("json").loads(manifest_path.read_text(encoding="utf-8"))
+    payload["inference_policies"] = "OBSERVABLE_ANNUAL_DIFF_ONLY"
+    manifest_path.write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="inference_policies deve ser uma lista"):
+        promote_annual_dtb_events(root, archives)
+
+
 def test_promote_annual_dtb_events_preserves_previous_source_lineage(tmp_path, monkeypatch):
     from app.pipeline.reference.ibge import dtb
     from app.pipeline.reference.ibge.models import Municipality
