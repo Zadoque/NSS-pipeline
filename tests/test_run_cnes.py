@@ -54,6 +54,7 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     assert metadata["municipios"] == ["3301009", "3302403"]
     assert metadata["cnes_page_size"] == 1
     assert metadata["cnes_request_timeout"] == 1
+    assert metadata["ingested_at"].endswith("+00:00")
     assert parquet == result
 
 
