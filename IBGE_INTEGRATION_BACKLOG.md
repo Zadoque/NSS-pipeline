@@ -75,6 +75,8 @@ IBGE-012 ──> IBGE-013
   (`promoted_at`) sem quebrar manifests anteriores.
 - Evidência adicional: `055dfb5` valida `promoted_at` como ISO-8601 quando o
   campo está presente e rejeita valores inválidos.
+- Evidência adicional: `18d4063` exige timezone em `promoted_at`, eliminando
+  timestamps locais ambíguos no manifesto.
 
 ### IBGE-004 — SINAN Gold canônica
 

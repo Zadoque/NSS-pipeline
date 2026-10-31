@@ -948,13 +948,17 @@ novas promoções e permanece opcional na leitura, preservando a compatibilidade
 com manifests históricos.
 
 A validação pós-mudança, executada com o PostgreSQL de integração local, passou
-em **529 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
+em **530 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
 --no-build` também passou.
 
 O commit `055dfb5` (`fix(ibge): validate promotion timestamp`) fechou a
 validação do novo campo: timestamps presentes no manifesto precisam ser
 ISO-8601; a ausência continua válida para releases legadas. O contrato foi
 testado para valores textuais inválidos e tipos não textuais.
+
+O commit `18d4063` (`fix(ibge): require timezone in promotion metadata`)
+completou essa validação exigindo timezone explícito, evitando timestamps
+locais ambíguos.
 
 ## Conclusão
 
