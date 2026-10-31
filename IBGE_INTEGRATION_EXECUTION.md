@@ -122,6 +122,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `0b12965` | Resultado final da suíte de regressão |
 | `3413f09` | Refresh real da release DTB 2025 após a implementação |
 | `91cd86c` | Rejeição de releases nacionais sem alguma das 27 UFs |
+| `91e14b2` | Fechamento seguro de sessões próprias da API de Localidades |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -273,6 +274,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Refresh nacional agora rejeita candidatas sem qualquer uma das 27 UFs antes
   de gerar Parquet ou trocar `active.json`; fixtures parciais precisam declarar
   explicitamente `require_national=False`.
+- O refresh da API de Localidades fecha somente a sessão que criou; sessões
+  fornecidas pelo chamador permanecem sob responsabilidade dele.
 - Configuração do `mutmut` incluindo os assets territoriais necessários aos
   testes-base dos executores CNES.
 - `flake.nix` e `flake.lock` com Python 3.12, PostgreSQL, Docker e ambiente
