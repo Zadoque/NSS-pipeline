@@ -308,7 +308,9 @@ nix flake check --no-build  → aprovado
 pytest -q                  → 415 passed, 25 warnings
 pytest -q com PostgreSQL  → 415 passed, 25 warnings
 pytest -q nacional + PostgreSQL → 415 passed, 25 warnings
-regressão local após o executor CNES parcial → 395 passed, 22 skipped, 25 warnings
+regressão local sem PostgreSQL disponível → 395 passed, 22 skipped, 25 warnings
+suíte completa com PostgreSQL de integração → 415 passed, 2 skipped, 25 warnings
+tests/integration com PostgreSQL → 20 passed, 1 warning
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
