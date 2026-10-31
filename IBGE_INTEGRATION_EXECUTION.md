@@ -1445,3 +1445,8 @@ O commit `2adf4f0` (`test(sinan): isolate Gold identity fields`) parametrizou a
 regressão de identidade para doença, ano de origem e alvo `serving`. O módulo
 passou em **41 testes** e o mutante que enfraquecia essa validação de `OR` para
 `AND` morreu.
+
+Nova rodada global completa após esses contratos de publicação: **7.958
+mutantes**, com **6.244 mortos**, **1.713 sobreviventes** e **1 timeout**. Entre
+os 7.957 classificáveis, a taxa atualizada é **78,47%**. A meta de 95% continua
+pendente, sem redução artificial do escopo de mutação.

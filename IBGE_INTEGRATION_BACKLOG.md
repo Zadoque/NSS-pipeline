@@ -425,6 +425,9 @@ IBGE-012 ──> IBGE-013
   - O commit `2adf4f0` isolou doença, ano e alvo na validação de identidade da
     Gold; o mutante que trocava a conjunção lógica morreu. A baseline global
     ainda não foi recalculada após essa alteração.
+  - A nova rodada global posterior processou novamente 7.958 mutantes: 6.244
+    mortos, 1.713 sobreviventes e 1 timeout, com **78,47%** entre os
+    classificáveis. A meta de 95% segue pendente.
 
 ### IBGE-013 — Rollout nacional de produção
 
