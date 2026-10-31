@@ -296,6 +296,10 @@ IBGE-012 ──> IBGE-013
   - Os **20 mutantes** gerados para essa reconciliação foram executados em
     rodada dirigida e todos morreram; essa medição não altera a baseline global
     por não ser uma execução limpa e completa.
+  - O commit `3707994` passou a comparar release, SHA-256 e hash/tipo/tamanho
+    do escopo no metadata Gold antes da publicação. Os cenários de release e
+    escopo divergentes foram adicionados; a suíte integral chegou a **583
+    testes**, com **3 pulados** e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.

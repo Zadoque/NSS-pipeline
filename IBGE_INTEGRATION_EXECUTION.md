@@ -1224,6 +1224,15 @@ Na rodada dirigida posterior, os **20 mutantes** novos dessa reconciliação
 mutmut não foi usada como baseline, pois a execução foi seletiva e o cache
 contém resultados de rodadas anteriores.
 
+O commit `3707994` (`fix(run-load): verify gold lineage`) adicionou a
+verificação de que a Gold foi gerada pela mesma release IBGE, hash de release e
+escopo geográfico da publicação. Metadata ausente ou divergente agora bloqueia
+a carga, evitando linhagem falsa em PostgreSQL. Foram adicionadas regressões
+para release antiga e escopo diferente. A suíte integral passou em **583
+testes**, com **3 pulados** e **25 warnings**. Na rodada dirigida, os
+mutantes substantivos desse contrato morreram; sobreviventes restantes são
+variantes de logging ou de argumentos sem efeito observável no contrato atual.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
