@@ -97,6 +97,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `dd1c300` | Cobertura mutante integral do vínculo catálogo–escopo |
 | `195ec3a` | Interrupção segura de paginação CNES repetida |
 | `0b8a09f` | Rejeição de registros CNES de município divergente |
+| `b46a3d4` | Cobertura mutante das entradas de checkpoint CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -226,9 +227,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 369 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 388 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 389 passed, 25 warnings
+pytest -q                  → 372 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 392 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
@@ -344,12 +345,16 @@ mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
 uma aprovação da meta global de mutação.
 
 Também foi executada a rodada global configurada no `pyproject.toml`, com 6.257
-mutantes gerados: 4.070 mortos, 1.853 sobreviventes, 332 sem testes associados
+mutantes gerados: 4.076 mortos, 1.847 sobreviventes, 332 sem testes associados
 e 2 timeouts. A taxa entre os mutantes classificáveis
 (`mortos / (mortos + sobreviventes)`) foi de aproximadamente 68,7%. O resultado
 é a medição integral mais recente da configuração, mas ainda está abaixo da
 meta de 95%; sobreviventes, casos sem testes e timeouts permanecem pendências
 de qualidade.
+
+Os seis mutantes da validação estrutural de `completed` no checkpoint CNES
+foram reexecutados após testes unitários diretos e classificados como mortos
+(`6/6`), cobrindo mensagens, condições lógicas e o caminho de aceite.
 
 ## Compatibilidade preservada
 
