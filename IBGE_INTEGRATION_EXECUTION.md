@@ -98,6 +98,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `195ec3a` | Interrupção segura de paginação CNES repetida |
 | `0b8a09f` | Rejeição de registros CNES de município divergente |
 | `b46a3d4` | Cobertura mutante das entradas de checkpoint CNES |
+| `3d2ab22` | Asserção do payload canônico de resolução IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -345,7 +346,7 @@ mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
 uma aprovação da meta global de mutação.
 
 Também foi executada a rodada global configurada no `pyproject.toml`, com 6.257
-mutantes gerados: 4.076 mortos, 1.847 sobreviventes, 332 sem testes associados
+mutantes gerados: 4.078 mortos, 1.845 sobreviventes, 332 sem testes associados
 e 2 timeouts. A taxa entre os mutantes classificáveis
 (`mortos / (mortos + sobreviventes)`) foi de aproximadamente 68,7%. O resultado
 é a medição integral mais recente da configuração, mas ainda está abaixo da
@@ -355,6 +356,12 @@ de qualidade.
 Os seis mutantes da validação estrutural de `completed` no checkpoint CNES
 foram reexecutados após testes unitários diretos e classificados como mortos
 (`6/6`), cobrindo mensagens, condições lógicas e o caminho de aceite.
+
+O caso de precedência do formato legado (`1330100`) também morreu na rodada
+dirigida. Dois mutantes de inicialização do payload do resolvedor continuam
+classificados como sobreviventes pelo `mutmut`, mesmo após asserções diretas do
+objeto canônico; eles permanecem pendentes para investigação da associação ou
+cache da ferramenta, sem serem contabilizados como mortos.
 
 ## Compatibilidade preservada
 
