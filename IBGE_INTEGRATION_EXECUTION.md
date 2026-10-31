@@ -288,7 +288,13 @@ qualidade, não um score final nem uma justificativa para reduzir o escopo.
 Após essa rodada, os testes de resolução legacy e da razão de código
 desconhecido foram reforçados; os dois mutantes correspondentes foram mortos
 em uma reexecução dirigida. O teste de timeout foi reforçado depois, mas ainda
-aguarda uma rodada mutante completa que confirme sua classificação.
+aguardava uma nova classificação dirigida.
+
+Essa confirmação foi obtida posteriormente para os dois mutantes de timeout:
+`app.pipeline.run_cnes.x_run_cnes__mutmut_10` e
+`app.pipeline.run_cnes.x_run_cnes__mutmut_13` foram classificados como mortos.
+Isso melhora a cobertura dos contratos críticos, mas não altera a pendência da
+meta global de 95%.
 
 ## Compatibilidade preservada
 
