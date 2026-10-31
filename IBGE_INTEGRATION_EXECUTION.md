@@ -1440,3 +1440,8 @@ morreu.
 O commit `66329bd` (`test(sinan): cover missing Gold metadata`) adicionou o
 cenário de `metadata.json` ausente quando há catálogo IBGE. O módulo passou em
 **39 testes** e o mutante que trocava o mapa vazio por `None` morreu.
+
+O commit `2adf4f0` (`test(sinan): isolate Gold identity fields`) parametrizou a
+regressão de identidade para doença, ano de origem e alvo `serving`. O módulo
+passou em **41 testes** e o mutante que enfraquecia essa validação de `OR` para
+`AND` morreu.

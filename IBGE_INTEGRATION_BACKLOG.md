@@ -422,6 +422,9 @@ IBGE-012 ──> IBGE-013
   - O commit `66329bd` cobriu a ausência de `metadata.json` da Gold com catálogo
     ativo; o mutante comportamental correspondente morreu. A baseline global
     ainda não foi recalculada após os dois últimos testes.
+  - O commit `2adf4f0` isolou doença, ano e alvo na validação de identidade da
+    Gold; o mutante que trocava a conjunção lógica morreu. A baseline global
+    ainda não foi recalculada após essa alteração.
 
 ### IBGE-013 — Rollout nacional de produção
 
