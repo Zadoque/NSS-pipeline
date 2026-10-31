@@ -109,6 +109,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `d0c512c` | Gold resolve códigos diretamente pelo catálogo IBGE |
 | `56aad3e` | Cobertura direta do contrato do resolvedor Gold |
 | `879d637` | Cobertura do contrato CLI do executor SINAN |
+| `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
@@ -683,3 +684,6 @@ essa regra é coberta por regressão unitária e pelo commit `ea9c0b6`.
 Mutações dirigidas de `run_load._build_parser()` → 22 de 64 mutantes
 previamente sobreviventes morreram após o teste de contrato dos argumentos;
 os demais continuam pendentes e não são apresentados como aprovação global.
+
+Suíte completa após separação das métricas Gold → 437 passed, 3 skipped,
+25 warnings

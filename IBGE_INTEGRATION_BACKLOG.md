@@ -168,6 +168,8 @@ IBGE-012 ──> IBGE-013
   independente, evitando contar notificações com município/UF divergentes.
 - A Gold usa o mesmo resolvedor canônico quando o catálogo está ativo; a
   normalização textual legada ficou restrita ao modo sem catálogo.
+- `dropped_rows` na Gold representa somente linhas descartadas; a redução por
+  agregação é registrada separadamente em `aggregation_reduction`.
 
 ### IBGE-011 — Histórico territorial explícito
 
