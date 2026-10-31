@@ -947,6 +947,10 @@ O commit `555ff4e` (`feat(ibge): record release promotion timestamp`) adicionou
 novas promoções e permanece opcional na leitura, preservando a compatibilidade
 com manifests históricos.
 
+A validação pós-mudança, executada com o PostgreSQL de integração local, passou
+em **527 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
+--no-build` também passou.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
