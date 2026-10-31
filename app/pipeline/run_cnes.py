@@ -169,8 +169,8 @@ def run_cnes(
         for cod_municipio in municipios:
             logger.info("Processando CNES municipio=%s", cod_municipio)
             if cod_municipio in failed:
-                logger.warning("Ignorando município previamente classificado como falho: %s", cod_municipio)
-                continue
+                logger.info("Retentando município previamente classificado como falho: %s", cod_municipio)
+                failed.pop(cod_municipio)
             checkpoint_entry = completed.get(cod_municipio)
             try:
                 if checkpoint_entry is not None:

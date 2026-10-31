@@ -380,9 +380,10 @@ def test_run_cnes_continue_on_error_classifica_municipio_e_publica_lote_parcial(
     from app.pipeline.cnes import bronze as bronze_module
     monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
     checkpoint = tmp_path / "cnes-partial.json"
+    fail_second = {"value": True}
 
     def fetch(code, **kwargs):
-        if code == "3302403":
+        if code == "3302403" and fail_second["value"]:
             raise RuntimeError("API temporariamente indisponível")
         return _bronze(code)
 
@@ -411,6 +412,18 @@ def test_run_cnes_continue_on_error_classifica_municipio_e_publica_lote_parcial(
     metadata = __import__("json").loads((result.parent / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["status"] == "PARTIAL"
     assert metadata["failed_municipalities"] == state["failed"]
+
+    fail_second["value"] = False
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"},
+        checkpoint_path=checkpoint,
+        continue_on_error=True,
+    )
+    final_state = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))
+    assert final_state["status"] == "COMPLETED"
+    assert final_state["failed"] == {}
+    assert set(final_state["completed"]) == {"3301009", "3302403"}
+    assert len(__import__("pandas").read_parquet(result)) == 2
 
 
 def test_run_cnes_checkpoint_resumes_after_failure(tmp_path, monkeypatch):
