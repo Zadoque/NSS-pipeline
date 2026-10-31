@@ -396,6 +396,14 @@ def test_load_active_catalog_rejects_pointer_without_release_id(tmp_path):
         load_active_catalog(tmp_path)
 
 
+@pytest.mark.parametrize("payload", ["null", "[]", '"release"'])
+def test_load_active_catalog_rejects_pointer_with_non_object_root(tmp_path, payload):
+    (tmp_path / "active.json").write_text(payload, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="ponteiro ativo inválido"):
+        load_active_catalog(tmp_path)
+
+
 def test_storage_atomic_metadata_cleanup_on_replace_failure(tmp_path, mocker):
     release = tmp_path / "releases" / "test"
     write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])

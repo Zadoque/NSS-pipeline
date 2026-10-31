@@ -150,6 +150,8 @@ def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
         raise ValueError(f"ponteiro ativo ausente: {active_path}") from exc
     except json.JSONDecodeError as exc:
         raise ValueError(f"ponteiro ativo inválido: {active_path}") from exc
+    if not isinstance(active, dict):
+        raise ValueError(f"ponteiro ativo inválido: {active_path}")
     catalog_id = active.get("catalog_id")
     if not isinstance(catalog_id, str) or not catalog_id or Path(catalog_id).name != catalog_id:
         raise ValueError("active.json não informa catalog_id")
