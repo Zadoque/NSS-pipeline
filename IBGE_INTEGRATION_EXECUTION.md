@@ -1279,6 +1279,27 @@ além dos hashes e status já validados. Foram adicionadas regressões para
 campos ausentes e timestamps inválidos. A suíte integral passou em **594
 testes**, com **3 pulados** e **25 warnings**.
 
+## Verificação global de mutação
+
+Foi executada a rodada completa com `nix develop --command mutmut run`. O
+processo terminou com código de saída zero após processar **7.791 mutantes**:
+
+- **5.885 mortos**;
+- **1.812 sobreviventes**;
+- **93 sem testes associados**;
+- **1 timeout**.
+
+O resultado confirma que a suíte detecta uma parcela relevante das alterações,
+mas a taxa global permanece abaixo da meta de 95% definida no projeto. A
+medição também exibiu o aviso de que um fixture CSV foi alterado desde uma
+rodada anterior; portanto, os números devem ser tratados como baseline
+operacional da branch, e não como evidência de aprovação integral da meta.
+Os contratos críticos de catálogo, escopo, linhagem e publicação continuam
+complementados pelas rodadas dirigidas documentadas neste relatório.
+
+Ao final, `nix flake check --no-build` passou novamente e a árvore de trabalho
+permaneceu limpa.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
