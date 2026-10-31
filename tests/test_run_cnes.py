@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from app.pipeline import run_cnes as pipeline
+from app.pipeline.run_cnes import _validate_checkpoint_completed
 
 
 def _bronze(code: str, municipality_code: str = "3301009") -> pd.DataFrame:
@@ -20,6 +21,30 @@ def _silver(code: str) -> pd.DataFrame:
             "nm_unidade": [f"Unidade {code}"],
         }
     )
+
+
+def test_validate_checkpoint_completed_rejeita_tipo_com_mensagem_exata():
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_completed([], {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_validate_checkpoint_completed_aceita_entrada_completa():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "a" * 64,
+            "rows": 0,
+        },
+    }
+
+    assert _validate_checkpoint_completed(completed, {"3301009": "Campos"}) == completed
+
+
+def test_validate_checkpoint_completed_rejeita_entrada_nao_objeto():
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed({"3301009": []}, {"3301009": "Campos"})
 
 
 def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeypatch):
