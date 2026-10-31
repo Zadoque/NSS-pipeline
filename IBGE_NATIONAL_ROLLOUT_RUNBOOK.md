@@ -12,6 +12,14 @@ durante Bronze, Silver, Gold ou publicação.
 - diretório de referência com espaço para o ZIP bruto, releases e checkpoints;
 - SHA-256 confirmado por uma fonte oficial antes da promoção;
 - execução de homologação concluída para a mesma release.
+- CI aprovado no commit de rollout, inclusive no push para
+  `work/nss-pipeline`.
+- Os grupos SINAN do PySUS estão cobertos pelo catálogo operacional. A versão
+  PySUS 2.11.7 homologada possui 49 grupos, verificados automaticamente.
+  Na consulta remota sequencial de 31/10/2026, 47 grupos retornaram Parquet
+  nacional de 2024; `HEPA` retornou 2023 e `INFL` não retornou Parquet nos anos
+  2020–2024. A ausência temporal é registrada como condição da fonte, nunca
+  convertida em lote vazio ou sucesso falso.
 
 ## 1. Promover a release IBGE
 
@@ -46,6 +54,11 @@ página, timeout e número de workers. Uma falha classificada produz um lote
 `PARTIAL`; corrija ou retente antes de promover esse lote como completo.
 Municípios já persistidos não devem ser consultados novamente na retomada.
 
+Antes de a Gold ler o lote, `metadata.json` precisa declarar `COMPLETED`,
+`batch_id`, contagem de linhas, cobertura municipal e a mesma identidade
+(`ibge_catalog_id` + SHA-256) da release selecionada. Lotes sem metadata,
+parciais, com cobertura insuficiente ou release divergente são rejeitados.
+
 Para uma execução estrita, remova `--continue-on-error`; nesse modo a primeira
 falha interrompe o lote e nenhum resultado parcial deve ser tratado como
 homologação nacional.
@@ -66,6 +79,15 @@ execução bloqueia divergência de release, hash, escopo, doença, ano, métric
 Gold, código municipal inválido ou UF divergente. A publicação PostgreSQL é
 transacional e só deve ser considerada concluída após a validação independente
 do total da Silver.
+
+O município de `dim_unidade_saude` vem exclusivamente de `cd_mun_unidade`,
+resolvido do próprio registro CNES. `cd_mun` da notificação nunca é usado como
+fallback para a FK da unidade.
+
+As métricas globais da execução são gravadas uma única vez em
+`analytics.pipeline_execution_metrics`. As colunas de métricas mantidas em
+`analytics.pipeline_publications` são legadas e ficam zeradas; relatórios não
+devem somá-las por município.
 
 ## 4. Fallback e retomada
 

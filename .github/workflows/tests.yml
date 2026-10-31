@@ -2,7 +2,7 @@ name: Testes
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, work/nss-pipeline]
   pull_request:
 
 jobs:

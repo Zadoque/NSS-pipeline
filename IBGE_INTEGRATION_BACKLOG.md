@@ -4,6 +4,28 @@ Este backlog traduz a auditoria técnica em unidades implementáveis. As
 prioridades são relativas: `P0` bloqueia a integração segura, `P1` é necessário
 para expansão nacional, `P2` completa operação e histórico, e `P3` é evolução.
 
+## Fechamento dos bloqueadores desta auditoria (31/10/2026)
+
+Os quatro bloqueadores operacionais apontados na auditoria foram implementados
+e auditados em ciclos independentes:
+
+- a FK municipal de `dim_unidade_saude` usa `cd_mun_unidade` do CNES;
+- a Gold rejeita lotes CNES sem `COMPLETED`, metadata, cobertura ou release IBGE
+  compatível;
+- `UNKNOWN_CODE`, `INVALID_FORMAT`, `OUT_OF_SCOPE` e status ausente bloqueiam
+  o lote CNES quando há catálogo;
+- o CI executa também em push para `work/nss-pipeline`.
+- a consolidação CNES usa partes Parquet e DuckDB, sem acumular DataFrames
+  municipais do lote nacional em memória;
+- métricas globais foram separadas para `analytics.pipeline_execution_metrics`.
+- o atualizador SINAN deixou de acompanhar somente seis séries por padrão e
+  agora usa todos os 49 grupos do catálogo PySUS; `--diseases` continua
+  disponível para recortes deliberados.
+
+Evidência local desta rodada: **638 testes**, **24 testes PostgreSQL**
+e **3 testes nacionais offline** aprovados. A cobertura de grupos SINAN foi
+verificada contra o PySUS 2.11.7 e contém **49 grupos**.
+
 ## Grafo de dependências
 
 ```text
