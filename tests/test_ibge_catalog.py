@@ -10,7 +10,7 @@ from app.pipeline.reference.ibge.validation import (
     validate_municipalities,
     validate_national_municipalities,
 )
-from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
+from app.pipeline.reference.ibge.client import DEFAULT_MUNICIPALITIES_URL, IbgeLocalidadesClient
 from app.pipeline.reference.ibge.storage import (
     catalog_content_sha256,
     load_active_catalog,
@@ -867,6 +867,22 @@ def test_refresh_cli_promotes_local_dtb_archive(tmp_path, monkeypatch, mocker, c
     assert "municipalities.parquet" in capsys.readouterr().out
 
 
+def test_refresh_cli_exige_source_url_para_arquivo_local(tmp_path, monkeypatch, capsys):
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"fixture")
+    monkeypatch.setattr(sys, "argv", [
+        "refresh", "--root", str(tmp_path / "catalog"),
+        "--catalog-id", "ibge-dtb-2025", "--reference-year", "2025",
+        "--dtb-archive", str(archive),
+    ])
+
+    with pytest.raises(SystemExit) as error:
+        refresh_main()
+
+    assert error.value.code == 2
+    assert "--dtb-archive exige --source-url" in capsys.readouterr().err
+
+
 def test_refresh_cli_forwards_dtb_url_and_hash(tmp_path, monkeypatch, mocker, capsys):
     expected = tmp_path / "releases" / "ibge-dtb-2025" / "municipalities.parquet"
     refresh = mocker.patch(
@@ -908,6 +924,25 @@ def test_refresh_cli_forwards_localidades(tmp_path, monkeypatch, mocker, capsys)
         tmp_path / "catalog", catalog_id="ibge-api-2025",
         source_url="https://example.invalid/municipios", reference_year=2025,
     )
+    assert str(expected) in capsys.readouterr().out
+
+
+def test_refresh_cli_usa_url_padrao_da_api_localidades(tmp_path, monkeypatch, mocker, capsys):
+    expected = tmp_path / "releases" / "ibge-api-2025" / "municipalities.parquet"
+    refresh = mocker.patch(
+        "app.pipeline.reference.ibge.refresh.refresh_from_localidades",
+        return_value=expected,
+    )
+    monkeypatch.setattr(sys, "argv", [
+        "refresh", "--root", str(tmp_path / "catalog"),
+        "--catalog-id", "ibge-api-2025", "--reference-year", "2025",
+        "--localidades",
+    ])
+
+    refresh_main()
+
+    refresh.assert_called_once()
+    assert refresh.call_args.kwargs["source_url"] == DEFAULT_MUNICIPALITIES_URL
     assert str(expected) in capsys.readouterr().out
 from dataclasses import replace
 
