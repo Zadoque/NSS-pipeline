@@ -1495,6 +1495,13 @@ temporários exclusivos no mesmo diretório, evitando disputa entre atualizaçõ
 simultâneas. `tests/test_ibge_catalog.py` passou em **111 testes**, incluindo a
 regressão de exclusividade dos temporários.
 
+Foi revisado novamente o diretório oficial da publicação histórica 1872--2010:
+os artefatos de genealogia disponíveis continuam sendo a publicação PDF e
+arquivos cartográficos/documentais de grande porte; não foi encontrado um
+arquivo tabular oficial recente com relações codificadas de sucessão para
+promover automaticamente. O pipeline mantém, portanto, a política
+`EXPLICIT_SOURCE_ONLY` e não transforma texto editorial em crosswalk.
+
 A regressão foi ampliada para duas chamadas concorrentes de `promote_active()`:
 ambas concluem sem deixar temporários e o `active.json` final sempre aponta
 para uma das releases previamente validadas.
