@@ -50,11 +50,17 @@ def parse_dtb_table(path: Path, reference_year: int) -> tuple[Municipality, ...]
     code7 = _find_column(frame, "Código Município Completo", "Codigo Municipio Completo")
     name = _find_column(frame, "Nome_Município", "Nome Municipio")
     records = []
-    for row in frame.to_dict(orient="records"):
-        code = "".join(str(row[code7]).split())
-        uf = "".join(str(row[uf_code]).split()).zfill(2)
-        if len(code) != 7 or not code.isdigit() or uf not in UF_ABBR:
+    for index, row in enumerate(frame.to_dict(orient="records"), start=7):
+        raw_code = row[code7]
+        raw_uf = row[uf_code]
+        if pd.isna(raw_code) or not str(raw_code).strip():
             continue
+        code = "".join(str(raw_code).split())
+        uf = "".join(str(raw_uf).split()).zfill(2) if not pd.isna(raw_uf) else ""
+        if len(code) != 7 or not code.isdigit():
+            raise ValueError(f"geocódigo municipal inválido na linha {index}: {raw_code!r}")
+        if uf not in UF_ABBR:
+            raise ValueError(f"UF inválida na linha {index}: {raw_uf!r}")
         records.append(Municipality(
             code7=code,
             code6=code[:6],
