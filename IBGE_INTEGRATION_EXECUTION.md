@@ -327,6 +327,9 @@ Paulo após aproximadamente quatro minutos e a execução foi interrompida.
 Calibração CNES real limitada: primeira página consultada com sucesso para
 RJ, SP, AM, PE e RS; respostas HTTP 200, códigos municipais coerentes e
 latência observada entre 0,20 s e 0,24 s por consulta.
+Coleta CNES real multi-UF completa em amostra: RO `1100015` (68), AC `1200013`
+(23), AM `1300029` (19), RR `1400050` (65) e PA `1500107` (172); todas as
+páginas foram percorridas com sucesso, com até 1,43 s por município.
 ```
 
 O teto observado da API CNES expôs um risco de salto de registros: o offset
