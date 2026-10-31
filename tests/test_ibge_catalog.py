@@ -26,6 +26,7 @@ from app.pipeline.reference.ibge.storage import (
     write_release,
 )
 from app.pipeline.reference.ibge.refresh import (
+    _records_sha256,
     download_dtb_archive,
     refresh_from_dtb_url,
     refresh_from_dtb_archive,
@@ -415,6 +416,16 @@ def test_catalog_content_hash_is_canonical_and_sensitive_to_attributes():
     assert digest != catalog_content_sha256([
         replace(records[0], name="São Paulo alterado"), records[1],
     ])
+
+
+def test_refresh_records_hash_is_canonical_and_preserves_unicode():
+    records = [
+        municipality("3550308", "São Paulo", "35", "SP"),
+        municipality("3301009", "Campos dos Goytacazes"),
+    ]
+
+    assert _records_sha256(records) == "e19313cd00543ec4ba9f57617ef7ba9d7833cc4d8cbcb78b251e084fd6616fd6"
+    assert _records_sha256(list(reversed(records))) == _records_sha256(records)
 
 
 def test_promote_active_rejeita_release_inexistente_sem_trocar_ponteiro(tmp_path):
