@@ -225,8 +225,9 @@ def test_upsert_release_requires_sha256(mocker):
     catalog = mocker.Mock()
     catalog.metadata.sha256 = ""
     catalog.metadata.validation_status = "VALIDATED"
-    with pytest.raises(ValueError, match="SHA-256"):
+    with pytest.raises(ValueError) as error:
         _register_catalog_release(conn, catalog)
+    assert str(error.value) == "release IBGE sem SHA-256 válido não pode ser publicada"
 
 
 def test_upsert_release_rejeita_catalogo_pendente(mocker):
@@ -235,8 +236,9 @@ def test_upsert_release_rejeita_catalogo_pendente(mocker):
     catalog.metadata.validation_status = "PENDING"
     catalog.metadata.sha256 = "a" * 64
 
-    with pytest.raises(ValueError, match="não validada"):
+    with pytest.raises(ValueError) as error:
         _register_catalog_release(conn, catalog)
+    assert str(error.value) == "release IBGE não validada não pode ser publicada"
 
 
 def test_register_release_serializa_por_catalog_id(mocker):
@@ -255,6 +257,10 @@ def test_register_release_serializa_por_catalog_id(mocker):
     first_call = conn.execute.call_args_list[0]
     assert "pg_advisory_xact_lock" in str(first_call.args[0])
     assert first_call.args[1] == {"key": "nss:ibge-release:ibge-dtb-2025"}
+    lookup_call = conn.execute.call_args_list[1]
+    assert "SELECT sha256, content_sha256" in str(lookup_call.args[0])
+    assert "FOR UPDATE" in str(lookup_call.args[0])
+    assert lookup_call.args[1] == {"catalog_id": "ibge-dtb-2025"}
 
 
 def test_register_release_rejeita_content_sha256_diferente(mocker):
@@ -268,8 +274,9 @@ def test_register_release_rejeita_content_sha256_diferente(mocker):
     catalog.metadata.content_sha256 = "c" * 64
     catalog.metadata.validation_status = "VALIDATED"
 
-    with pytest.raises(ValueError, match="imutável"):
+    with pytest.raises(ValueError) as error:
         _register_catalog_release(conn, catalog)
+    assert str(error.value) == "catalog_id IBGE imutável já associado a outro SHA-256"
 
     assert not any("INSERT INTO analytics.reference_catalog_releases" in str(call.args[0])
                    for call in conn.execute.call_args_list)
@@ -303,6 +310,22 @@ def test_register_release_insere_todos_os_metadados_da_release(mocker):
         "source_url": "https://example.test/DTB_2025.zip",
         "retrieved_at": "2026-10-29T19:00:00Z",
     }
+
+
+def test_register_release_accepts_sha256_hexadecimal_em_maiusculas(mocker):
+    conn = mocker.Mock()
+    conn.execute.return_value.one_or_none.return_value = None
+    catalog = mocker.Mock()
+    catalog.metadata.catalog_id = "ibge-upper-hash"
+    catalog.metadata.sha256 = "ABCDEF" * 10 + "ABCD"
+    catalog.metadata.content_sha256 = None
+    catalog.metadata.validation_status = "VALIDATED"
+    catalog.metadata.reference_year = 2025
+    catalog.metadata.source_name = "IBGE - DTB"
+    catalog.metadata.source_url = "fixture://dtb"
+    catalog.metadata.retrieved_at = "2026-10-29T19:00:00Z"
+
+    _register_catalog_release(conn, catalog)
 
 
 def test_load_rejects_unknown_scope_type():
