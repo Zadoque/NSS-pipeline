@@ -339,6 +339,37 @@ def test_snapshot_preserva_outros_anos_doencas_e_municipios(postgres_engine):
     }
 
 
+def test_snapshot_sobreposto_substitui_apenas_municipios_do_recorte(postgres_engine):
+    first = pd.concat([_gold_exemplo(5), pd.DataFrame({
+        "year": [2026], "month": [1], "cd_mun": ["3302403"],
+        "nm_mun": ["Macaé"], "cd_uf": ["33"],
+        "nm_uf": ["Rio de Janeiro"], "cases_total": [7],
+    })], ignore_index=True)
+    _publish(
+        postgres_engine, first, municipios=["3301009", "3302403"],
+        expected_cases_total=12,
+    )
+
+    second = pd.concat([_gold_exemplo(11), pd.DataFrame({
+        "year": [2026], "month": [1], "cd_mun": ["3302502"],
+        "nm_mun": ["Niterói"], "cd_uf": ["33"],
+        "nm_uf": ["Rio de Janeiro"], "cases_total": [13],
+    })], ignore_index=True)
+    _publish(
+        postgres_engine, second, batch_id="b2",
+        municipios=["3301009", "3302502"], expected_cases_total=24,
+    )
+
+    with postgres_engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT cd_mun, cases_total FROM analytics.fato_casos ORDER BY cd_mun"
+        )).all()
+
+    assert [tuple(row) for row in rows] == [
+        ("3301009", 11), ("3302403", 7), ("3302502", 13),
+    ]
+
+
 def test_snapshot_remove_municipio_que_passou_a_zero(postgres_engine):
     cities = ["3301009", "3302403"]
     other = _gold_exemplo(3)

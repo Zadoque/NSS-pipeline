@@ -1450,3 +1450,13 @@ Nova rodada global completa após esses contratos de publicação: **7.958
 mutantes**, com **6.244 mortos**, **1.713 sobreviventes** e **1 timeout**. Entre
 os 7.957 classificáveis, a taxa atualizada é **78,47%**. A meta de 95% continua
 pendente, sem redução artificial do escopo de mutação.
+
+O commit desta etapa adicionou a regressão
+`test_snapshot_sobreposto_substitui_apenas_municipios_do_recorte`. Ela verifica
+explicitamente a publicação sequencial de recortes `A,B` e `B,C`: o município
+comum é substituído, o município removido permanece com o snapshot anterior e
+o novo município é publicado. Assim, o critério de recortes parcialmente
+sobrepostos do IBGE-007 fica coberto diretamente, além dos testes já existentes
+de lock transacional, rollback e preservação de outras doenças/anos.
+
+O arquivo de integração PostgreSQL passou em **21 testes**, com **1 warning**.
