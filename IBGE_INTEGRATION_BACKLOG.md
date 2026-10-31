@@ -222,6 +222,9 @@ IBGE-012 ──> IBGE-013
   não é convertida automaticamente em sucessão.
 - `promote_annual_dtb_events()` grava o Parquet histórico, manifesto com SHA-256
   de cada edição e a política `OBSERVABLE_ANNUAL_DIFF_ONLY` de forma idempotente.
+- `write_events()` ordena eventos por data de vigência e `event_id` antes da
+  materialização, garantindo o mesmo Parquet para a mesma coleção de eventos
+  independentemente da ordem de entrada.
 - `write_events()` também valida a forma semântica de cada evento: criações,
   extinções, sucessões e mudanças toponímicas não podem declarar códigos de
   origem/destino incompatíveis.
@@ -258,8 +261,8 @@ IBGE-012 ──> IBGE-013
   - Última rodada global limpa, anterior a `d7439d4`: 5.430 mortos, 1.815 sobreviventes, 92 sem
     testes e 1 timeout em 7.338 mutantes; 74,94% entre os 7.246 classificáveis.
   - Rodada global mais recente após os contratos de manifesto e Parquet:
-    **5.536 mortos, 1.745 sobreviventes, 93 sem testes e 1 timeout em 7.375
-    mutantes; 76,03% entre 7.281 classificáveis**. A meta de 95% permanece
+    **5.539 mortos, 1.742 sobreviventes, 93 sem testes e 1 timeout em 7.375
+    mutantes; 76,07% entre 7.281 classificáveis**. A meta de 95% permanece
     pendente e o escopo não foi reduzido artificialmente.
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição

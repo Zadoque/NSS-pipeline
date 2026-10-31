@@ -1014,6 +1014,11 @@ entre 7.281 mutantes classificáveis (76,07%)**. Essa taxa continua abaixo da
 meta de 95%; os mutantes equivalentes e os módulos ainda não cobertos seguem
 registrados como pendências.
 
+O commit `b2dca26` (`fix(ibge): make historical events deterministic`) passou a
+ordenar eventos históricos por data de vigência e `event_id` antes de gravar o
+Parquet. A regressão compara duas entradas equivalentes em ordens opostas e
+confirma a mesma materialização, reforçando a reprodutibilidade do histórico.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
