@@ -407,6 +407,9 @@ IBGE-012 ──> IBGE-013
     dirigidos correspondentes morreram. A baseline global continua sendo a
     última rodada completa documentada, pois esta alteração foi medida apenas
     de forma dirigida.
+  - O commit `5c7b0e8` cobriu o encaminhamento dos parâmetros de cada worker
+    paralelo CNES; 6 mutantes dirigidos morreram. A baseline global ainda não
+    foi recalculada.
 
 ### IBGE-013 — Rollout nacional de produção
 

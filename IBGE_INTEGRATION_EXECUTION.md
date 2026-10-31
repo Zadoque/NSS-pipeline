@@ -1411,3 +1411,8 @@ mesmo quando ele carrega um município, e para preservar a identidade canônica
 7 dígitos/nome no mapa CNES. O módulo passou em **61 testes**; os dois mutantes
 dirigidos correspondentes morreram. A baseline global de mutação não foi
 recalculada nesta etapa.
+
+O commit `5c7b0e8` (`test(cnes): verify parallel request parameters`) cobriu o
+encaminhamento de limite de página, catálogo, sessão isolada e timeout para
+cada worker paralelo. O módulo passou em **62 testes** e os 6 mutantes
+dirigidos correspondentes morreram.
