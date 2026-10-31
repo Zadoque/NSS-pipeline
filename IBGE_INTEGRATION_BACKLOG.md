@@ -277,6 +277,11 @@ IBGE-012 ──> IBGE-013
   mesmo código. A execução do artefato oficial produziu 2.149 eventos
   toponímicos; sucessões e desmembramentos sem código de origem continuam
   explicitamente não inferidos.
+- A planilha oficial agora está versionada como fixture de contrato em
+  `tests/fixtures/ibge/pop_mun_TUR_1872_a_2010.xls`, com SHA-256
+  `55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df` e
+  regressão offline que reproduz os 2.149 eventos. A fixture prova a
+  ingestão toponímica, mas não converte descrições sem código em sucessões.
 
 ### IBGE-012 — Mutação dos contratos críticos
 

@@ -1525,3 +1525,12 @@ bruto continua aceito por variável de ambiente para homologação de proveniên
 Após versionar essa fixture e habilitar o fallback offline, a suíte integral
 passou em **626 testes**, com **0 skips** e **25 warnings**; `nix flake check
 --no-build` também passou.
+
+Para reforçar a reprodutibilidade do histórico, a planilha oficial
+`pop_mun_TUR_1872_a_2010.xls` também foi versionada como fixture de contrato
+(3.214.336 bytes, SHA-256
+`55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df`). A
+regressão offline reproduz os **2.149 eventos toponímicos** observáveis e
+confirma que todos preservam o mesmo código de origem e destino. As descrições
+textuais de desmembramento continuam sem promoção automática quando não há
+código de origem inequívoco.

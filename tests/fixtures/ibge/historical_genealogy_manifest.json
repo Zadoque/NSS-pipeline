@@ -1,0 +1,9 @@
+{
+  "source_id": "pop_mun_TUR_1872_a_2010.xls",
+  "source_url": "https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/evolucao_da_divisao_territorial_do_brasil/evolucao_da_divisao_territorial_do_brasil_1872_2010/municipios_1872_1991/Documentacao/pop_mun_TUR_1872_a_2010.xls",
+  "reference_period": "1872-2010",
+  "sha256": "55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df",
+  "size_bytes": 3214336,
+  "observed_toponymic_events": 2149,
+  "extraction_policy": "SAME_CODE_TOPONYMIC_ONLY"
+}

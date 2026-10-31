@@ -1,3 +1,6 @@
+import hashlib
+from pathlib import Path
+
 import pytest
 
 from app.pipeline.reference import ibge as ibge_reference
@@ -22,6 +25,14 @@ from app.pipeline.reference.ibge.historical import (
 )
 
 
+HISTORICAL_WORKBOOK_FIXTURE = (
+    Path(__file__).parent / "fixtures" / "ibge" / "pop_mun_TUR_1872_a_2010.xls"
+)
+HISTORICAL_WORKBOOK_SHA256 = (
+    "55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df"
+)
+
+
 def test_historical_events_are_explicit_and_versionable(tmp_path):
     result = write_events(tmp_path / "events.parquet", [
         MunicipalityEvent("event-1", "CREATION", "2025-01-01", None, "5101837"),
@@ -34,6 +45,22 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
 def test_historical_annual_operations_are_public_package_contract():
     assert ibge_reference.derive_annual_event_series is derive_annual_event_series
     assert ibge_reference.promote_annual_dtb_events is promote_annual_dtb_events
+
+
+def test_official_historical_workbook_fixture_is_reproducible():
+    assert hashlib.sha256(HISTORICAL_WORKBOOK_FIXTURE.read_bytes()).hexdigest() == (
+        HISTORICAL_WORKBOOK_SHA256
+    )
+    events = parse_historical_municipality_workbook(
+        HISTORICAL_WORKBOOK_FIXTURE,
+        source_url="https://geoftp.ibge.gov.br/organizacao_do_territorio/"
+        "estrutura_territorial/evolucao_da_divisao_territorial_do_brasil/"
+        "evolucao_da_divisao_territorial_do_brasil_1872_2010/municipios_1872_1991/"
+        "Documentacao/pop_mun_TUR_1872_a_2010.xls",
+    )
+    assert len(events) == 2149
+    assert all(event.source_code7 == event.target_code7 for event in events)
+    assert {event.event_type for event in events} == {"TOPONYMIC_CHANGE"}
 
 
 def test_read_events_preserves_optional_fields_and_empty_missing_file(tmp_path):
