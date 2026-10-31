@@ -987,7 +987,8 @@ def test_refresh_rejeita_release_existente_com_manifesto_invalido(tmp_path, mock
     )
     release = tmp_path / "releases" / "broken"
     release.mkdir(parents=True)
-    (release / "municipalities.parquet").write_bytes(b"placeholder")
+    for artifact in ("municipalities.parquet", "ufs.parquet", "code_crosswalk.parquet"):
+        (release / artifact).write_bytes(b"placeholder")
     (release / "manifest.json").write_text(manifest_body, encoding="utf-8")
 
     with pytest.raises(ValueError, match="manifesto"):
