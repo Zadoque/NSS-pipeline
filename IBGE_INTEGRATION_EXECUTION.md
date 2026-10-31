@@ -324,6 +324,9 @@ Coleta real de Campos dos Goytacazes: 1604 estabelecimentos, 1604 CNES únicos
 Homologação CNES offline: 1 passed em 45,87 s com `IBGE_DTB_ARCHIVE=DTB_2025.zip`
 Piloto CNES real: Campos concluído; a API ficou sem resposta ao iniciar São
 Paulo após aproximadamente quatro minutos e a execução foi interrompida.
+Calibração CNES real limitada: primeira página consultada com sucesso para
+RJ, SP, AM, PE e RS; respostas HTTP 200, códigos municipais coerentes e
+latência observada entre 0,20 s e 0,24 s por consulta.
 ```
 
 O teto observado da API CNES expôs um risco de salto de registros: o offset
