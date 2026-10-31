@@ -34,7 +34,11 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda df, path: written.update(parquet=(df.copy(), path)))
     monkeypatch.setattr(pipeline, "write_json_atomic", lambda data, path: written.update(metadata=(data, path)))
 
-    result = pipeline.run_cnes({"3301009": "Campos", "3302403": "Macaé"})
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"},
+        page_size=1,
+        request_timeout=1,
+    )
 
     assert isinstance(result, Path)
     assert [kind for kind, _ in calls] == ["bronze", "bronze"]
@@ -44,7 +48,8 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     metadata, _ = written["metadata"]
     assert metadata["rows"] == 2
     assert metadata["municipios"] == ["3301009", "3302403"]
-    assert metadata["cnes_request_timeout"] == 60.0
+    assert metadata["cnes_page_size"] == 1
+    assert metadata["cnes_request_timeout"] == 1
     assert parquet == result
 
 
