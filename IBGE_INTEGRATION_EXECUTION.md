@@ -106,6 +106,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `8044970` | Reconciliação do total SINAN pelo resolvedor IBGE |
 | `ebeedea` | Limpeza do fixture de escopo do teste SINAN |
 | `a01cc7a` | Reconciliação do total SINAN com UF declarada |
+| `d0c512c` | Gold resolve códigos diretamente pelo catálogo IBGE |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -346,6 +347,8 @@ suíte completa após reconciliação do total SINAN pelo catálogo → 433 pass
 3 skipped, 25 warnings
 suíte completa após reconciliação com UF declarada → 434 passed, 3 skipped,
 25 warnings
+suíte completa após resolução canônica na Gold → 435 passed, 3 skipped,
+25 warnings
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
@@ -364,6 +367,11 @@ código de sete dígitos inválido seja reduzido ao código de seis dígitos de 
 município legítimo durante a validação de publicação.
 Essa mesma resolução agora recebe `SG_UF_NOT`, mantendo o total independente
 consistente com a rejeição de divergências de UF feita pela Gold.
+
+Quando uma release IBGE é fornecida à Gold, `ID_MUNICIP` passa por
+`catalog.resolve()` antes da filtragem. Assim, códigos completos inválidos e
+municípios acompanhados de UF divergente não são convertidos por truncamento
+nem agregados silenciosamente.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada

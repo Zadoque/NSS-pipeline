@@ -166,6 +166,8 @@ IBGE-012 ──> IBGE-013
   truncamento para seis dígitos.
 - A UF declarada na Silver (`SG_UF_NOT`) também participa dessa resolução
   independente, evitando contar notificações com município/UF divergentes.
+- A Gold usa o mesmo resolvedor canônico quando o catálogo está ativo; a
+  normalização textual legada ficou restrita ao modo sem catálogo.
 
 ### IBGE-011 — Histórico territorial explícito
 
