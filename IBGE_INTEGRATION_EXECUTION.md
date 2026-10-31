@@ -111,6 +111,15 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `e29cf60` | Rejeição de linhas DTB municipais malformadas |
 | `89a0f17` | Validação completa antes da promoção de `active.json` |
 | `f9fda72` | Integração PostgreSQL multi-UF com linhagem IBGE |
+| `034d45d` | Registro da validação PostgreSQL multi-UF no relatório |
+| `bc45eaa` | Matriz de completude da execução |
+| `8e70f72` | Delimitação da fonte histórica oficial |
+| `b5a64d1` | Calibração CNES real em múltiplas UFs |
+| `2218e6a` | Amostra CNES real percorrida integralmente |
+| `f602b95` | Amostra real do pipeline CNES completo |
+| `ea9c0b6` | Exclusividade da seleção geográfica nas CLIs SINAN |
+| `285aea0` | Backlog versionado da integração IBGE |
+| `0b12965` | Resultado final da suíte de regressão |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
