@@ -133,6 +133,20 @@ def test_fetch_estabelecimentos_rejeita_schema_de_resposta_invalido(mocker, payl
     response.raise_for_status.assert_called_once_with()
 
 
+def test_fetch_estabelecimentos_interrompe_pagina_repetida(mocker):
+    page = {"estabelecimentos": [{"id": 1}]}
+    responses = [mocker.Mock(json=lambda: page), mocker.Mock(json=lambda: page)]
+    for response in responses:
+        response.raise_for_status = mocker.Mock()
+    session = mocker.Mock()
+    session.get.side_effect = responses
+
+    with pytest.raises(RuntimeError, match="repetiu uma página"):
+        cnes_bronze.fetch_estabelecimentos("3301009", session=session)
+
+    assert session.get.call_count == 2
+
+
 def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality

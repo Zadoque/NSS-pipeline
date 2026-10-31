@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -71,6 +72,7 @@ def fetch_estabelecimentos(
     owns_session = session is None
     registros = []
     offset = 0
+    previous_page_signature: str | None = None
     try:
         while True:
             resp = client.get(
@@ -82,6 +84,14 @@ def fetch_estabelecimentos(
             pagina = _extract_page(resp.json())
             if not pagina:
                 break
+            page_signature = json.dumps(
+                pagina, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+            )
+            if page_signature == previous_page_signature:
+                raise RuntimeError(
+                    "API CNES repetiu uma página; ingestão interrompida para evitar loop"
+                )
+            previous_page_signature = page_signature
             registros.extend(pagina)
             # A API pode aplicar um teto menor que ``limit`` sem sinalizá-lo.
             # Avançar pelo tamanho efetivo evita saltar registros nesse caso.
