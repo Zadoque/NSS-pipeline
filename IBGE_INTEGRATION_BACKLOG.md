@@ -218,6 +218,9 @@ IBGE-012 ──> IBGE-013
   esteja em `validation_status=VALIDATED`, mesmo quando o SHA-256 é válido.
 - O manifesto histórico acumula múltiplas fontes promovidas, preservando SHA,
   URL, período e política de inferência de cada uma.
+- A promoção anual da DTB preserva fontes históricas já existentes e declara
+  explicitamente a política mista quando combina eventos explícitos e diferenças
+  observáveis.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
