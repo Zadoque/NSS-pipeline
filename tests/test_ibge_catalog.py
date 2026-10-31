@@ -610,6 +610,9 @@ def test_storage_rejects_non_sha256_manifest(tmp_path):
         (replace(METADATA, sha256="g" * 64), "manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres"),
         (replace(METADATA, content_sha256="b" * 63), "manifesto IBGE exige hash lógico hexadecimal de 64 caracteres"),
         (replace(METADATA, content_sha256="G" * 64), "manifesto IBGE exige hash lógico hexadecimal de 64 caracteres"),
+        (replace(METADATA, reference_year=0), "manifesto IBGE exige ano, source_name, source_url e retrieved_at"),
+        (replace(METADATA, source_name=""), "manifesto IBGE exige ano, source_name, source_url e retrieved_at"),
+        (replace(METADATA, source_url=""), "manifesto IBGE exige ano, source_name, source_url e retrieved_at"),
         (replace(METADATA, validation_status="PENDING"), "release IBGE não está validada"),
     ],
 )
@@ -624,6 +627,15 @@ def test_storage_rejeita_promoted_at_invalido(tmp_path, promoted_at):
         write_manifest(
             tmp_path / "manifest.json",
             replace(METADATA, promoted_at=promoted_at),
+        )
+
+
+@pytest.mark.parametrize("retrieved_at", ["not-a-timestamp", "2026-01-01T00:00:00", 42])
+def test_storage_rejeita_retrieved_at_invalido(tmp_path, retrieved_at):
+    with pytest.raises(ValueError, match="^manifesto IBGE exige retrieved_at"):
+        write_manifest(
+            tmp_path / "manifest.json",
+            replace(METADATA, retrieved_at=retrieved_at),
         )
 
 

@@ -27,6 +27,26 @@ def catalog_content_sha256(records: list[Municipality] | tuple[Municipality, ...
 def _validate_metadata(metadata: CatalogMetadata) -> None:
     if not metadata.catalog_id or not SHA256_PATTERN.fullmatch(metadata.sha256):
         raise ValueError("manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres")
+    if (
+        not isinstance(metadata.reference_year, int)
+        or isinstance(metadata.reference_year, bool)
+        or metadata.reference_year <= 0
+        or not isinstance(metadata.source_name, str)
+        or not metadata.source_name.strip()
+        or not isinstance(metadata.source_url, str)
+        or not metadata.source_url.strip()
+    ):
+        raise ValueError(
+            "manifesto IBGE exige ano, source_name, source_url e retrieved_at"
+        )
+    if not isinstance(metadata.retrieved_at, str) or not metadata.retrieved_at.strip():
+        raise ValueError("manifesto IBGE exige retrieved_at ISO-8601")
+    try:
+        retrieved_at = datetime.fromisoformat(metadata.retrieved_at)
+    except ValueError as exc:
+        raise ValueError("manifesto IBGE exige retrieved_at ISO-8601") from exc
+    if retrieved_at.tzinfo is None:
+        raise ValueError("manifesto IBGE exige retrieved_at ISO-8601 com timezone")
     if metadata.content_sha256 is not None and not SHA256_PATTERN.fullmatch(metadata.content_sha256):
         raise ValueError("manifesto IBGE exige hash lógico hexadecimal de 64 caracteres")
     if metadata.promoted_at is not None:
