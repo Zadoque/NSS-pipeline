@@ -1175,6 +1175,14 @@ eventos. Foram adicionadas regressões para os dois caminhos, evitando perda
 silenciosa de linhagem. A suíte integral posterior passou em **572 testes**,
 com **3 pulados** e **25 warnings**.
 
+O commit `b7a4e0c` (`test(ibge): cover historical event shapes`) ampliou o
+contrato de `write_events()` para todos os tipos suportados e para ausência de
+códigos obrigatórios em extinções, sucessões e renomeações. Na rodada dirigida,
+**2 de 3 mutantes** selecionados morreram; a variante restante apenas remove um
+tipo do conjunto de validação em um caso que ainda possui os dois códigos
+obrigatórios, sendo equivalente nesse caminho. A suíte integral posterior
+passou em **576 testes**, com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
