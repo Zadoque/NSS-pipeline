@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pandas as pd
 from shapely.geometry import Point
@@ -79,6 +80,21 @@ def test_territory_mapper_load_preserva_propriedades_e_geometrias(tmp_path):
 
     assert properties == {"territoryId": "D1", "name": "Centro"}
     assert geometry.covers(Point(0.5, 0.5))
+
+
+def test_territory_mapper_load_explicita_utf8(monkeypatch, tmp_path):
+    captured = {}
+
+    def read_text(path, **kwargs):
+        captured.update(kwargs)
+        return json.dumps(_geojson([]))
+
+    monkeypatch.setattr(Path, "read_text", read_text)
+    mapper = object.__new__(TerritoryMapper)
+    mapper.assets_dir = tmp_path
+
+    assert mapper._load("empty.geojson") == []
+    assert captured["encoding"] == "utf-8"
 
 
 def test_enrich_cnes_territories_preserves_index_and_adds_contract_columns(tmp_path):

@@ -38,6 +38,21 @@ def test_write_json_atomic_grava_e_le_de_volta(tmp_path: Path):
     assert json.loads(destino.read_text(encoding="utf-8")) == obj
 
 
+def test_write_json_atomic_explicita_utf8_no_temporario(tmp_path, monkeypatch):
+    destino = tmp_path / "metadata.json"
+    captured = {}
+
+    def write_text(path, payload, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(Path, "write_text", write_text)
+    monkeypatch.setattr("app.pipeline.atomic_io.os.replace", lambda source, target: None)
+
+    write_json_atomic({"nome": "ação"}, destino)
+
+    assert captured["encoding"] == "utf-8"
+
+
 def test_write_parquet_atomic_remove_temporario_quando_gravacao_falha(tmp_path, monkeypatch):
     destino = tmp_path / "data.parquet"
 
