@@ -278,7 +278,10 @@ def _read_source_metadata(source: Path) -> dict:
             f"metadata.json não encontrado ao lado de {source}; "
             "não é possível validar a origem antes de agregar para Gold."
         )
-    return json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(metadata, dict):
+        raise ValueError(f"metadata.json deve conter um objeto: {metadata_path}")
+    return metadata
 
 def _validate_source_matches(source_metadata: dict, disease: str, year: int, source: Path) -> None:
     source_disease = source_metadata.get("disease")

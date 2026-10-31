@@ -10,6 +10,7 @@ import pytest
 from app.pipeline.sinan.gold import (
     _merge_counts,
     _gold_input_schema,
+    _read_source_metadata,
     _validate_source_matches,
     decode_sinan_age_years,
     aggregate,
@@ -394,6 +395,14 @@ def test_gold_input_schema_projeta_dimensoes_obrigatorias_e_preserva_metadata():
 def test_validate_source_matches_rejeita_doenca_ou_ano_inconsistente(metadata, disease, year):
     with pytest.raises(ValueError):
         _validate_source_matches(metadata, disease, year, Path("silver.parquet"))
+
+
+def test_read_source_metadata_rejeita_json_que_nao_e_objeto(tmp_path):
+    source = tmp_path / "silver.parquet"
+    source.with_name("metadata.json").write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="metadata.json deve conter um objeto"):
+        _read_source_metadata(source)
 
 
 def test_aggregate_sem_cnes_publica_status_de_unidade_nao_mapeada():
