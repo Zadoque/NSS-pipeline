@@ -74,9 +74,16 @@ Para selecionar uma doença do catálogo PySUS e um recorte territorial:
 python -m app.pipeline.run \
   --disease DENG \
   --year 2026 \
+  --catalog-root /data/reference/ibge \
   --all-brazil \
   --columns ""
 ```
+
+`--municipios`, `--ufs` e `--all-brazil` exigem uma release IBGE válida em
+`--catalog-root` e são mutuamente exclusivos. Sem uma seleção territorial
+explícita, a execução permanece no recorte legado do RJ para compatibilidade.
+No Docker, o diretório local que contém o catálogo deve estar disponível em
+`/data/reference/ibge`.
 
 O catálogo de doenças acompanhado pela pipeline é derivado dos grupos SINAN
 expostos pelo PySUS. A matriz de cobertura e os grupos temporariamente
@@ -102,7 +109,19 @@ catálogo IBGE válido. O lote publicado deve estar completo e vinculado à mesm
 release IBGE usada na Gold:
 
 ```bash
-python -m app.pipeline.run_cnes --all-brazil
+python -m app.pipeline.run_cnes \
+  --catalog-root /data/reference/ibge \
+  --all-brazil
+```
+
+Como o `docker-compose.yml` usa `app.pipeline.run` como entrypoint padrão, o
+CNES precisa selecionar explicitamente o interpretador e o módulo:
+
+```bash
+docker compose run --rm --entrypoint python pipeline \
+  -m app.pipeline.run_cnes \
+  --catalog-root /data/reference/ibge \
+  --all-brazil
 ```
 
 Consulte `--help` para os parâmetros de checkpoint, concorrência, timeout e
