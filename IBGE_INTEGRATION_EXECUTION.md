@@ -786,6 +786,11 @@ Parquet em `0d029e6` (`test(ibge): cover mapping catalog records`), seguido
 dos testes de metadados em `4d90061` e da distinção de proveniência em
 `576b1c0`.
 
+O commit `46fcf8f` (`fix(ibge): preserve historical source lineage`) corrigiu
+o manifesto de eventos históricos para acumular as fontes promovidas, em vez
+de sobrescrever a proveniência da promoção anterior. A suíte completa posterior
+passou em 486 testes.
+
 A rodada global de mutação reexecutada após as coberturas de refresh, storage,
 DTB e CLI produziu 7.047 mutantes: 3.855 mortos, 2.250 sobreviventes, 939
 sem testes associados e 3 timeouts. Considerando mortos, sobreviventes e

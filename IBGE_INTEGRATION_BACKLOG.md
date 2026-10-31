@@ -216,6 +216,8 @@ IBGE-012 ──> IBGE-013
   além de exigir as 27 UFs, para impedir a promoção de respostas truncadas.
 - A publicação PostgreSQL rejeita explicitamente releases cujo manifesto não
   esteja em `validation_status=VALIDATED`, mesmo quando o SHA-256 é válido.
+- O manifesto histórico acumula múltiplas fontes promovidas, preservando SHA,
+  URL, período e política de inferência de cada uma.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
