@@ -113,6 +113,34 @@ def test_download_historical_source_promotes_raw_artifact(tmp_path, mocker):
     response.close.assert_called_once_with()
 
 
+def test_download_historical_source_fecha_sessao_criada_internamente(tmp_path, mocker):
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"official"]
+    session = mocker.Mock()
+    session.get.return_value = response
+    mocker.patch(
+        "app.pipeline.reference.ibge.historical.requests.Session",
+        return_value=session,
+    )
+
+    download_historical_source(
+        tmp_path / "catalog", url="https://example.invalid/source.pdf",
+        source_id="source.pdf", reference_period="1872-2010",
+    )
+
+    response.close.assert_called_once_with()
+    session.close.assert_called_once_with()
+
+
+@pytest.mark.parametrize("source_id", ["", "../source.pdf", "historical/source.pdf"])
+def test_download_historical_source_rejeita_identificador_invalido(tmp_path, source_id):
+    with pytest.raises(ValueError, match="source_id inválido"):
+        download_historical_source(
+            tmp_path / "catalog", url="fixture://source", source_id=source_id,
+            reference_period="1872-2010",
+        )
+
+
 def test_download_historical_source_rejeita_hash_sem_promover(tmp_path, mocker):
     response = mocker.Mock()
     response.iter_content.return_value = [b"official"]
@@ -130,6 +158,7 @@ def test_download_historical_source_rejeita_hash_sem_promover(tmp_path, mocker):
         )
 
     assert not (tmp_path / "catalog/historical/sources/genealogy.pdf").exists()
+    response.close.assert_called_once_with()
 
 
 @pytest.mark.parametrize(
