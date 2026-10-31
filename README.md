@@ -153,7 +153,9 @@ Depois, o Grafana fica em `http://localhost:3000` e o Prometheus em
 `http://localhost:9090`. O dashboard operacional acompanha Bronze, Silver,
 Gold e PostgreSQL por quantidade de linhas, descartes, duração e estado. As
 métricas usam somente labels operacionais de baixa cardinalidade; municípios,
-unidades e semanas não são labels Prometheus.
+unidades e semanas não são labels Prometheus. O datasource `NSS PostgreSQL`
+também é provisionado para consultas SQL de auditoria; suas credenciais vêm
+de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do ambiente.
 
 ## Qualidade e CI
 

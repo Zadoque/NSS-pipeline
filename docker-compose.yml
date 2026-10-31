@@ -55,6 +55,10 @@ services:
       - grafana_data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nss}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nss}
+      POSTGRES_DB: ${POSTGRES_DB:-situacao_saude}
     depends_on:
       prometheus:
         condition: service_healthy
