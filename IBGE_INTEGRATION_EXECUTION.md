@@ -80,6 +80,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `1e4df67` | Hash de integridade das Bronze retomáveis do CNES |
 | `993d6ce` | Bloqueio de resolução contra ano de referência incompatível |
 | `56ba752` | Validação estrutural de checkpoints CNES |
+| `97c3955` | Fortalecimento dos contratos de resolução e timeout |
+| `f2c8cb5` | Bloqueio de rede em timeout CNES inválido |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -197,15 +199,15 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 341 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 360 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 361 passed, 25 warnings
+pytest -q                  → 343 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 362 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 363 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 360 testes foram executados com PostgreSQL real em container isolado,
+Os 362 testes foram executados com PostgreSQL real em container isolado,
 incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
@@ -283,6 +285,10 @@ Uma rodada dirigida posterior, restrita aos módulos `run_cnes.py` e
 ficaram presos em mutantes do entrypoint CNES foram encerrados e a configuração
 oficial completa do `mutmut` foi restaurada. O resultado é evidência parcial de
 qualidade, não um score final nem uma justificativa para reduzir o escopo.
+Após essa rodada, os testes de resolução legacy e da razão de código
+desconhecido foram reforçados; os dois mutantes correspondentes foram mortos
+em uma reexecução dirigida. O teste de timeout foi reforçado depois, mas ainda
+aguarda uma rodada mutante completa que confirme sua classificação.
 
 ## Compatibilidade preservada
 
