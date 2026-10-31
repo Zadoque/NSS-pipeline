@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from app.pipeline import run_cnes as pipeline
-from app.pipeline.run_cnes import _validate_checkpoint_completed
+from app.pipeline.run_cnes import _validate_checkpoint_completed, _validate_checkpoint_failed
 
 
 def _bronze(code: str, municipality_code: str = "3301009") -> pd.DataFrame:
@@ -312,7 +312,8 @@ def test_run_cnes_cli_passes_selected_ufs_and_page_size(mocker, monkeypatch, tmp
 
     select.assert_called_once_with(catalog, municipalities=None, ufs=["SP", "MG"], all_brazil=False)
     runner.assert_called_once_with(
-        catalog=catalog, geographic_scope=selected, page_size=250, request_timeout=12,
+        catalog=catalog, geographic_scope=selected, page_size=250, request_timeout=12.0,
+        continue_on_error=False,
     )
 
 
@@ -362,6 +363,54 @@ def test_run_cnes_rejects_empty_api_response(monkeypatch):
 
     with pytest.raises(RuntimeError, match="retornou vazio"):
         pipeline.run_cnes({"3301009": "Campos"})
+
+
+def test_validate_checkpoint_failed_rejeita_falha_fora_do_escopo():
+    with pytest.raises(ValueError, match="falha fora do escopo"):
+        _validate_checkpoint_failed(
+            {"3302403": {"error_type": "API_ERROR", "error_message": "falha"}},
+            {"3301009": "Campos"},
+        )
+
+
+def test_run_cnes_continue_on_error_classifica_municipio_e_publica_lote_parcial(
+    tmp_path, monkeypatch,
+):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    checkpoint = tmp_path / "cnes-partial.json"
+
+    def fetch(code, **kwargs):
+        if code == "3302403":
+            raise RuntimeError("API temporariamente indisponível")
+        return _bronze(code)
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
+    monkeypatch.setattr(
+        pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"},
+        checkpoint_path=checkpoint,
+        continue_on_error=True,
+    )
+
+    assert result.exists()
+    state = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))
+    assert state["status"] == "PARTIAL"
+    assert list(state["completed"]) == ["3301009"]
+    assert state["failed"] == {
+        "3302403": {
+            "error_type": "API_ERROR",
+            "error_message": "API temporariamente indisponível",
+        },
+    }
+    metadata = __import__("json").loads((result.parent / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["status"] == "PARTIAL"
+    assert metadata["failed_municipalities"] == state["failed"]
 
 
 def test_run_cnes_checkpoint_resumes_after_failure(tmp_path, monkeypatch):
