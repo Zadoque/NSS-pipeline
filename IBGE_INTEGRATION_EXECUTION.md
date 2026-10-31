@@ -942,6 +942,11 @@ divergente antes de abrir a transação. Os **3 mutantes** selecionados desse
 contrato morreram. A suíte integral posterior passou em **527 testes**, com
 **3 testes pulados** e **25 warnings**.
 
+O commit `555ff4e` (`feat(ibge): record release promotion timestamp`) adicionou
+`promoted_at` ao manifesto das releases promovidas. O campo é preenchido nas
+novas promoções e permanece opcional na leitura, preservando a compatibilidade
+com manifests históricos.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

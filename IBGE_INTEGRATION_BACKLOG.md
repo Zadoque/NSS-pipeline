@@ -31,6 +31,8 @@ IBGE-012 ──> IBGE-013
   - Catálogo vazio, duplicado ou com UF divergente é rejeitado.
   - Resolução distingue `VALID`, `UNKNOWN_CODE`, `INVALID_FORMAT`,
     `UF_MISMATCH`, `HISTORICAL_UNRESOLVED` e `OUT_OF_SCOPE`.
+  - O manifesto da release registra `promoted_at`; manifests legados sem esse
+    campo continuam legíveis para preservar compatibilidade.
 
 ### IBGE-002 — Aquisição DTB/API e release local
 
@@ -69,6 +71,8 @@ IBGE-012 ──> IBGE-013
 - Evidência adicional: `88f4949` exige validação nacional quando `--all-brazil`
   é usado nos entrypoints SINAN e CNES; catálogos parciais continuam permitidos
   apenas em seleções genéricas e fixtures explícitas.
+- Evidência adicional: `555ff4e` registra o instante de promoção no manifesto
+  (`promoted_at`) sem quebrar manifests anteriores.
 
 ### IBGE-004 — SINAN Gold canônica
 
