@@ -83,6 +83,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `97c3955` | Fortalecimento dos contratos de resolução e timeout |
 | `f2c8cb5` | Bloqueio de rede em timeout CNES inválido |
 | `570939d` | Cobertura das fronteiras de validação CNES |
+| `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -297,8 +298,12 @@ Essa confirmação foi obtida posteriormente para os dois mutantes de timeout:
 Isso melhora a cobertura dos contratos críticos, mas não altera a pendência da
 meta global de 95%.
 Os testes de `page_size` e dos tipos inválidos de timeout foram adicionados
-depois dessa classificação e ainda precisam ser refletidos em uma nova rodada
-mutante dirigida; a suíte funcional global já os executa.
+depois dessa classificação e já foram refletidos em nova rodada mutante
+dirigida; a suíte funcional global também os executa.
+Após a cobertura dos limites mínimos válidos, os mutantes
+`app.pipeline.run_cnes.x_run_cnes__mutmut_5` e
+`app.pipeline.run_cnes.x_run_cnes__mutmut_14` também foram classificados como
+mortos em rodada dirigida.
 
 ## Compatibilidade preservada
 
