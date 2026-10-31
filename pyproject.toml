@@ -2,6 +2,9 @@
 # Escopo inicial de mutação: módulos com maior valor de negócio e testes
 # unitários já disponíveis. A lista pode ser ampliada por etapa.
 source_paths = ["app"]
+# Fixtures oficiais (Parquet/XLS/JSON) participam de contratos de teste; uma
+# alteração nelas precisa invalidar os resultados mutados correspondentes.
+on_dependency_change = "rerun"
 # O mutmut reconhece automaticamente ``tests/``, mas precisa também do
 # pacote-raiz para importar ``app.pipeline`` a partir da cópia mutada.
 also_copy = ["app/__init__.py", "pytest.ini", "territories"]
