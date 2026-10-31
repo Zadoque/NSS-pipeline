@@ -652,7 +652,13 @@ def test_catalogo_ibge_bloqueia_escopo_gold_diferente(mocker, pipeline, tmp_path
     get_engine.assert_not_called()
 
 
-def test_catalogo_ibge_bloqueia_identidade_gold_diferente(mocker, pipeline, tmp_path):
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("disease", "CHIK"), ("source_year", 2025), ("gold_target", "analytics")],
+)
+def test_catalogo_ibge_bloqueia_identidade_gold_diferente(
+    mocker, pipeline, tmp_path, field, value,
+):
     aggregate, _, get_engine, load = pipeline
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
@@ -680,7 +686,7 @@ def test_catalogo_ibge_bloqueia_identidade_gold_diferente(mocker, pipeline, tmp_
     )
     _add_catalog_lineage(metadata_path, catalog, ["3301009"])
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-    metadata["disease"] = "CHIK"
+    metadata[field] = value
     metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
