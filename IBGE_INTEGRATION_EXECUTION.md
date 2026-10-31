@@ -1416,3 +1416,7 @@ O commit `5c7b0e8` (`test(cnes): verify parallel request parameters`) cobriu o
 encaminhamento de limite de página, catálogo, sessão isolada e timeout para
 cada worker paralelo. O módulo passou em **62 testes** e os 6 mutantes
 dirigidos correspondentes morreram.
+
+Revalidação integral após as duas etapas CNES: **611 testes passaram**, com
+**3 pulados** e **25 warnings**; `nix flake check --no-build` passou e o branch
+continua limpo e sincronizado com o remoto.
