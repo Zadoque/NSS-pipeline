@@ -66,6 +66,9 @@ IBGE-012 ──> IBGE-013
 - Evidência adicional: `47a5050` cobre a fronteira de 5.500 municípios e mata
   os mutantes de comparação e mensagem dessa validação; a suíte posterior passou
   em 498 testes.
+- Evidência adicional: `88f4949` exige validação nacional quando `--all-brazil`
+  é usado nos entrypoints SINAN e CNES; catálogos parciais continuam permitidos
+  apenas em seleções genéricas e fixtures explícitas.
 
 ### IBGE-004 — SINAN Gold canônica
 
@@ -266,6 +269,8 @@ IBGE-012 ──> IBGE-013
     vazia foi classificada como equivalente pelo contrato atual.
   - A suíte integral posterior passou em **500 testes**, com **3 pulados** e
     **25 warnings**, incluindo PostgreSQL de integração local.
+  - Após `88f4949`, a suíte integral passou em **501 testes**, com **3 pulados**
+    e **25 warnings**; `nix flake check --no-build` também passou.
 
 ### IBGE-013 — Rollout nacional de produção
 

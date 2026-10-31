@@ -897,6 +897,14 @@ passou em **500 testes**, com **3 testes pulados** e **25 warnings**. O teste
 de contrato usa fixtures locais e não depende da disponibilidade do IBGE ou do
 CNES durante a execução normal.
 
+O commit `88f4949` (`fix(scope): require national catalog for all brazil`)
+fechou uma lacuna no caminho de execução: `--all-brazil` agora exige que o
+catálogo carregado contenha todas as UFs e atenda ao limite mínimo de validação
+nacional antes de materializar o escopo. A mesma regra foi aplicada a `run.py`,
+`run_load.py` e `run_cnes.py`; seleções por município ou UF não foram ampliadas
+artificialmente. A suíte integral posterior passou em **501 testes**, com **3
+testes pulados** e **25 warnings**, e `nix flake check --no-build` passou.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
