@@ -155,6 +155,21 @@ def test_parse_toponymic_events_preserves_code_and_names(tmp_path):
     assert events[0].effective_date == "1988-10-24"
 
 
+def test_parse_toponymic_events_accepts_official_2025_schema():
+    fixture = __import__("pathlib").Path(
+        "tests/fixtures/ibge/alteracoes_toponimicas_2025_schema_sample.csv"
+    )
+
+    events = parse_toponymic_events(fixture, reference_year=2025)
+
+    assert len(events) == 1
+    assert events[0].event_type == "TOPONYMIC_CHANGE"
+    assert events[0].source_code7 == events[0].target_code7 == "2401206"
+    assert events[0].source_name == "Arês"
+    assert events[0].target_name == "Arez"
+    assert events[0].effective_date == "2025-09-10"
+
+
 def test_historical_codes_accept_only_ascii_digits(tmp_path):
     event = MunicipalityEvent("unicode", "CREATION", "2025-01-01", None, "１２３４５６７")
     with pytest.raises(ValueError, match="target_code7 inválido"):
