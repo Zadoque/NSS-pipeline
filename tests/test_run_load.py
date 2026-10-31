@@ -114,7 +114,7 @@ def test_cache_local_passa_para_bronze_sem_leitura_em_memoria(mocker, pipeline):
     runner.fetch_sinan.assert_not_called()
     assert runner.write_bronze.call_args.args == (source, "DENG", 2024)
     assert read.call_args_list == [
-        mocker.call(Path("silver.parquet"), columns=["ID_MUNICIP"]),
+        mocker.call(Path("silver.parquet"), columns=["ID_MUNICIP", "SG_UF_NOT"]),
         mocker.call(Path("gold.parquet")),
     ]
     assert (
@@ -252,3 +252,25 @@ def test_run_load_nao_conta_codigo_ibge_7_invalido_no_total_independente(
 
     assert load.call_args.kwargs["expected_cases_total"] == 1
     assert aggregate.call_args.kwargs["catalog"] is catalog
+
+
+def test_run_load_nao_conta_uf_divergente_no_total_independente(mocker, pipeline):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope(catalog.municipalities())
+    _, _, _, load = pipeline
+    silver = pd.DataFrame({"ID_MUNICIP": ["330100"], "SG_UF_NOT": ["35"]})
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[silver, pd.DataFrame({"cases_total": [0]})],
+    )
+
+    runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
+
+    assert load.call_args.kwargs["expected_cases_total"] == 0

@@ -53,7 +53,7 @@ def run_load(
         municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
     else:
         municipios = legacy_rj_mapping()
-    silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
+    silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP", "SG_UF_NOT"])
     if silver_scope.empty:
         raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
     if catalog is None:
@@ -62,11 +62,14 @@ def run_load(
             .isin(municipios).sum()
         )
     else:
+        declared_ufs = silver_scope.get(
+            "SG_UF_NOT", pd.Series([None] * len(silver_scope), index=silver_scope.index)
+        )
         expected_cases_total = sum(
             1
-            for value in silver_scope["ID_MUNICIP"]
+            for value, declared_uf in zip(silver_scope["ID_MUNICIP"], declared_ufs)
             if (
-                (resolution := catalog.resolve(value)).status.value == "VALID"
+                (resolution := catalog.resolve(value, declared_uf=declared_uf)).status.value == "VALID"
                 and resolution.municipality is not None
                 and resolution.municipality.code7 in municipios
             )
