@@ -419,6 +419,28 @@ def test_storage_rejects_non_sha256_manifest(tmp_path):
         )
 
 
+@pytest.mark.parametrize(
+    ("metadata", "message"),
+    [
+        (replace(METADATA, catalog_id=""), "manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres"),
+        (replace(METADATA, sha256="a" * 63), "manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres"),
+        (replace(METADATA, sha256="g" * 64), "manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres"),
+        (replace(METADATA, content_sha256="b" * 63), "manifesto IBGE exige hash lógico hexadecimal de 64 caracteres"),
+        (replace(METADATA, content_sha256="G" * 64), "manifesto IBGE exige hash lógico hexadecimal de 64 caracteres"),
+        (replace(METADATA, validation_status="PENDING"), "release IBGE não está validada"),
+    ],
+)
+def test_storage_rejeita_metadados_de_release_invalidos(tmp_path, metadata, message):
+    with pytest.raises(ValueError, match=f"^{message}$"):
+        write_manifest(tmp_path / "manifest.json", metadata)
+
+
+def test_storage_aceita_hash_logico_ausente():
+    from app.pipeline.reference.ibge.storage import _validate_metadata
+
+    _validate_metadata(METADATA)
+
+
 def test_localidades_client_validates_and_parses_response(mocker):
     session = mocker.Mock()
     session.get.return_value.json.return_value = [{
