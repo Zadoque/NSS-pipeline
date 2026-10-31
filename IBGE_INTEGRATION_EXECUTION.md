@@ -1676,3 +1676,14 @@ Foi executada uma rodada global limpa de mutmut após preservar o cache anterior
 timeouts**. A taxa classificável, excluindo timeouts, foi **79,13%**. A
 configuração dos 19 módulos permaneceu integral; a meta de 95% continua
 pendente.
+
+O commit `e5021b5` normalizou a série de status municipal do CNES antes da
+validação, incluindo a classificação explícita de status ausente como
+`MISSING`. A suíte posterior passou em **686 testes**, com **21 testes
+condicionais pulados** e **25 warnings**; os testes dirigidos eliminaram os
+dois sobreviventes de mutação relacionados a essa normalização. Como a
+refatoração reduziu o conjunto mutável, o resultado dirigido ajustado ficou em
+**6.436 mutantes mortos**, **1.691 sobreviventes** e **331 timeouts**, ou
+**79,24%** classificáveis. Esse número é uma atualização dirigida, não uma
+nova rodada global completa; a linha de base global continua sendo a rodada
+limpa de 8.458 mutantes registrada acima.

@@ -548,3 +548,11 @@ timeouts. A meta de 95% segue pendente sem redução do escopo.
 
 O estado de execução, commits, comandos e limitações estão registrados em
 [`IBGE_INTEGRATION_EXECUTION.md`](IBGE_INTEGRATION_EXECUTION.md).
+
+O commit `e5021b5` fechou a normalização de status municipal ausente no CNES,
+com regressões para `MISSING`, coluna de status ausente e mensagens de erro
+com o código municipal. A suíte posterior passou em **686 testes**, com **21
+skips condicionais** e **25 warnings**. A mutação dirigida eliminou os dois
+mutantes restantes desse contrato; o resultado ajustado é **79,24%**
+classificável, enquanto a linha de base global limpa de **79,13%** permanece a
+referência até nova execução global completa.
