@@ -128,7 +128,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-009 — Homologação CNES nacional real
 
 - Prioridade: **P1**
-- Estado: **Pendente externo**
+- Estado: **Parcial; amostra de 27/27 UFs executada**
 - Dependências: IBGE-005, IBGE-006
 - Escopo: execução autorizada para todos os municípios ou lotes nacionais,
   medição de taxa de erro, duração, limite da API e retomada.

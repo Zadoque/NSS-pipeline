@@ -490,7 +490,7 @@ sem ser tratado como morto artificialmente.
 | CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído no modo offline |
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
 | Histórico de sucessões municipais | IBGE possui genealogia histórica 1872–2010 em PDF; não há crosswalk tabular 2011–2025 promovido | Pendente externo |
-| CNES real em todas as UFs | Piloto real de Campos; execução nacional ainda não observada | Pendente externo |
+| CNES real em todas as UFs | Amostra operacional 27/27 UFs, 14.515 estabelecimentos e `run_cnes` concluído | Parcial; 5.571 municípios pendentes |
 | Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
 | Mutação ≥95% | Última medição global: 68,7% entre mutantes classificáveis | Pendente de qualidade |
 
