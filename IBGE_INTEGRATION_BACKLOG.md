@@ -308,6 +308,10 @@ IBGE-012 ──> IBGE-013
     `sources` malformado em vez de descartá-lo silenciosamente. A regressão
     foi adicionada e a suíte integral passou em **585 testes**, com **3 pulados**
     e **25 warnings**.
+  - A genealogia oficial 1872--2010 foi verificada com `pypdf`: o PDF tem 97
+    páginas, mas a extração local embaralha colunas e caracteres dos códigos.
+    O artefato permanece `RAW_ONLY` até existir extração tabular validável;
+    nenhuma sucessão é inferida dessa saída.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.

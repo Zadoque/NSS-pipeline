@@ -1246,6 +1246,13 @@ nos caminhos administrativo e documental. A regressão cobre manifesto anual
 com estrutura inválida. A suíte integral passou em **585 testes**, com **3
 pulados** e **25 warnings**.
 
+Foi feita uma verificação adicional da fonte oficial de genealogia
+1872--2010, baixada temporariamente do FTP do IBGE: o artefato possui 97
+páginas, mas o texto extraído por `pypdf` apresenta colunas embaralhadas e
+caracteres invertidos, inclusive nos geocódigos. Como essa saída não permite
+provar relações de sucessão linha a linha, a fonte continua corretamente
+preservada como `RAW_ONLY`; nenhuma sucessão foi inferida ou promovida.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
