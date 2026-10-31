@@ -443,6 +443,13 @@ def test_derive_annual_events_does_not_infer_succession():
         ("TOPONYMIC_CHANGE", "3301009", "3301009"),
         ("CREATION", None, "5101837"),
     }
+    creation = next(event for event in events if event.event_type == "CREATION")
+    rename = next(event for event in events if event.event_type == "TOPONYMIC_CHANGE")
+    assert creation.event_id == "f6db97e219faee6e4a35"
+    assert creation.target_name == "Novo município"
+    assert rename.event_id == "f3151d3bb8646cbe293d"
+    assert rename.source_name == "Nome antigo"
+    assert rename.target_name == "Nome atual"
 
 
 def test_derive_annual_event_series_requires_consecutive_editions():
@@ -466,6 +473,11 @@ def test_derive_annual_event_series_keeps_creation_and_extinction_separate():
         ("EXTINCTION", "3301009", None),
         ("CREATION", None, "5101837"),
     }
+    extinction = next(event for event in events if event.event_type == "EXTINCTION")
+    creation = next(event for event in events if event.event_type == "CREATION")
+    assert extinction.event_id == "8b0a6769bbe8869bb67f"
+    assert extinction.source_name == "Origem"
+    assert creation.target_name == "Novo"
     assert all(event.source == "https://example.invalid/DTB_2025.zip" for event in events)
 
 
