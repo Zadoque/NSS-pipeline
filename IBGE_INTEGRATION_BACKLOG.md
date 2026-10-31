@@ -166,6 +166,9 @@ IBGE-012 ──> IBGE-013
   truncamento para seis dígitos.
 - A UF declarada na Silver (`SG_UF_NOT`) também participa dessa resolução
   independente, evitando contar notificações com município/UF divergentes.
+- Gold e `run_load.py` compartilham o helper `resolve_catalog_municipality_codes()`;
+  a reconciliação independente não mantém uma segunda implementação do
+  crosswalk IBGE.
 - A Gold usa o mesmo resolvedor canônico quando o catálogo está ativo; a
   normalização textual legada ficou restrita ao modo sem catálogo.
 - `dropped_rows` na Gold representa somente linhas descartadas; a redução por

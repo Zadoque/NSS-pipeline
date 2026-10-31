@@ -109,6 +109,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `d0c512c` | Gold resolve códigos diretamente pelo catálogo IBGE |
 | `56aad3e` | Cobertura direta do contrato do resolvedor Gold |
 | `879d637` | Cobertura do contrato CLI do executor SINAN |
+| `be0c06c` | Reuso do resolvedor IBGE da Gold no executor SINAN |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -357,6 +358,12 @@ suíte completa após cobertura direta do resolvedor Gold → 436 passed, 3 skip
 25 warnings
 suíte completa após cobertura do contrato CLI de `run_load` → 437 passed,
 3 skipped, 25 warnings
+
+Após a convergência dos resolvedores, a suíte completa permaneceu em 437
+passed, 3 skipped e 25 warnings. O cálculo independente de totais em
+`run_load.py` agora chama `resolve_catalog_municipality_codes()`, o mesmo
+helper usado pela Gold, eliminando duas implementações concorrentes do
+crosswalk IBGE e mantendo a validação de UF declarada consistente.
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
