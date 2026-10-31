@@ -1566,3 +1566,8 @@ A rodada global completa mais recente, executada após as fixtures oficiais,
 processou **7.966 mutantes**, com **6.249 mortos, 1.716 sobreviventes e 1
 timeout**. A taxa foi **78,46%** entre os 7.965 mutantes não temporizados. A
 configuração de mutação permaneceu integral; a meta de 95% continua pendente.
+
+O commit `3479a30` configurou `on_dependency_change = "rerun"` no
+`pyproject.toml`. Assim, alterações nas fixtures oficiais não deixam resultados
+de mutação obsoletos em cache; a configuração foi validada executando novamente
+o mutante de validação equivalente.
