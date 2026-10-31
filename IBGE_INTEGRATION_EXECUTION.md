@@ -1538,3 +1538,18 @@ código de origem inequívoco.
 Verificação pós-commit `5ca9224`: a suíte integral passou em **627 testes**,
 com **0 skips** e **25 warnings** em **61,95 s**; `nix flake check
 --no-build` passou e a branch ficou limpa e sincronizada com o remoto.
+
+## Estado consolidado da execução
+
+No commit `2a1d626`, a implementação local do catálogo nacional, escopo
+geográfico, crosswalk SINAN/CNES, atualização atômica, linhagem PostgreSQL,
+histórico anual e runbook de rollout está presente e verificada. Os testes
+nacionais usam a fixture oficial DTB em Parquet; o histórico 1872--2010 usa a
+planilha oficial versionada para mudanças toponímicas observáveis.
+
+Os gates que permanecem abertos são deliberados e estão documentados no
+backlog: uma carga SINAN nacional autorizada/privada para reconciliação final,
+uma fonte oficial codificada de sucessões e desmembramentos sem ambiguidade, e
+a meta global de 95% de mutação (a medição atual permanece em 78,54%). Não foi
+criado fallback por nome ou inferência territorial para mascarar essas
+ausências. O rollout de produção continua condicionado a esses gates.
