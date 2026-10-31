@@ -5,7 +5,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
 import json
+import os
 import re
+import tempfile
 
 import pandas as pd
 
@@ -20,6 +22,79 @@ CODE7_PATTERN = re.compile(r"^[0-9]{7}$")
 
 def _event_id(*parts: object) -> str:
     return hashlib.sha256("|".join(str(part) for part in parts).encode("utf-8")).hexdigest()[:20]
+
+
+def promote_historical_source(
+    root: Path,
+    source_path: Path,
+    *,
+    source_id: str,
+    source_url: str,
+    reference_period: str,
+) -> Path:
+    """Preserva uma fonte histórica oficial sem convertê-la em crosswalk.
+
+    A publicação de genealogia do IBGE é um artefato documental, não uma
+    tabela tabular consumível pelo resolvedor. O registro explícito evita que
+    a fonte seja perdida e deixa a extração futura sujeita a validação própria;
+    nenhum evento municipal é criado por esta função.
+    """
+    if not source_id or Path(source_id).name != source_id:
+        raise ValueError("source_id inválido para uma fonte histórica local")
+    if not source_path.is_file():
+        raise ValueError(f"fonte histórica ausente: {source_path}")
+    content = source_path.read_bytes()
+    if not content:
+        raise ValueError("fonte histórica vazia")
+
+    sources_dir = root / "historical" / "sources"
+    destination = sources_dir / source_id
+    digest = hashlib.sha256(content).hexdigest()
+    manifest_path = root / "historical" / "sources.manifest.json"
+    existing: dict[str, dict[str, object]] = {}
+    if manifest_path.exists():
+        try:
+            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}") from exc
+        if not isinstance(loaded, dict):
+            raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}")
+        existing = dict(loaded.get("sources", {}))
+
+    entry = {
+        "source_id": source_id,
+        "source_url": source_url,
+        "source_path": str(source_path),
+        "reference_period": reference_period,
+        "sha256": digest,
+        "size_bytes": len(content),
+        "extraction_status": "RAW_ONLY",
+    }
+    previous = existing.get(source_id)
+    if previous is not None:
+        if previous.get("sha256") != digest:
+            raise ValueError(f"source_id imutável já associado a outro SHA-256: {source_id}")
+        if not destination.exists():
+            raise ValueError(f"fonte histórica registrada está ausente: {destination}")
+        return destination
+
+    sources_dir.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        dir=sources_dir, prefix=f".{source_id}.", suffix=".tmp", delete=False
+    ) as temporary:
+        temporary_path = Path(temporary.name)
+        temporary.write(content)
+    try:
+        os.replace(temporary_path, destination)
+    finally:
+        temporary_path.unlink(missing_ok=True)
+
+    existing[source_id] = entry
+    write_json_atomic(
+        {"schema_version": "1.0", "sources": dict(sorted(existing.items()))},
+        manifest_path,
+    )
+    return destination
 
 
 @dataclass(frozen=True)

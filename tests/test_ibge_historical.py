@@ -8,6 +8,7 @@ from app.pipeline.reference.ibge.historical import (
     parse_toponymic_events,
     promote_administrative_events,
     promote_annual_dtb_events,
+    promote_historical_source,
     promote_toponymic_events,
     validate_event_references,
     write_events,
@@ -21,6 +22,54 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
     assert result.exists()
     frame = __import__("pandas").read_parquet(result)
     assert frame.loc[0, "target_code7"] == "5101837"
+
+
+def test_promote_historical_source_preserves_raw_artifact_and_manifest(tmp_path):
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"official genealogy")
+
+    result = promote_historical_source(
+        tmp_path / "catalog", source, source_id="genealogia-1872-2010.pdf",
+        source_url="https://example.invalid/genealogia.pdf",
+        reference_period="1872-2010",
+    )
+
+    assert result.read_bytes() == b"official genealogy"
+    manifest = __import__("json").loads(
+        (tmp_path / "catalog/historical/sources.manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["sources"]["genealogia-1872-2010.pdf"]["extraction_status"] == "RAW_ONLY"
+    assert manifest["sources"]["genealogia-1872-2010.pdf"]["size_bytes"] == len(b"official genealogy")
+
+
+def test_promote_historical_source_is_immutable(tmp_path):
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"first")
+    root = tmp_path / "catalog"
+    kwargs = {
+        "source_id": "genealogia.pdf",
+        "source_url": "fixture://genealogia",
+        "reference_period": "1872-2010",
+    }
+    first = promote_historical_source(root, source, **kwargs)
+    assert promote_historical_source(root, source, **kwargs) == first
+    source.write_bytes(b"second")
+
+    with pytest.raises(ValueError, match="imutável"):
+        promote_historical_source(root, source, **kwargs)
+
+
+@pytest.mark.parametrize(
+    "source_id", ["", "../genealogia.pdf", "historical/genealogia.pdf"]
+)
+def test_promote_historical_source_rejeita_identificador_invalido(tmp_path, source_id):
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"source")
+    with pytest.raises(ValueError, match="source_id inválido"):
+        promote_historical_source(
+            tmp_path / "catalog", source, source_id=source_id,
+            source_url="fixture://genealogia", reference_period="1872-2010",
+        )
 
 
 def test_historical_events_reject_duplicates(tmp_path):

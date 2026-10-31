@@ -9,6 +9,7 @@ from .historical import (
     parse_administrative_events,
     parse_toponymic_events,
     promote_administrative_events,
+    promote_historical_source,
     promote_toponymic_events,
 )
 from .models import (
@@ -34,6 +35,7 @@ __all__ = [
     "derive_annual_events",
     "parse_administrative_events",
     "promote_administrative_events",
+    "promote_historical_source",
     "parse_toponymic_events",
     "promote_toponymic_events",
     "require_event_references",
