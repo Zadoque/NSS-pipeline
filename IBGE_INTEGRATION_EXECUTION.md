@@ -124,6 +124,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `91cd86c` | Rejeição de releases nacionais sem alguma das 27 UFs |
 | `91e14b2` | Fechamento seguro de sessões próprias da API de Localidades |
 | `a2a1496` | Fechamento das respostas HTTP em streaming da DTB |
+| `b5caa06` | Registro da limpeza de recursos HTTP |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -288,9 +289,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 410 passed, 25 warnings
-pytest -q com PostgreSQL  → 410 passed, 25 warnings
-pytest -q nacional + PostgreSQL → 410 passed, 25 warnings
+pytest -q                  → 413 passed, 25 warnings
+pytest -q com PostgreSQL  → 413 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 413 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
