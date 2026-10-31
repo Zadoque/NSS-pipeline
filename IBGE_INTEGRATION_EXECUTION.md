@@ -324,6 +324,8 @@ Refresh end-to-end da API de Localidades → release `ibge-api-2026-final`,
   5571 municípios, 27 UFs e ponteiro `active.json` recarregado com sucesso
 Comparação API de Localidades × DTB 2025 → 0 códigos exclusivos em qualquer
 fonte e 0 divergências de nome, UF ou sigla entre os 5571 registros
+comparação DTB 2024 × DTB 2025 → 5571 municípios em cada edição e 3 mudanças
+toponímicas explícitas; nenhuma sucessão foi inferida
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
@@ -549,7 +551,9 @@ completa. Permanecem necessários:
    em PDF, mas essa publicação ainda não é um crosswalk tabular
    integrado ao NSS e não cobre diretamente 2011–2025. O contrato e o parser
    para eventos explícitos já existem; nenhum evento é inferido por nome ou
-   proximidade geográfica.
+   proximidade geográfica. A comparação real DTB 2024/2025 foi validada e
+   gerou somente três eventos toponímicos, o que não equivale a um crosswalk
+   histórico completo.
 3. Observar e calibrar a paginação CNES para todas as UFs; `page_size`, timeout,
    reutilização de sessão e checkpoint reiniciável já estão disponíveis, mas o
    limite operacional máximo e a execução de todas as requisições ainda
