@@ -734,7 +734,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Seleção por município, UF e Brasil | CLI, `GeographicScope` e smoke nacional com 27 UFs | Concluído |
 | CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído |
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
-| Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; PDF oficial 1872–2010 preservado como `RAW_ONLY` | Parcial; extração tabular/sucessões pendentes |
+| Histórico de sucessões municipais | Série DTB 2011–2025 e planilha oficial 1872–2010 processáveis; 2.149 mudanças toponímicas observáveis | Parcial; sucessões/desmembramentos com código de origem pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
 | Mutação ≥95% | Medição global mais recente: 76,46% entre 7.697 mutantes classificáveis | Pendente de qualidade |
