@@ -275,6 +275,30 @@ def test_parse_administrative_events_requires_explicit_codes(tmp_path):
     assert events[0].target_code7 == "5101837"
 
 
+def test_parse_administrative_events_rejects_unsupported_format(tmp_path):
+    source = tmp_path / "administrative.txt"
+    source.write_text("EVENT_TYPE,EFFECTIVE_DATE\nCREATION,2025-01-01\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="formato de eventos administrativos não suportado"):
+        parse_administrative_events(source, reference_year=2025)
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("EVENT_TYPE\nCREATION\n", "colunas ausentes"),
+        ("EVENT_TYPE,EFFECTIVE_DATE\nCREATION,not-a-date\n", "data de vigência inválida"),
+        ("EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\n", "histórico administrativo vazio"),
+    ],
+)
+def test_parse_administrative_events_rejects_incomplete_source(tmp_path, content, message):
+    source = tmp_path / "administrative.csv"
+    source.write_text(content, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        parse_administrative_events(source, reference_year=2025)
+
+
 def test_validate_event_references_checks_source_and_target_editions():
     event = MunicipalityEvent("event", "SUCCESSION", "2025-01-01", "3301009", "5101837")
     valid = validate_event_references(
@@ -305,17 +329,26 @@ def test_promote_administrative_events_rejects_unresolved_reference(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "content",
+    ("content", "message"),
     [
-        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nSUCCESSION,2025-01-01,5101234,\n",
-        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nBOGUS,2025-01-01,5101234,5101837\n",
-        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nCREATION,2025-01-01,,51018\n",
+        (
+            "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nSUCCESSION,2025-01-01,5101234,\n",
+            "TARGET_CODE7 ausente",
+        ),
+        (
+            "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nBOGUS,2025-01-01,5101234,5101837\n",
+            "tipo de evento administrativo inválido, linha 2",
+        ),
+        (
+            "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nCREATION,2025-01-01,,51018\n",
+            "TARGET_CODE7 inválido, linha 2",
+        ),
     ],
 )
-def test_parse_administrative_events_rejects_ambiguous_or_unknown_rows(tmp_path, content):
+def test_parse_administrative_events_rejects_ambiguous_or_unknown_rows(tmp_path, content, message):
     source = tmp_path / "administrative.csv"
     source.write_text(content, encoding="utf-8")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=message):
         parse_administrative_events(source, reference_year=2025)
 
 
