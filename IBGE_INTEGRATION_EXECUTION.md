@@ -1482,3 +1482,9 @@ coberto por regressão de importação; `tests/test_ibge_historical.py` passou e
 Verificação integral após a exposição da API pública: **621 testes passaram**,
 com **3 pulados** e **25 warnings**; `nix flake check --no-build` passou. O
 branch está limpo e sincronizado no commit `0047230`.
+
+A medição de mutação posterior aos contratos históricos processou **7.954
+mutantes**, com **6.246 mortos, 1.707 sobreviventes e 1 timeout**. Entre os
+**7.953 classificáveis**, a taxa foi **78,54%**, uma melhora em relação aos
+78,47% anteriores. A medição foi registrada como atualização do cache completo;
+a meta de 95% continua pendente.
