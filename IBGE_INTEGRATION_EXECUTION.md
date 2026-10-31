@@ -107,6 +107,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `ebeedea` | Limpeza do fixture de escopo do teste SINAN |
 | `a01cc7a` | Reconciliação do total SINAN com UF declarada |
 | `d0c512c` | Gold resolve códigos diretamente pelo catálogo IBGE |
+| `56aad3e` | Cobertura direta do contrato do resolvedor Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
@@ -350,6 +351,8 @@ suíte completa após reconciliação com UF declarada → 434 passed, 3 skipped
 25 warnings
 suíte completa após resolução canônica na Gold → 435 passed, 3 skipped,
 25 warnings
+suíte completa após cobertura direta do resolvedor Gold → 436 passed, 3 skipped,
+25 warnings
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
@@ -379,6 +382,11 @@ A mutação dirigida após essa alteração incluiu os caminhos de `aggregate()`
 permanecem parcialmente classificados no cache do mutmut. A evidência de
 aceite é a regressão funcional, que cobre explicitamente código completo
 inválido e UF divergente.
+
+O novo helper `resolve_catalog_municipality_codes()` também recebeu uma rodada
+dirigida própria: 14 de 16 mutantes pendentes morreram. Os dois sobreviventes
+alteram apenas a representação de UF ausente (`None` versus string vazia), sem
+mudar a resolução observável, e permanecem documentados como equivalentes.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
