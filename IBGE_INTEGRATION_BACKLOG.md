@@ -149,7 +149,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-010 — Fixtures e reconciliação epidemiológica nacional
 
 - Prioridade: **P1**
-- Estado: **Parcial; contrato sintético nacional validado, dados autorizados pendentes**
+- Estado: **Parcial; homologação pública nacional concluída, dados autorizados pendentes**
 - Dependências: IBGE-004, IBGE-007
 - Escopo: dados SINAN autorizados, Gold nacional e reconciliação Silver → Gold
   → PostgreSQL.
@@ -178,6 +178,10 @@ IBGE-012 ──> IBGE-013
   normalização textual legada ficou restrita ao modo sem catálogo.
 - `dropped_rows` na Gold representa somente linhas descartadas; a redução por
   agregação é registrada separadamente em `aggregation_reduction`.
+- Homologação pública real: SINAN DENG 2024 passou por Silver, Gold e PostgreSQL
+  nacional; 6.179.050 casos resolvidos, 2.428.428 grupos, 5.571 municípios e
+  uma divergência de UF sinalizada. Essa evidência não substitui eventual
+  fixture autorizada de produção.
 
 ### IBGE-011 — Histórico territorial explícito
 
