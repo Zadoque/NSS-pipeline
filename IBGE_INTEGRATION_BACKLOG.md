@@ -161,6 +161,9 @@ IBGE-012 ──> IBGE-013
 - Evidência local: fixture sintética com uma linha por cada um dos 5.571
   municípios passa pela Gold sem perdas; isso não substitui uma carga SINAN
   nacional real/autorizada.
+- O total independente de `run_load.py` usa o mesmo resolvedor IBGE quando há
+  catálogo ativo; códigos completos inválidos não são mais aceitos por
+  truncamento para seis dígitos.
 
 ### IBGE-011 — Histórico territorial explícito
 

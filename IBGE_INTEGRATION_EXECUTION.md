@@ -103,6 +103,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `72a16af` | Testes dos contratos de erro do histórico |
 | `d6d2efa` | Asserção dos códigos históricos persistidos |
 | `cb8b404` | Validação de referências entre edições históricas |
+| `8044970` | Reconciliação do total SINAN pelo resolvedor IBGE |
+| `ebeedea` | Limpeza do fixture de escopo do teste SINAN |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -339,6 +341,8 @@ suíte completa após contratos de erro do histórico → 430 passed, 3 skipped,
 25 warnings
 suíte completa após validação de referências históricas → 432 passed, 3 skipped,
 25 warnings
+suíte completa após reconciliação do total SINAN pelo catálogo → 433 passed,
+3 skipped, 25 warnings
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
@@ -350,6 +354,11 @@ Eventos administrativos agora aceitam conjuntos explícitos de códigos das
 edições de origem e destino. Quando fornecidos, qualquer `source_code7` ou
 `target_code7` ausente é rejeitado antes da promoção; a implementação não
 resolve nomes nem cria sucessões por aproximação.
+
+O executor `run_load.py` também usa `catalog.resolve()` para calcular o total
+independente da Gold quando uma release IBGE está ativa. Isso impede que um
+código de sete dígitos inválido seja reduzido ao código de seis dígitos de um
+município legítimo durante a validação de publicação.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
