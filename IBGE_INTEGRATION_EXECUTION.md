@@ -1305,6 +1305,10 @@ o contrato do histórico: eventos sem `event_id` ou sem fonte textual agora são
 rejeitados antes da materialização em Parquet. A regressão correspondente
 passou junto com os **71 testes** de `tests/test_ibge_historical.py`.
 
+Após essa alteração, a suíte integral com PostgreSQL passou em **596 testes**,
+com **3 pulados** e **25 warnings**. O teste de ambiente continuou usando as
+mesmas migrations e os bancos temporários configurados no `flake.nix`.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
