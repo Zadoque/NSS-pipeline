@@ -52,6 +52,20 @@ def test_validate_checkpoint_completed_rejeita_entrada_nao_objeto():
         _validate_checkpoint_completed({"3301009": []}, {"3301009": "Campos"})
 
 
+@pytest.mark.parametrize("bronze_path", [123, ""])
+def test_validate_checkpoint_completed_rejeita_caminho_bronze_invalido(bronze_path):
+    completed = {
+        "3301009": {
+            "bronze_path": bronze_path,
+            "bronze_sha256": "a" * 64,
+            "rows": 0,
+        },
+    }
+
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+
 @pytest.mark.parametrize("rows", [True, -1])
 def test_validate_checkpoint_completed_rejeita_rows_nao_validos(rows):
     completed = {
@@ -79,6 +93,31 @@ def test_validate_checkpoint_completed_nao_aceita_hash_invalido_com_rows_validos
         _validate_checkpoint_completed(completed, {"3301009": "Campos"})
 
     assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_validate_checkpoint_completed_aceita_hash_hexadecimal_maiusculo():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "ABCDEF" * 10 + "ABCD",
+            "rows": 0,
+        },
+    }
+
+    assert _validate_checkpoint_completed(completed, {"3301009": "Campos"}) == completed
+
+
+def test_validate_checkpoint_completed_rejeita_caractere_fora_do_hexadecimal():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "X" * 64,
+            "rows": 0,
+        },
+    }
+
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
 
 
 @pytest.mark.parametrize(
