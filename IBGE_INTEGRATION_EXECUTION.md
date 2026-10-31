@@ -86,6 +86,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
 | `09f048a` | Vinculação do checkpoint à identidade da release IBGE |
+| `a9a64cb` | Garantia de timestamps UTC no lote CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -310,6 +311,8 @@ Os mutantes `48`, `49`, `50`, `52`, `53` e `54` de `run_cnes`, que alteravam
 as chaves ou a validação da identidade IBGE no checkpoint, também morreram
 após o teste com release catalogada. A mesma rodada matou os caminhos de
 checkpoint inválido e o descarte indevido de `GeographicScope`.
+O mutante `run_cnes__mutmut_76`, que removia o UTC do timestamp de ingestão,
+foi morto após a asserção explícita do sufixo `+00:00`.
 
 ## Compatibilidade preservada
 
