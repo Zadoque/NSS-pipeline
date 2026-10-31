@@ -324,6 +324,8 @@ tests/integration com PostgreSQL → 20 passed, 1 warning
 suíte completa após retentativa CNES → 415 passed, 2 skipped, 25 warnings
 suíte completa após workers CNES e série histórica → 420 passed, 2 skipped, 25 warnings
 suíte completa após suporte às DTBs legadas → 421 passed, 3 skipped, 25 warnings
+suíte final após a promoção idempotente de eventos DTB → 422 passed, 3 skipped,
+25 warnings
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
