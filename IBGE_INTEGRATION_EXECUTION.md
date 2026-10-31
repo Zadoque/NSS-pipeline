@@ -1087,6 +1087,13 @@ Após os commits de integridade da release e o ajuste dos fixtures de manifesto,
 a suíte integral foi repetida com PostgreSQL local: **547 testes passaram, 3
 foram pulados e 25 warnings foram emitidos**.
 
+A nova rodada global limpa de mutação, executada após a validação de releases
+completas, produziu **7.475 mutantes: 5.608 mortos, 1.773 sobreviventes, 93
+sem testes e 1 timeout**. Entre os **7.381 mutantes classificáveis**, a taxa
+foi **75,98%**. A meta de 95% continua pendente; esta medição substitui a
+baseline global anterior para fins de acompanhamento e não reduz o escopo de
+módulos configurado no `pyproject.toml`.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
