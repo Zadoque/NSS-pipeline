@@ -1687,3 +1687,11 @@ refatoração reduziu o conjunto mutável, o resultado dirigido ajustado ficou e
 **79,24%** classificáveis. Esse número é uma atualização dirigida, não uma
 nova rodada global completa; a linha de base global continua sendo a rodada
 limpa de 8.458 mutantes registrada acima.
+
+O ciclo seguinte adicionou `test_catalogo_operacional_cobre_todos_os_grupos_sinan_do_pysus`,
+comparando o catálogo de `TRACKED_DISEASES` com os grupos do PySUS 2.11.7 sem
+rede. A suíte integral passou em **687 testes**, com **21 testes condicionais
+pulados** e **25 warnings**; `nix flake check --no-build` também passou. A
+mutação dirigida pós-teste terminou com **8.453 mutantes**, **6.433 mortos**,
+**1.689 sobreviventes** e **331 timeouts**, ou **79,20%** classificáveis. A
+meta global de 95% continua pendente.

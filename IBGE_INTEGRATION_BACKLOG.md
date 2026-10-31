@@ -556,3 +556,11 @@ skips condicionais** e **25 warnings**. A mutação dirigida eliminou os dois
 mutantes restantes desse contrato; o resultado ajustado é **79,24%**
 classificável, enquanto a linha de base global limpa de **79,13%** permanece a
 referência até nova execução global completa.
+
+O ciclo posterior adicionou uma regressão offline que compara `TRACKED_DISEASES`
+com os grupos oficiais do PySUS 2.11.7, evitando que a cobertura nacional seja
+reduzida silenciosamente quando o catálogo evoluir. Foram aprovados **687
+testes**, com **21 skips condicionais** e **25 warnings**; o flake check passou.
+A mutação dirigida registrou **6.433 mortos**, **1.689 sobreviventes** e **331
+timeouts** em **8.453 mutantes** (**79,20%** classificáveis). A meta de 95%
+permanece pendente.

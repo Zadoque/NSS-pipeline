@@ -12,6 +12,15 @@ from app.pipeline.update_sinan import (
 )
 
 
+def test_catalogo_operacional_cobre_todos_os_grupos_sinan_do_pysus():
+    from pysus.api.ftp.databases import SINAN
+
+    pysus_groups = set(SINAN.model_fields["group_definitions"].default)
+
+    assert pysus_groups
+    assert set(TRACKED_DISEASES) == pysus_groups
+
+
 def test_update_one_skips_same_size(tmp_path, monkeypatch):
     monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
     remote = RemoteSinanFile("DENG", 2026, "remote", 4)
