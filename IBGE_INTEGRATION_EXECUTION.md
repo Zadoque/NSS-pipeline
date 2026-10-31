@@ -1108,6 +1108,15 @@ morreram; o sobrevivente que substitui `ensure_ascii=False` por `None` é
 equivalente no comportamento do serializador Python usado pelo projeto. A
 suíte específica do contrato passou em **1 teste**.
 
+O commit `4f1d0b0` (`test(ibge): cover administrative history parser`) ampliou
+as regressões do parser de eventos administrativos para formato não suportado,
+colunas ausentes, fonte vazia, data inválida e mensagens de linha para códigos
+ou tipos inválidos. A rodada dirigida matou o mutante que removia a mensagem do
+tipo inválido; seis variantes que apenas retiravam formatos já permitidos foram
+classificadas como equivalentes porque continuam rejeitando o formato `.txt`.
+A suíte integral posterior passou em **553 testes**, com **3 pulados** e **25
+warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
