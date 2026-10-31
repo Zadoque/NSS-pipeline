@@ -100,6 +100,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `594bdb5` | Promoção idempotente de eventos anuais DTB |
 | `0a908e8` | Timeout do download DTB exposto no wrapper e na CLI |
 | `9ddd663` | Validação semântica dos eventos históricos |
+| `72a16af` | Testes dos contratos de erro do histórico |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -330,6 +331,9 @@ suíte final após a promoção idempotente de eventos DTB → 422 passed, 3 ski
 25 warnings
 suíte final após exposição do timeout DTB → 422 passed, 3 skipped, 25 warnings
 suíte após validação semântica dos eventos históricos → 426 passed, 3 skipped,
+25 warnings
+testes dirigidos do histórico após contratos de erro → 23 passed, 1 warning
+suíte completa após contratos de erro do histórico → 430 passed, 3 skipped,
 25 warnings
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
