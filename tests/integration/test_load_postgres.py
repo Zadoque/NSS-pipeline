@@ -148,6 +148,55 @@ def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
     assert row.content_sha256 == "c" * 64
 
 
+def test_publicacao_multi_uf_preserva_catalogo_e_fks_municipais(postgres_engine):
+    municipalities = [
+        Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata(
+            "ibge-dtb-multi-uf", 2025, "fixture", "fixture://dtb-multi-uf",
+            "2026-01-01T00:00:00Z", "d" * 64, content_sha256="e" * 64,
+        ),
+    )
+    gold = pd.DataFrame({
+        "year": [2026, 2026],
+        "month": [1, 1],
+        "cd_mun": [item.code7 for item in municipalities],
+        "nm_mun": [item.name for item in municipalities],
+        "cd_uf": [item.uf_code for item in municipalities],
+        "nm_uf": [item.uf_name for item in municipalities],
+        "cases_total": [2, 3],
+    })
+
+    _publish(
+        postgres_engine, gold, "DENG", "multi-uf-b1",
+        municipios=[item.code7 for item in municipalities],
+        ibge_catalog=catalog, geographic_scope_type="UFs",
+    )
+
+    with postgres_engine.connect() as conn:
+        facts = conn.execute(text(
+            "SELECT cd_mun, cases_total FROM analytics.fato_casos "
+            "WHERE batch_id = 'multi-uf-b1' ORDER BY cd_mun"
+        )).all()
+        publications = conn.execute(text(
+            "SELECT cd_mun, ibge_catalog_id, geographic_scope_type "
+            "FROM analytics.pipeline_publications "
+            "WHERE batch_id = 'multi-uf-b1' ORDER BY cd_mun"
+        )).all()
+        dimensions = conn.execute(text(
+            "SELECT cd_mun, cd_uf FROM analytics.dim_municipio "
+            "WHERE cd_mun IN ('3301009', '3550308') ORDER BY cd_mun"
+        )).all()
+
+    assert [tuple(row) for row in facts] == [("3301009", 2), ("3550308", 3)]
+    assert all(row.ibge_catalog_id == "ibge-dtb-multi-uf" for row in publications)
+    assert all(row.geographic_scope_type == "UFs" for row in publications)
+    assert [tuple(row) for row in dimensions] == [("3301009", "33"), ("3550308", "35")]
+
+
 def test_publicacao_rejeita_reuso_de_catalog_id_com_hash_diferente(postgres_engine):
     catalog = _catalog()
     _publish(postgres_engine, _gold_exemplo(), "DENG", "immutable-1", ibge_catalog=catalog)
