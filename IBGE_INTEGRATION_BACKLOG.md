@@ -271,6 +271,9 @@ IBGE-012 ──> IBGE-013
     **25 warnings**, incluindo PostgreSQL de integração local.
   - Após `88f4949`, a suíte integral passou em **501 testes**, com **3 pulados**
     e **25 warnings**; `nix flake check --no-build` também passou.
+  - O commit `5d5c055` adicionou regressões de CLI para `run.py` e
+    `run_cnes.py`; a suíte integral posterior passou em **503 testes**, com
+    **3 pulados** e **25 warnings**.
 
 ### IBGE-013 — Rollout nacional de produção
 

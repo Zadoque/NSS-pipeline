@@ -905,6 +905,12 @@ nacional antes de materializar o escopo. A mesma regra foi aplicada a `run.py`,
 artificialmente. A suíte integral posterior passou em **501 testes**, com **3
 testes pulados** e **25 warnings**, e `nix flake check --no-build` passou.
 
+O commit `5d5c055` (`test(scope): cover national cli guard`) adicionou testes
+diretos para o encaminhamento de `require_national=True` em `run.py` e
+`run_cnes.py`, complementando a cobertura já existente de `run_load.py`. A
+suíte integral posterior passou em **503 testes**, com **3 testes pulados** e
+**25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
