@@ -133,6 +133,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `00a53b3` | Calibração CNES real nas 27 UFs |
 | `db34796` | Execução real do `run_cnes` no escopo amostral nacional |
 | `cd7721a` | Atualização do status de homologação CNES |
+| `36dfc21` | Fortalecimento dos contratos do cliente de Localidades |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -471,6 +472,14 @@ mutante que substitui a doença normalizada por `None` continuou sobrevivente
 na ferramenta, embora os testes afirmem o valor transmitido ao Bronze, Gold e
 PostgreSQL. Ele permanece registrado como pendência de instrumentação/teste,
 sem ser tratado como morto artificialmente.
+
+Os contratos do cliente de Localidades foram reforçados com asserções de
+ownership de sessão, normalização de URL, hierarquia administrativa, origem,
+ano de referência e mensagens de erro. A rodada dirigida foi reexecutada com
+os nomes completos dos mutantes; os caminhos de ownership e URL morreram, mas
+alguns mutantes de parsing continuam sobrevivendo por associação incompleta da
+ferramenta entre testes novos e a função mutada. Eles permanecem pendentes e
+não alteram o score global declarado acima.
 
 ## Compatibilidade preservada
 
