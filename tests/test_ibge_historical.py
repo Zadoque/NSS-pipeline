@@ -291,6 +291,33 @@ def test_write_events_rejects_semantically_invalid_event_shapes(tmp_path, event)
         write_events(tmp_path / f"{event.event_id}.parquet", [event])
 
 
+def test_write_events_accepts_all_supported_event_shapes(tmp_path):
+    events = [
+        MunicipalityEvent("creation", "CREATION", "2025-01-01", None, "5101837"),
+        MunicipalityEvent("extinction", "EXTINCTION", "2025-01-01", "3301009", None),
+        MunicipalityEvent("succession", "SUCCESSION", "2025-01-01", "3301009", "5101837"),
+        MunicipalityEvent("merger", "MERGER", "2025-01-01", "3301009", "5101837"),
+        MunicipalityEvent("split", "SPLIT", "2025-01-01", "3301009", "5101837"),
+        MunicipalityEvent("rename", "RENAME", "2025-01-01", "3301009", "3301009"),
+        MunicipalityEvent("toponymic", "TOPONYMIC_CHANGE", "2025-01-01", "3301009", "3301009"),
+    ]
+
+    assert write_events(tmp_path / "valid.parquet", events).exists()
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        MunicipalityEvent("extinction-empty", "EXTINCTION", "2025-01-01", None, None),
+        MunicipalityEvent("succession-source-empty", "SUCCESSION", "2025-01-01", None, "5101837"),
+        MunicipalityEvent("rename-source-empty", "RENAME", "2025-01-01", None, "3301009"),
+    ],
+)
+def test_write_events_rejects_missing_required_event_codes(tmp_path, event):
+    with pytest.raises(ValueError, match="evento"):
+        write_events(tmp_path / f"{event.event_id}.parquet", [event])
+
+
 def test_parse_toponymic_events_preserves_code_and_names(tmp_path):
     source = tmp_path / "alteracoes.csv"
     source.write_text(
