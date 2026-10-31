@@ -936,6 +936,12 @@ selecionados do classificador morreram. A suíte integral posterior, com
 PostgreSQL de integração, passou em **519 testes**, com **3 testes pulados** e
 **25 warnings**.
 
+O commit `8e4e730` (`test(load): cover geographic scope hash contract`) adicionou
+regressões para aceitar o hash canônico do escopo geográfico e rejeitar um hash
+divergente antes de abrir a transação. Os **3 mutantes** selecionados desse
+contrato morreram. A suíte integral posterior passou em **527 testes**, com
+**3 testes pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
