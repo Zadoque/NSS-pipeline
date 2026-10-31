@@ -73,6 +73,8 @@ IBGE-012 ──> IBGE-013
   apenas em seleções genéricas e fixtures explícitas.
 - Evidência adicional: `555ff4e` registra o instante de promoção no manifesto
   (`promoted_at`) sem quebrar manifests anteriores.
+- Evidência adicional: `055dfb5` valida `promoted_at` como ISO-8601 quando o
+  campo está presente e rejeita valores inválidos.
 
 ### IBGE-004 — SINAN Gold canônica
 

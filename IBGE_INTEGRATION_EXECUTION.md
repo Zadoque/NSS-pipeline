@@ -951,6 +951,11 @@ A validação pós-mudança, executada com o PostgreSQL de integração local, p
 em **527 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
 --no-build` também passou.
 
+O commit `055dfb5` (`fix(ibge): validate promotion timestamp`) fechou a
+validação do novo campo: timestamps presentes no manifesto precisam ser
+ISO-8601; a ausência continua válida para releases legadas. O contrato foi
+testado para valores textuais inválidos e tipos não textuais.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
