@@ -427,6 +427,9 @@ classificados como sobreviventes por alterações de inicialização que não
 mudam nenhum resultado observável nos caminhos cobertos. A atualização do
 cache dirigido passou a registrar 3.987 mortos e 2.268 sobreviventes; esse
 valor não substitui a última rodada global completa de 7.000 mutantes.
+
+A regressão completa executada após essa cobertura passou em 447 testes, com
+3 testes pulados explicitamente e 25 warnings conhecidos.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
