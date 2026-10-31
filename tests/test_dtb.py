@@ -51,6 +51,21 @@ def test_parse_dtb_rejeita_linha_municipal_com_geocodigo_invalido(tmp_path):
         parse_dtb_table(path, 2025)
 
 
+def test_parse_dtb_rejeita_geocodigo_unicode(tmp_path):
+    path = tmp_path / "unicode.csv"
+    path.write_text(
+        "a,b,c,d,e,f,g,h,i\n" * 6
+        + "UF,Nome_UF,x,x,x,x,Município,Código Município Completo,Nome_Município\n"
+        + "３３,Rio de Janeiro,1,1,1,1,００１００,３３００１００９,Campos\n",
+        encoding="utf-8",
+    )
+
+    import pytest
+
+    with pytest.raises(ValueError, match="geocódigo municipal inválido"):
+        parse_dtb_table(path, 2025)
+
+
 def test_refresh_dtb_writes_release_and_active_pointer(tmp_path, monkeypatch):
     import app.pipeline.reference.ibge.refresh as refresh
 

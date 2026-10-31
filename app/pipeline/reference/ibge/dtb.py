@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import tempfile
 from pathlib import Path
 from zipfile import ZipFile
@@ -71,9 +72,9 @@ def parse_dtb_table(path: Path, reference_year: int) -> tuple[Municipality, ...]
             continue
         code = "".join(str(raw_code).split())
         uf = "".join(str(raw_uf).split()).zfill(2) if not pd.isna(raw_uf) else ""
-        if len(code) == 5 and len(uf) == 2 and uf.isdigit():
+        if len(code) == 5 and len(uf) == 2 and re.fullmatch(r"[0-9]{2}", uf):
             code = uf + code
-        if len(code) != 7 or not code.isdigit():
+        if not re.fullmatch(r"[0-9]{7}", code):
             raise ValueError(f"geocódigo municipal inválido na linha {index}: {raw_code!r}")
         if uf not in UF_ABBR:
             raise ValueError(f"UF inválida na linha {index}: {raw_uf!r}")
