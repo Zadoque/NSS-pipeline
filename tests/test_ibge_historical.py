@@ -1,5 +1,7 @@
 import pytest
 
+from app.pipeline.reference import ibge as ibge_reference
+
 from app.pipeline.reference.ibge.historical import (
     MunicipalityEvent,
     _read_events,
@@ -27,6 +29,11 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
     assert result.exists()
     frame = __import__("pandas").read_parquet(result)
     assert frame.loc[0, "target_code7"] == "5101837"
+
+
+def test_historical_annual_operations_are_public_package_contract():
+    assert ibge_reference.derive_annual_event_series is derive_annual_event_series
+    assert ibge_reference.promote_annual_dtb_events is promote_annual_dtb_events
 
 
 def test_read_events_preserves_optional_fields_and_empty_missing_file(tmp_path):
