@@ -317,6 +317,30 @@ def test_run_cnes_cli_passes_selected_ufs_and_page_size(mocker, monkeypatch, tmp
     )
 
 
+def test_run_cnes_cli_exige_catalogo_nacional_para_all_brazil(mocker, monkeypatch, tmp_path):
+    catalog = mocker.Mock()
+    selected = mocker.Mock()
+    mocker.patch.object(pipeline, "load_active_catalog", return_value=catalog)
+    select = mocker.patch.object(pipeline, "select_scope", return_value=selected)
+    runner = mocker.patch.object(pipeline, "run_cnes")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_cnes", "--catalog-root", str(tmp_path), "--all-brazil"],
+    )
+
+    pipeline.main()
+
+    select.assert_called_once_with(
+        catalog,
+        municipalities=None,
+        ufs=None,
+        all_brazil=True,
+        require_national=True,
+    )
+    runner.assert_called_once()
+
+
 def test_run_cnes_paralleliza_buscas_em_janelas_limitadas(tmp_path, monkeypatch, mocker):
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
     from app.pipeline.cnes import bronze as bronze_module

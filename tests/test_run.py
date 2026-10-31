@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 from app.pipeline import run as runner
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
@@ -30,3 +31,27 @@ def test_run_rejeita_escopo_de_catalogo_diferente(mocker):
         runner.run("DENG", 2026, catalog=catalog, geographic_scope=stale_scope)
 
     fetch.assert_not_called()
+
+
+def test_main_exige_catalogo_nacional_para_all_brazil(mocker, tmp_path):
+    catalog = mocker.Mock()
+    scope = mocker.Mock()
+    mocker.patch.object(runner, "load_active_catalog", return_value=catalog)
+    select = mocker.patch.object(runner, "select_scope", return_value=scope)
+    execute = mocker.patch.object(runner, "run")
+    mocker.patch.object(
+        sys,
+        "argv",
+        ["run", "--disease", "DENG", "--year", "2026", "--catalog-root", str(tmp_path), "--all-brazil"],
+    )
+
+    runner.main()
+
+    select.assert_called_once_with(
+        catalog,
+        municipalities=None,
+        ufs=None,
+        all_brazil=True,
+        require_national=True,
+    )
+    execute.assert_called_once()
