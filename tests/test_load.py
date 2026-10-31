@@ -471,6 +471,38 @@ def test_unidade_rejects_non_smallint_type(mocker):
     conn.execute.assert_not_called()
 
 
+def test_unidade_rejeita_municipios_cnes_conflitantes(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({
+        "cd_unidade": ["0000001", "0000001"],
+        "cd_mun_unidade": ["3301009", "3550308"],
+    })
+
+    with pytest.raises(ValueError, match="municípios distintos"):
+        upsert_dim_unidade_saude(conn, fact)
+
+    conn.execute.assert_not_called()
+
+
+def test_unidade_prefere_municipio_cnes_valido_a_linha_nula(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({
+        "cd_unidade": ["0000001", "0000001"],
+        "cd_mun_unidade": [None, "3550308"],
+    })
+
+    upsert_dim_unidade_saude(conn, fact)
+
+    rows = conn.execute.call_args.args[1]
+    assert rows == [{
+        "cd_unidade": "0000001",
+        "nm_unidade": None,
+        "razao_social": None,
+        "tp_unidade": None,
+        "cd_mun": "3550308",
+    }]
+
+
 def test_insert_fato_cases_handles_empty_and_renames_dimensions(mocker):
     conn = mocker.Mock()
     insert_fato_casos(conn, pd.DataFrame())

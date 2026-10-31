@@ -246,11 +246,33 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
 
     subset = (
         fact_df[["cd_unidade", *present_source_cols, *(["cd_mun"] if "cd_mun" in fact_df.columns else [])]]
-        .drop_duplicates(subset=["cd_unidade"])
         .copy()
         .rename(columns=source_to_db)
     )
     subset = subset[~subset["cd_unidade"].isin(_SENTINELAS)]
+
+    if "cd_mun" in subset.columns:
+        municipality_counts = (
+            subset.dropna(subset=["cd_mun"])
+            .groupby("cd_unidade")["cd_mun"]
+            .nunique()
+        )
+        conflicting = sorted(municipality_counts[municipality_counts > 1].index.tolist())
+        if conflicting:
+            raise ValueError(
+                "unidade CNES associada a municípios distintos: "
+                f"{', '.join(map(str, conflicting))}"
+            )
+        # Uma linha sem município não deve apagar uma associação válida da
+        # mesma unidade apenas por aparecer primeiro no DataFrame.
+        subset["_cd_mun_present"] = subset["cd_mun"].notna()
+        subset = subset.sort_values(
+            ["cd_unidade", "_cd_mun_present"],
+            ascending=[True, False],
+            kind="stable",
+        ).drop_duplicates(subset=["cd_unidade"]).drop(columns=["_cd_mun_present"])
+    else:
+        subset = subset.drop_duplicates(subset=["cd_unidade"])
 
     db_cols = ["nm_unidade", "razao_social", "tp_unidade", "cd_mun"]
     for col in db_cols:
