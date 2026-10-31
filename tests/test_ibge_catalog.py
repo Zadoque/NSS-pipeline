@@ -47,11 +47,18 @@ def catalog():
 
 def test_resolve_codes_and_rejects_invalid_code():
     value = catalog()
-    assert value.resolve("330100").municipality.code7 == "3301009"
-    assert value.resolve("3301009").status is ResolutionStatus.VALID
+    resolved_code6 = value.resolve("330100")
+    assert resolved_code6.status is ResolutionStatus.VALID
+    assert resolved_code6.input_format == "CODE6"
+    assert resolved_code6.municipality == municipality("3301009", "Campos")
+    resolved_code7 = value.resolve("3301009")
+    assert resolved_code7.status is ResolutionStatus.VALID
+    assert resolved_code7.input_format == "CODE7"
+    assert resolved_code7.municipality == municipality("3301009", "Campos")
     legacy = value.resolve("0330100")
     assert legacy.municipality.code7 == "3301009"
     assert legacy.input_format == "LEGACY_CODE6"
+    assert value.resolve("1330100").status is ResolutionStatus.UNKNOWN_CODE
     assert value.resolve("3301008").status is ResolutionStatus.UNKNOWN_CODE
     assert value.resolve("Bom Jesus").status is ResolutionStatus.INVALID_FORMAT
 
