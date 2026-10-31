@@ -1550,7 +1550,7 @@ planilha oficial versionada para mudanças toponímicas observáveis.
 Os gates que permanecem abertos são deliberados e estão documentados no
 backlog: uma carga SINAN nacional autorizada/privada para reconciliação final,
 uma fonte oficial codificada de sucessões e desmembramentos sem ambiguidade, e
-a meta global de 95% de mutação (a medição atual permanece em 78,54%). Não foi
+a meta global de 95% de mutação (a medição atual permanece em 78,46%). Não foi
 criado fallback por nome ou inferência territorial para mascarar essas
 ausências. O rollout de produção continua condicionado a esses gates.
 
@@ -1561,3 +1561,8 @@ para `lower()`; ele é equivalente no contrato atual porque a comparação só
 verifica consistência entre registros e ambos os lados são normalizados. Ele
 foi mantido documentado como mutante equivalente, sem alterar a semântica do
 catálogo para satisfazer artificialmente a ferramenta.
+
+A rodada global completa mais recente, executada após as fixtures oficiais,
+processou **7.966 mutantes**, com **6.249 mortos, 1.716 sobreviventes e 1
+timeout**. A taxa foi **78,46%** entre os 7.965 mutantes não temporizados. A
+configuração de mutação permaneceu integral; a meta de 95% continua pendente.

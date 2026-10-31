@@ -286,7 +286,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-012 — Mutação dos contratos críticos
 
 - Prioridade: **P1**
-- Estado: **Parcial; 78,54% classificável na última medição global**
+- Estado: **Parcial; 78,46% classificável na última medição global**
 - Dependências: IBGE-001 a IBGE-008
 - Escopo: normalização, filtro, cache, promoção, checkpoint, linhagem e
   reprocessamento.
@@ -448,9 +448,13 @@ IBGE-012 ──> IBGE-013
   - O commit `2adf4f0` isolou doença, ano e alvo na validação de identidade da
     Gold; o mutante que trocava a conjunção lógica morreu. A baseline global
     ainda não foi recalculada após essa alteração.
-  - A nova rodada global posterior processou novamente 7.958 mutantes: 6.244
+- A nova rodada global posterior processou novamente 7.958 mutantes: 6.244
     mortos, 1.713 sobreviventes e 1 timeout, com **78,47%** entre os
     classificáveis. A meta de 95% segue pendente.
+- A rodada global mais recente, após as fixtures oficiais históricas, processou
+  **7.966 mutantes**: **6.249 mortos, 1.716 sobreviventes e 1 timeout**. A
+  taxa foi **78,46%** entre os 7.965 mutantes não temporizados; a configuração
+  global não foi reduzida e a meta de 95% segue pendente.
 
 ### IBGE-013 — Rollout nacional de produção
 
