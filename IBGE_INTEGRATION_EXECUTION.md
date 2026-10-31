@@ -113,6 +113,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `4113812` | Endurecimento do contrato CLI de `run_load` |
 | `e604894` | Cobertura Gold em lotes com métricas nacionais de resolução |
 | `36eeaa7` | Asserção do contexto completo do resolvedor IBGE |
+| `fa7d43b` | Cobertura das invariantes do relatório de validação IBGE |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -430,6 +431,12 @@ valor não substitui a última rodada global completa de 7.000 mutantes.
 
 A regressão completa executada após essa cobertura passou em 447 testes, com
 3 testes pulados explicitamente e 25 warnings conhecidos.
+
+Após a cobertura das invariantes de validação, a regressão completa passou em
+449 testes, com 3 testes pulados explicitamente e 25 warnings conhecidos. A
+rodada dirigida da validação matou 3 de 4 mutantes restantes; o quarto foi
+classificado como equivalente porque trocar a normalização global de siglas
+`upper()` por `lower()` não altera a igualdade relativa entre registros.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
