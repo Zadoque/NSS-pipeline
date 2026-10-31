@@ -228,7 +228,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-012 — Mutação dos contratos críticos
 
 - Prioridade: **P1**
-- Estado: **Parcial; 74,39% classificável na última rodada global**
+- Estado: **Parcial; 74,94% classificável na última rodada global**
 - Dependências: IBGE-001 a IBGE-008
 - Escopo: normalização, filtro, cache, promoção, checkpoint, linhagem e
   reprocessamento.
@@ -237,8 +237,8 @@ IBGE-012 ──> IBGE-013
   - Mutantes equivalentes são documentados individualmente.
   - Meta global de 95% é atingida sem reduzir artificialmente o escopo.
   - Integrações PostgreSQL são executadas em rodada separada.
-  - Última rodada global limpa: 5.389 mortos, 1.854 sobreviventes, 92 sem
-    testes e 1 timeout em 7.336 mutantes; 74,39% entre os 7.244 classificáveis.
+  - Última rodada global limpa: 5.430 mortos, 1.815 sobreviventes, 92 sem
+    testes e 1 timeout em 7.338 mutantes; 74,94% entre os 7.246 classificáveis.
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição
     global nem atende à meta de 95%.

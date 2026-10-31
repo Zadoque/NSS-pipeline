@@ -730,7 +730,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; PDF oficial 1872–2010 preservado como `RAW_ONLY` | Parcial; extração tabular/sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
-| Mutação ≥95% | Última medição global limpa: 74,39% entre 7.244 mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Última medição global limpa: 74,94% entre 7.246 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:
@@ -815,12 +815,12 @@ posterior passou em **495 testes**; a execução dirigida de escopo matou os
 mutantes relevantes de seleção e serialização, mantendo separados os casos
 equivalentes para entradas exclusivamente ASCII.
 
-A rodada global de mutação limpa, executada após as coberturas de catálogo e
-publicação, produziu 7.336 mutantes: 5.389 mortos, 1.854 sobreviventes, 92
-sem testes associados e 1 timeout. Considerando mortos, sobreviventes e
-timeout, a taxa atual é **74,39%** (5.389 / 7.244). A meta de 95% permanece
-pendente; a rodada não foi artificialmente restringida nem usada para
-reclassificar sobreviventes como equivalentes.
+A rodada global de mutação limpa, executada após as coberturas de catálogo,
+publicação, escopo e resolução, produziu 7.338 mutantes: 5.430 mortos, 1.815
+sobreviventes, 92 sem testes associados e 1 timeout. Considerando mortos,
+sobreviventes e timeout, a taxa atual é **74,94%** (5.430 / 7.246). A meta de
+95% permanece pendente; a rodada não foi artificialmente restringida nem usada
+para reclassificar sobreviventes como equivalentes.
 
 Como verificação dirigida posterior, os 30 sobreviventes então associados a
 `reference/ibge/catalog.py` foram reexecutados após os três commits de testes:
@@ -839,6 +839,14 @@ truncada, mesmo contendo todas as UFs, agora é rejeitada quando possui menos de
 O commit `81dc7b1` adicionou a defesa de publicação: releases IBGE com
 `validation_status` diferente de `VALIDATED` são rejeitadas antes do registro
 na transação PostgreSQL. A suíte completa posterior passou em 486 testes.
+
+O commit `b3cfda6` (`test(ibge): assert invalid resolution context`) adicionou
+regressão para preservar o contexto de entradas não numéricas. Os dois
+mutantes restantes dessa inicialização foram classificados como equivalentes.
+
+O commit `72b4774` (`fix(scope): enforce ascii municipality scope hashes`)
+adicionou a rejeição de dígitos Unicode no identificador de escopo e testes
+exatos para seleção municipal, por UF e Brasil inteiro.
 
 Os commits mais recentes desta continuação foram `44abf2c`
 (`test(ibge): strengthen historical source contracts`) e `89c5402`
