@@ -86,6 +86,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
 | `09f048a` | Vinculação do checkpoint à identidade da release IBGE |
+| `e6571df` | Contrato exato para escopo CNES vazio |
 | `a9a64cb` | Garantia de timestamps UTC no lote CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
