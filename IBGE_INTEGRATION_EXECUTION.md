@@ -911,6 +911,12 @@ diretos para o encaminhamento de `require_national=True` em `run.py` e
 suíte integral posterior passou em **503 testes**, com **3 testes pulados** e
 **25 warnings**.
 
+O commit `9f39029` (`test(cnes): harden checkpoint validation contracts`)
+reforçou as invariantes do checkpoint CNES para `rows`, SHA-256, tipos de
+entradas e mensagens de erro. A rodada dirigida matou **7 mutantes** previamente
+selecionados nesses validadores. A suíte integral posterior passou em **513
+testes**, com **3 testes pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

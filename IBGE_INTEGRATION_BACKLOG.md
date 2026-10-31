@@ -274,6 +274,10 @@ IBGE-012 ──> IBGE-013
   - O commit `5d5c055` adicionou regressões de CLI para `run.py` e
     `run_cnes.py`; a suíte integral posterior passou em **503 testes**, com
     **3 pulados** e **25 warnings**.
+  - O commit `9f39029` reforçou os contratos de checkpoint do CNES; uma rodada
+    dirigida matou **7 mutantes** selecionados de validação de hash, contagem,
+    tipos e mensagens. A suíte integral posterior passou em **513 testes**, com
+    **3 pulados** e **25 warnings**.
 
 ### IBGE-013 — Rollout nacional de produção
 
