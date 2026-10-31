@@ -1140,6 +1140,14 @@ linhagem e para rejeitar alteração de um evento já registrado sob o mesmo
 suíte integral posterior passou em **560 testes**, com **3 pulados** e **25
 warnings**.
 
+O commit `0a15030` (`test(ibge): cover historical source acquisition lifecycle`)
+adicionou regressões para identificador inválido, fechamento da sessão criada
+internamente, fechamento da resposta HTTP e descarte do artefato temporário
+quando o SHA-256 diverge. Na rodada dirigida, **5 de 7 mutantes** selecionados
+morreram; dois sobreviventes não produziram diferença observável nos contratos
+atuais. A suíte integral posterior passou em **564 testes**, com **3 pulados**
+e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
