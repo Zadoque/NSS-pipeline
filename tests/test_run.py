@@ -6,6 +6,16 @@ from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 from app.pipeline.scope import GeographicScope
 
 
+@pytest.mark.parametrize("arguments", [
+    ["--municipios", "3301009", "--ufs", "RJ"],
+    ["--municipios", "3301009", "--all-brazil"],
+    ["--ufs", "RJ", "--all-brazil"],
+])
+def test_cli_run_rejeita_selecao_geografica_ambigua(arguments):
+    with pytest.raises(SystemExit):
+        runner._build_parser().parse_args(arguments)
+
+
 def test_run_rejeita_escopo_de_catalogo_diferente(mocker):
     catalog = InMemoryMunicipalityCatalog(
         [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],

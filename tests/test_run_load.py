@@ -9,6 +9,16 @@ from app.pipeline.sinan.gold import MUNICIPIOS_RJ
 from app.pipeline.scope import scope_sha256
 
 
+@pytest.mark.parametrize("arguments", [
+    ["--municipios", "3301009", "--ufs", "RJ"],
+    ["--municipios", "3301009", "--all-brazil"],
+    ["--ufs", "RJ", "--all-brazil"],
+])
+def test_cli_run_load_rejeita_selecao_geografica_ambigua(arguments):
+    with pytest.raises(SystemExit):
+        runner._build_parser().parse_args(arguments)
+
+
 @pytest.fixture
 def pipeline(mocker):
     mocker.patch.object(runner, "fetch_sinan", return_value=Path("source.parquet"))

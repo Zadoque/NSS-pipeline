@@ -51,8 +51,7 @@ def run(
 
     logger.info("Gold concluída: %s", gold)
  
-def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Pipeline Medallion do SINAN")
     parser.add_argument("--disease", required=True, help="Ex.: DENG, TOXC, ZIKA")
     parser.add_argument("--year", required=True, type=int)
@@ -62,10 +61,17 @@ def main() -> None:
         help=f"Chaves separadas por vírgula, dentre: {', '.join(CATALOG)}",
     )
     parser.add_argument("--catalog-root", type=Path, help="Diretório local de releases IBGE")
-    parser.add_argument("--municipios", help="Códigos municipais separados por vírgula")
-    parser.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
-    parser.add_argument("--all-brazil", action="store_true")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--municipios", help="Códigos municipais separados por vírgula")
+    scope.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
+    scope.add_argument("--all-brazil", action="store_true")
     parser.add_argument("--cnes-batch-id", help="Lote CNES fixado para o enriquecimento da Gold")
+    return parser
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    parser = _build_parser()
     args = parser.parse_args()
     selected = [c.strip() for c in args.columns.split(",") if c.strip()]
     try:

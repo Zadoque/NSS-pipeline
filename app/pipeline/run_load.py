@@ -115,8 +115,7 @@ def run_load(
     )
 
 
-def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Roda a pipeline SINAN completa (grão fixo) e carrega o resultado no Postgres"
     )
@@ -125,10 +124,20 @@ def main() -> None:
     parser.add_argument("--allow-empty", action="store_true",
                         help="Permite publicar zero no recorte; usar após validar a ausência na origem")
     parser.add_argument("--catalog-root", type=Path, help="Diretório local de releases IBGE")
-    parser.add_argument("--municipios", help="Códigos municipais separados por vírgula")
-    parser.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
-    parser.add_argument("--all-brazil", action="store_true", help="Seleciona todos os municípios da release IBGE")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--municipios", help="Códigos municipais separados por vírgula")
+    scope.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
+    scope.add_argument(
+        "--all-brazil", action="store_true",
+        help="Seleciona todos os municípios da release IBGE",
+    )
     parser.add_argument("--cnes-batch-id", help="Lote CNES fixado para o enriquecimento da Gold")
+    return parser
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    parser = _build_parser()
     args = parser.parse_args()
     try:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
