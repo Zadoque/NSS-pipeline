@@ -116,6 +116,15 @@ def run_load(
                 "Publicação bloqueada: métricas Gold inválidas "
                 f"({', '.join(invalid_metrics)})"
             )
+        if (
+            gold_metadata["resolved_rows"] + gold_metadata["discarded_rows"]
+            != gold_metadata["source_rows"]
+            or gold_metadata["aggregation_reduction"] > gold_metadata["resolved_rows"]
+        ):
+            raise ValueError(
+                "Publicação bloqueada: métricas Gold não reconciliam "
+                "(source_rows, resolved_rows, discarded_rows, aggregation_reduction)"
+            )
         invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
         uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
         if invalid_rows or uf_mismatch_rows:

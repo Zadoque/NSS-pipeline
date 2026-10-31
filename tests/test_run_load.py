@@ -459,6 +459,44 @@ def test_catalogo_ibge_bloqueia_metadata_gold_com_metrica_invalida(mocker, pipel
     get_engine.assert_not_called()
 
 
+def test_catalogo_ibge_bloqueia_metadata_gold_inconsistente(mocker, pipeline, tmp_path):
+    aggregate, _, get_engine, load = pipeline
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3305000", "330500", "São João", "33", "RJ", "Rio", 2025),
+            Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    mocker.patch.object(
+        runner.pd,
+        "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+    aggregate.return_value = Path("gold.parquet")
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        '{"source_rows": 2, "resolved_rows": 1, "discarded_rows": 0, '
+        '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
+        '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
+    )
+    mocker.patch.object(Path, "with_name", return_value=metadata_path)
+
+    with pytest.raises(ValueError, match="não reconciliam"):
+        runner.run_load("DENG", 2026, catalog=catalog)
+
+    load.assert_not_called()
+    get_engine.assert_not_called()
+
+
 def test_run_load_rejeita_escopo_de_catalogo_diferente(mocker, pipeline):
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
