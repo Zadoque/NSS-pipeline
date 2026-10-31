@@ -178,6 +178,8 @@ IBGE-012 ──> IBGE-013
 - Implementação atual: o parser lê formatos legados e recentes das edições
   anuais e deriva apenas eventos observáveis; criação/extinção entre códigos
   não é convertida automaticamente em sucessão.
+- `promote_annual_dtb_events()` grava o Parquet histórico, manifesto com SHA-256
+  de cada edição e a política `OBSERVABLE_ANNUAL_DIFF_ONLY` de forma idempotente.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
