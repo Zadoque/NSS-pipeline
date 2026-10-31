@@ -94,6 +94,42 @@ def test_resolve_none_keeps_empty_original_and_format_reason():
     assert result.reason == "código não numérico"
 
 
+def test_resolve_preserva_contexto_completo_em_cada_status():
+    value = catalog()
+
+    valid = value.resolve("330100")
+    assert (valid.original_code, valid.input_format, valid.reason) == (
+        "330100", "CODE6", None,
+    )
+
+    legacy = value.resolve("0330100")
+    assert (legacy.original_code, legacy.input_format, legacy.reason) == (
+        "0330100", "LEGACY_CODE6", None,
+    )
+
+    unknown = value.resolve("999999")
+    assert (unknown.original_code, unknown.input_format, unknown.reason) == (
+        "999999", "CODE6", "código ausente no catálogo",
+    )
+
+    invalid = value.resolve("33010099")
+    assert (invalid.original_code, invalid.input_format, invalid.reason) == (
+        "33010099", None, "formato esperado: 6 ou 7 dígitos",
+    )
+
+    mismatch = value.resolve("330100", declared_uf="35")
+    assert mismatch.original_code == "330100"
+    assert mismatch.input_format == "CODE6"
+    assert mismatch.municipality.code7 == "3301009"
+    assert mismatch.reason == "UF declarada diverge do catálogo"
+
+    historical = value.resolve("330100", reference_year=2024)
+    assert historical.original_code == "330100"
+    assert historical.input_format == "CODE6"
+    assert historical.municipality.code7 == "3301009"
+    assert historical.reason == "release 2025 não resolve referência 2024"
+
+
 def test_resolve_distinguishes_unknown_code_and_preserves_input_context():
     result = catalog().resolve("999999")
     assert result.status is ResolutionStatus.UNKNOWN_CODE
