@@ -26,6 +26,7 @@ from app.pipeline.load import (
     upsert_dim_municipio,
     upsert_dim_unidade_saude,
 )
+from app.pipeline.scope import scope_sha256
 
 
 def test_clean_code_series_trata_string_vazia_como_ausente():
@@ -348,6 +349,34 @@ def test_load_rejects_unknown_scope_type():
         )
 
     assert str(error.value) == "tipo de escopo geográfico inválido"
+
+
+def test_load_accepts_canonical_scope_hash():
+    connection = _Connection()
+
+    load_gold_to_postgres(
+        _Engine(connection), _gold_minima(), "DENG", "b1",
+        year=2026, municipios=["3301009"], expected_cases_total=5,
+        snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        geographic_scope_sha256=scope_sha256(["3301009"]),
+    )
+
+    assert any("pipeline_publications" in statement for statement, _ in connection.calls)
+
+
+def test_load_rejects_mismatched_scope_hash_before_transaction():
+    connection = _Connection()
+
+    with pytest.raises(ValueError) as error:
+        load_gold_to_postgres(
+            _Engine(connection), _gold_minima(), "DENG", "b1",
+            year=2026, municipios=["3301009"], expected_cases_total=5,
+            snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+            geographic_scope_sha256="0" * 64,
+        )
+
+    assert str(error.value) == "hash do escopo geográfico diverge dos municípios publicados"
+    assert connection.calls == []
 
 
 def test_load_rejects_unknown_or_negative_quality_metric():
