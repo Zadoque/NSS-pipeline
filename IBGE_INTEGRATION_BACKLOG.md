@@ -56,6 +56,9 @@ IBGE-012 ──> IBGE-013
   - Ausência de seleção mantém os quatro municípios legados do RJ.
   - Escopo contém somente identidades materializadas pelo catálogo.
   - Hash do escopo é estável e registrado na publicação.
+- Evidência adicional: `72b4774` rejeita algarismos Unicode no hash do escopo e
+  cobre exatamente os contratos de seleção por UF, Brasil inteiro e município
+  inválido.
 
 ### IBGE-004 — SINAN Gold canônica
 

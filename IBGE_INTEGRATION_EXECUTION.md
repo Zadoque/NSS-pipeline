@@ -769,7 +769,7 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **490 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **495 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
@@ -808,6 +808,13 @@ selecionados para identidade e caminho canônico. Essa evidência é complementa
 e não substitui a baseline global limpa. A suíte completa posterior passou em
 **490 testes**.
 
+O commit `72b4774` (`fix(scope): enforce ascii municipality scope hashes`)
+passou a rejeitar algarismos Unicode no hash do escopo e reforçou os contratos
+de seleção por UF, Brasil inteiro e município inválido. A suíte completa
+posterior passou em **495 testes**; a execução dirigida de escopo matou os
+mutantes relevantes de seleção e serialização, mantendo separados os casos
+equivalentes para entradas exclusivamente ASCII.
+
 A rodada global de mutação limpa, executada após as coberturas de catálogo e
 publicação, produziu 7.336 mutantes: 5.389 mortos, 1.854 sobreviventes, 92
 sem testes associados e 1 timeout. Considerando mortos, sobreviventes e
@@ -836,6 +843,12 @@ na transação PostgreSQL. A suíte completa posterior passou em 486 testes.
 Os commits mais recentes desta continuação foram `44abf2c`
 (`test(ibge): strengthen historical source contracts`) e `89c5402`
 (`test(ibge): assert historical artifact identity`).
+
+O estado histórico permanece deliberadamente parcial: a fonte oficial de
+genealogia 1872–2010 preservada pelo pipeline é um PDF documental, sem tabela
+estruturada de sucessões. Portanto, ela continua em `RAW_ONLY` e não produz
+crosswalk histórico automático. A série anual DTB registra apenas diferenças
+observáveis entre edições consecutivas.
 
 ## Conclusão
 
