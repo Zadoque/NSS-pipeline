@@ -19,7 +19,8 @@ from ..scope import legacy_rj_mapping
 from ..scope import scope_sha256
  
 # Compatibilidade pública para consumidores legados; a definição vive em
-# ``scope.py`` para não acoplar os executores ao módulo Gold.
+# ``scope.py``. O processamento usa ``legacy_rj_mapping()`` diretamente para
+# evitar que o catálogo legado seja a fonte operacional da Gold.
 MUNICIPIOS_RJ = legacy_rj_mapping()
 
 def decode_sinan_age_years(
@@ -98,7 +99,7 @@ def aggregate(
     catalog: MunicipalityCatalog | None = None,
 ) -> pd.DataFrame:
     selected_columns = validate_keys(selected_columns)
-    municipios = municipios if municipios is not None else MUNICIPIOS_RJ
+    municipios = municipios if municipios is not None else legacy_rj_mapping()
     if hasattr(municipios, "as_mapping"):
         municipios = municipios.as_mapping()
     disease = disease.upper()
@@ -326,7 +327,7 @@ def aggregate_file(
     if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
         raise ValueError("tipo de escopo geográfico inválido")
     if municipios is None:
-        scope_codes = sorted(MUNICIPIOS_RJ)
+        scope_codes = sorted(legacy_rj_mapping())
     elif isinstance(municipios, Mapping):
         scope_codes = sorted(municipios)
     else:
@@ -363,7 +364,7 @@ def aggregate_file(
         for batch in original.iter_batches(batch_size=batch_size, columns=schema.names):
             batch_frame = batch.to_pandas()
             current_metrics = _resolution_metrics(
-                batch_frame["ID_MUNICIP"], municipios or MUNICIPIOS_RJ, catalog,
+                batch_frame["ID_MUNICIP"], municipios or legacy_rj_mapping(), catalog,
                 batch_frame.get("SG_UF_NOT"),
             )
             for key, value in current_metrics.items():
