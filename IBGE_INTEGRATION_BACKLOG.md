@@ -244,6 +244,9 @@ IBGE-012 ──> IBGE-013
     8 sobreviventes; a rodada dirigida não altera a medição global limpa.
   - Os 59 mutantes de `_register_catalog_release()` foram executados em cache
     limpo após `8b26762` e `8a2d581`: **59/59 mortos**.
+  - Após `44abf2c` e `89c5402`, uma rodada dirigida matou mais **10 mutantes
+    históricos** de identidade de evento, erros de fonte e caminhos de artefato;
+    essa medição é complementar e não substitui a baseline global limpa.
 
 ### IBGE-013 — Rollout nacional de produção
 

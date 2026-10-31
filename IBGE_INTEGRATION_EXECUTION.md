@@ -769,7 +769,7 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **488 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **490 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
@@ -801,6 +801,13 @@ no PostgreSQL. Uma rodada dirigida limpa dos 59 mutantes de
 `_register_catalog_release()` matou **59/59**. A suíte completa posterior passou
 em 488 testes.
 
+Os commits `44abf2c` e `89c5402` fortaleceram os contratos históricos de
+identidade de evento e armazenamento de fontes. A rodada dirigida posterior
+matou mais **10 mutantes históricos**, incluindo os quatro remanescentes
+selecionados para identidade e caminho canônico. Essa evidência é complementar
+e não substitui a baseline global limpa. A suíte completa posterior passou em
+**490 testes**.
+
 A rodada global de mutação limpa, executada após as coberturas de catálogo e
 publicação, produziu 7.336 mutantes: 5.389 mortos, 1.854 sobreviventes, 92
 sem testes associados e 1 timeout. Considerando mortos, sobreviventes e
@@ -825,6 +832,10 @@ truncada, mesmo contendo todas as UFs, agora é rejeitada quando possui menos de
 O commit `81dc7b1` adicionou a defesa de publicação: releases IBGE com
 `validation_status` diferente de `VALIDATED` são rejeitadas antes do registro
 na transação PostgreSQL. A suíte completa posterior passou em 486 testes.
+
+Os commits mais recentes desta continuação foram `44abf2c`
+(`test(ibge): strengthen historical source contracts`) e `89c5402`
+(`test(ibge): assert historical artifact identity`).
 
 ## Conclusão
 
