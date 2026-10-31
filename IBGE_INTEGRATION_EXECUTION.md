@@ -502,6 +502,13 @@ SHA-256 `2050fdf18a4346e2c47ced141f2fc65b68633fb5336d29d3616066a5603711e7`,
 extração; a promoção de uma tabela de sucessões continua condicionada a uma
 extração estruturada validada.
 
+Foi revisado também o diretório oficial do estudo de Evolução da Divisão
+Territorial do Brasil 1872–2010. A página descreve uma planilha de apoio, mas o
+diretório público consultado disponibiliza o quadro de genealogia como PDF e
+não expõe uma tabela tabular independente para ingestão. O pipeline, portanto,
+mantém o PDF como `RAW_ONLY`; transformar o texto do PDF em sucessões sem uma
+validação estrutural própria violaria a política `EXPLICIT_SOURCE_ONLY`.
+
 A suíte completa foi executada com PostgreSQL real em container isolado,
 incluindo os testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
