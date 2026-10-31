@@ -19,10 +19,37 @@ ADMINISTRATIVE_EVENT_TYPES = frozenset({
     "CREATION", "EXTINCTION", "SUCCESSION", "MERGER", "SPLIT", "RENAME",
 })
 CODE7_PATTERN = re.compile(r"^[0-9]{7}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
 def _event_id(*parts: object) -> str:
     return hashlib.sha256("|".join(str(part) for part in parts).encode("utf-8")).hexdigest()[:20]
+
+
+def _validate_manifest_sources(raw_sources: object) -> list[dict[str, object]]:
+    if not isinstance(raw_sources, list) or any(
+        not isinstance(item, dict) for item in raw_sources
+    ):
+        raise ValueError("manifesto histórico inválido: sources deve ser uma lista de objetos")
+    required = {"reference_year", "source_path", "sha256"}
+    for index, item in enumerate(raw_sources):
+        if not required <= item.keys():
+            raise ValueError(
+                "manifesto histórico inválido: fonte sem reference_year, "
+                f"source_path ou sha256 (índice {index})"
+            )
+        if (
+            not isinstance(item["reference_year"], int)
+            or isinstance(item["reference_year"], bool)
+            or not isinstance(item["source_path"], str)
+            or not item["source_path"].strip()
+            or not isinstance(item["sha256"], str)
+            or not SHA256_PATTERN.fullmatch(item["sha256"])
+        ):
+            raise ValueError(
+                f"manifesto histórico inválido: fonte malformada (índice {index})"
+            )
+    return list(raw_sources)
 
 
 def promote_historical_source(
@@ -461,11 +488,7 @@ def _promote_events(
 
     sources: list[dict[str, object]] = []
     old_sources = previous.get("sources", [])
-    if not isinstance(old_sources, list) or any(
-        not isinstance(item, dict) for item in old_sources
-    ):
-        raise ValueError("manifesto histórico inválido: sources deve ser uma lista de objetos")
-    sources.extend(old_sources)
+    sources.extend(_validate_manifest_sources(old_sources))
     # Compatibilidade com manifestos criados antes do campo ``sources``.
     if not sources and previous.get("source_path"):
         sources.append({
@@ -630,11 +653,7 @@ def promote_annual_dtb_events(
             raise ValueError(f"manifesto histórico inválido: {manifest_path}")
         previous_manifest = loaded
     raw_sources = previous_manifest.get("sources", [])
-    if not isinstance(raw_sources, list) or any(
-        not isinstance(item, dict) for item in raw_sources
-    ):
-        raise ValueError("manifesto histórico inválido: sources deve ser uma lista de objetos")
-    sources: list[dict[str, object]] = list(raw_sources)
+    sources = _validate_manifest_sources(raw_sources)
     source_keys = {
         (item.get("reference_year"), item.get("source_path"), item.get("sha256"))
         for item in sources
