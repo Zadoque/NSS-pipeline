@@ -289,6 +289,10 @@ IBGE-012 ──> IBGE-013
   - Após `6fd95ec`, os **12 mutantes** novos da validação de métricas obrigatórias
     e tipos em `run_load.py` foram executados e mortos em rodada dirigida; a
     baseline global não foi substituída por essa medição parcial.
+  - O commit `4307e6c` adicionou reconciliação aritmética entre
+    `source_rows), `resolved_rows), `discarded_rows) e
+    `aggregation_reduction), com regressão para metadata inconsistente. A
+    suíte integral passou em **581 testes**, com **3 pulados** e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.

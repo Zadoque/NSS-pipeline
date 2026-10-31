@@ -1212,6 +1212,13 @@ validação de métricas em `run_load.py` (`mutmut_249` a `mutmut_260`) matou
 todos. Essa medição é complementar: a rodada global limpa continua sendo a
 baseline registrada no backlog.
 
+O commit `4307e6c` (`fix(run-load): reconcile gold quality counts`) adicionou
+uma segunda barreira de integridade: `source_rows` deve ser exatamente a soma
+de `resolved_rows` e `discarded_rows`, e a redução por agregação não pode
+exceder as linhas resolvidas. A regressão cobre metadata aritmeticamente
+inconsistente. A suíte integral passou em **581 testes**, com **3 pulados** e
+**25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
