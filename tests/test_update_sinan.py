@@ -6,7 +6,8 @@ import json
 import pytest
 
 from app.pipeline.update_sinan import (
-    _load_manifest, _parse_years, _save_manifest, main, update, update_one,
+    TRACKED_DISEASES, _load_manifest, _parse_years, _save_manifest,
+    main, update, update_one,
 )
 
 
@@ -251,7 +252,7 @@ def test_main_aplica_defaults_sem_catalogo(monkeypatch):
 
     main()
 
-    assert captured["diseases"] == ["DENG", "CHIK", "ZIKA", "FMAC", "TOXC", "TOXG"]
+    assert captured["diseases"] == list(TRACKED_DISEASES)
     assert captured["manifest"] == Path("/data/source/sinan/manifest.json")
     assert captured["catalog"] is None
 

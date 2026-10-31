@@ -9,10 +9,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from .run_load import run_load
+from .load import DISEASE_NAMES
 from .reference.ibge.models import MunicipalityCatalog
 from .sinan.source import RemoteSinanFile, download_remote_file, inspect_remote_file, is_changed
 
-TRACKED_DISEASES = ("DENG", "CHIK", "ZIKA", "FMAC", "TOXC", "TOXG")
+# O catálogo operacional acompanha todos os grupos SINAN publicados pelo
+# PySUS. A opção ``--diseases`` continua permitindo recortes menores, mas o
+# padrão não pode silenciosamente deixar doenças nacionais de fora.
+TRACKED_DISEASES = tuple(DISEASE_NAMES)
 MANIFEST_PATH = Path("/data/source/sinan/manifest.json")
 logger = logging.getLogger(__name__)
 

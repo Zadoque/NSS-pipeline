@@ -151,7 +151,10 @@ docker compose run --rm --entrypoint python pipeline \
   -m app.pipeline.update_sinan --years 2026
 ```
 
-Por padrão são acompanhados `DENG`, `CHIK`, `ZIKA`, `FMAC`, `TOXC` e `TOXG`.
+Por padrão são acompanhados todos os grupos SINAN disponíveis no catálogo
+PySUS instalado (49 grupos na versão homologada), incluindo `DENG`, `CHIK`,
+`ZIKA`, `FMAC`, `TOXC` e `TOXG`. É possível restringir o recorte com
+`--diseases`.
 É possível restringir o recorte:
 
 ```bash
