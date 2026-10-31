@@ -948,7 +948,7 @@ novas promoções e permanece opcional na leitura, preservando a compatibilidade
 com manifests históricos.
 
 A validação pós-mudança, executada com o PostgreSQL de integração local, passou
-em **527 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
+em **529 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
 --no-build` também passou.
 
 O commit `055dfb5` (`fix(ibge): validate promotion timestamp`) fechou a
