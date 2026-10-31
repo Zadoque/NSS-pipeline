@@ -87,6 +87,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `45939c1` | Registro da rodada de mutação do cliente de Localidades |
 | `feb6303` | Registro da suíte de testes do cliente de Localidades |
 | `1a65c89` | Classificação de falhas municipais em lotes CNES |
+| `8839764` | Documentação da retomada de lotes CNES parciais |
+| `17cdf1d` | Defaults locais para PostgreSQL de desenvolvimento |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
@@ -306,6 +308,7 @@ nix flake check --no-build  → aprovado
 pytest -q                  → 415 passed, 25 warnings
 pytest -q com PostgreSQL  → 415 passed, 25 warnings
 pytest -q nacional + PostgreSQL → 415 passed, 25 warnings
+regressão local após o executor CNES parcial → 395 passed, 22 skipped, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
@@ -498,6 +501,10 @@ que uma publicação parcial seja confundida com uma carga completa.
 O checkpoint também fixa esse parâmetro junto da release IBGE, do escopo, do
 page size e do timeout. Municípios já concluídos são lidos da Bronze validada,
 sem nova consulta à API.
+
+Os defaults de `.env.example` agora permitem iniciar o PostgreSQL local com
+credenciais de desenvolvimento explícitas (`nss`/`nss`) e banco
+`situacao_saude`; nenhuma credencial de produção é versionada.
 
 ## Compatibilidade preservada
 
