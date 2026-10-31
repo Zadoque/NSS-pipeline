@@ -99,6 +99,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `0b8a09f` | Rejeição de registros CNES de município divergente |
 | `b46a3d4` | Cobertura mutante das entradas de checkpoint CNES |
 | `3d2ab22` | Asserção do payload canônico de resolução IBGE |
+| `163d705` | Cobertura dos defaults e normalização do executor de carga |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -230,7 +231,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 372 passed, 20 skipped, 25 warnings
 pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 392 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 393 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
@@ -346,7 +347,7 @@ mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
 uma aprovação da meta global de mutação.
 
 Também foi executada a rodada global configurada no `pyproject.toml`, com 6.257
-mutantes gerados: 4.078 mortos, 1.845 sobreviventes, 332 sem testes associados
+mutantes gerados: 4.080 mortos, 1.843 sobreviventes, 332 sem testes associados
 e 2 timeouts. A taxa entre os mutantes classificáveis
 (`mortos / (mortos + sobreviventes)`) foi de aproximadamente 68,7%. O resultado
 é a medição integral mais recente da configuração, mas ainda está abaixo da
@@ -362,6 +363,14 @@ dirigida. Dois mutantes de inicialização do payload do resolvedor continuam
 classificados como sobreviventes pelo `mutmut`, mesmo após asserções diretas do
 objeto canônico; eles permanecem pendentes para investigação da associação ou
 cache da ferramenta, sem serem contabilizados como mortos.
+
+No executor `run_load.py`, três mutantes críticos foram exercitados em rodada
+dirigida: o bloqueio de publicação vazia por padrão, o timestamp UTC e a
+normalização da doença. Os dois primeiros foram classificados como mortos; o
+mutante que substitui a doença normalizada por `None` continuou sobrevivente
+na ferramenta, embora os testes afirmem o valor transmitido ao Bronze, Gold e
+PostgreSQL. Ele permanece registrado como pendência de instrumentação/teste,
+sem ser tratado como morto artificialmente.
 
 ## Compatibilidade preservada
 
