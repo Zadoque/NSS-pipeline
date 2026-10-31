@@ -26,6 +26,20 @@ def test_historical_events_reject_duplicates(tmp_path):
         write_events(tmp_path / "events.parquet", [event, event])
 
 
+@pytest.mark.parametrize(
+    "event",
+    [
+        MunicipalityEvent("creation", "CREATION", "2025-01-01", "3301009", "5101837"),
+        MunicipalityEvent("extinction", "EXTINCTION", "2025-01-01", None, "5101837"),
+        MunicipalityEvent("succession", "SUCCESSION", "2025-01-01", "3301009", None),
+        MunicipalityEvent("rename", "RENAME", "2025-01-01", "3301009", "3305000"),
+    ],
+)
+def test_write_events_rejects_semantically_invalid_event_shapes(tmp_path, event):
+    with pytest.raises(ValueError, match="evento"):
+        write_events(tmp_path / f"{event.event_id}.parquet", [event])
+
+
 def test_parse_toponymic_events_preserves_code_and_names(tmp_path):
     source = tmp_path / "alteracoes.csv"
     source.write_text(

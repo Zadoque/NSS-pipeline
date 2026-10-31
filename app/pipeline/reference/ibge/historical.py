@@ -186,10 +186,25 @@ def write_events(path: Path, events: list[MunicipalityEvent] | tuple[Municipalit
     if dates.isna().any():
         raise ValueError("data de vigência inválida no histórico municipal")
     for row in frame.itertuples(index=False):
+        event_type = str(row.event_type)
+        source_code = None if pd.isna(row.source_code7) or str(row.source_code7) == "" else str(row.source_code7)
+        target_code = None if pd.isna(row.target_code7) or str(row.target_code7) == "" else str(row.target_code7)
         for field in ("source_code7", "target_code7"):
             code = getattr(row, field)
             if code is not None and not pd.isna(code) and (not str(code).isdigit() or len(str(code)) != 7):
                 raise ValueError(f"{field} inválido no histórico municipal: {code}")
+        if event_type == "CREATION" and (source_code is not None or target_code is None):
+            raise ValueError("evento CREATION exige somente target_code7")
+        if event_type == "EXTINCTION" and (source_code is None or target_code is not None):
+            raise ValueError("evento EXTINCTION exige somente source_code7")
+        if event_type in {"SUCCESSION", "MERGER", "SPLIT"} and (
+            source_code is None or target_code is None
+        ):
+            raise ValueError(f"evento {event_type} exige source_code7 e target_code7")
+        if event_type in {"RENAME", "TOPONYMIC_CHANGE"} and (
+            source_code is None or target_code is None or source_code != target_code
+        ):
+            raise ValueError(f"evento {event_type} exige o mesmo código na origem e no destino")
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_parquet(path, index=False)
     return path
