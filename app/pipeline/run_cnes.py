@@ -93,8 +93,9 @@ def _parallel_fetch_batches(
     workers: int,
 ):
     """Busca CNES em janelas limitadas, sem manter o lote nacional inteiro em memória."""
-    for start in range(0, len(municipalities), workers):
-        batch = municipalities[start:start + workers]
+    window_size = workers * 4
+    for start in range(0, len(municipalities), window_size):
+        batch = municipalities[start:start + window_size]
 
         def fetch_one(code: str):
             worker_session = session_with_retries()
