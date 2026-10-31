@@ -737,7 +737,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 e planilha oficial 1872–2010 processáveis; 2.149 mudanças toponímicas observáveis | Parcial; sucessões/desmembramentos com código de origem pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
-| Mutação ≥95% | Medição global mais recente: 76,46% entre 7.697 mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Medição global mais recente: 78,51% entre 7.865 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:
@@ -1352,6 +1352,19 @@ procedimento de promoção da release, ingestão CNES reiniciável, execução S
 em `serving`, fallback exclusivamente local e critérios objetivos de
 encerramento. O rollout continua condicionado aos gates de dados autorizados,
 sucessões explícitas e mutação global.
+
+## Baseline global de mutação atualizada
+
+Após o parser histórico e o runbook, `nix develop --command mutmut run`
+terminou com código de saída zero após processar **7.958 mutantes**:
+
+- **6.175 mortos**;
+- **1.690 sobreviventes**;
+- **92 sem testes associados**;
+- **1 timeout**.
+
+Entre os **7.865 mutantes classificáveis**, a taxa foi **78,51%**. A meta
+global de 95% continua pendente; o escopo da configuração não foi reduzido.
 
 Após a integração do parser histórico, a suíte integral com PostgreSQL passou
 em **602 testes**, com **3 pulados** e **25 warnings**. O `flake check` também
