@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.pipeline.sinan.source import RemoteSinanFile
+from app.pipeline.sinan.source import SinanSourceUnavailable
 import json
 
 import pytest
@@ -201,6 +202,31 @@ def test_update_inspects_each_slice_and_persists_manifest(tmp_path, mocker, monk
     assert results == ["DENG:2026: unchanged (4 bytes)"]
     inspect.assert_called_once_with("DENG", 2026)
     assert _load_manifest(manifest_path)["DENG:2026"]["status"] == "UNCHANGED"
+
+
+def test_update_registra_fonte_indisponivel_e_continua_outros_grupos(
+    tmp_path, mocker, monkeypatch,
+):
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path / "source")
+    remote = RemoteSinanFile("CHIK", 2024, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    inspect = mocker.patch(
+        "app.pipeline.update_sinan.inspect_remote_file",
+        side_effect=[SinanSourceUnavailable("sem Parquet"), remote],
+    )
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"CHIK:2024": {"remoteSizeBytes": 4}}), encoding="utf-8"
+    )
+
+    results = update(["DENG", "CHIK"], [2024], manifest_path)
+
+    assert results == ["DENG:2024: unavailable", "CHIK:2024: unchanged (4 bytes)"]
+    manifest = _load_manifest(manifest_path)
+    assert manifest["DENG:2024"]["status"] == "UNAVAILABLE"
+    assert manifest["CHIK:2024"]["status"] == "UNCHANGED"
+    assert inspect.call_count == 2
 
 
 def test_main_encaminha_diseases_years_manifesto_e_catalogo(monkeypatch, tmp_path):

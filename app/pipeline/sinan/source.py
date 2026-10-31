@@ -15,6 +15,10 @@ BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 SOURCE_DIR = BASE_DIR / "source" / "sinan"
 
 
+class SinanSourceUnavailable(RuntimeError):
+    """O catálogo remoto não possui Parquet para o recorte solicitado."""
+
+
 @dataclass(frozen=True)
 class RemoteSinanFile:
     disease: str
@@ -36,6 +40,10 @@ def inspect_remote_file(disease: str, year: int) -> RemoteSinanFile:
     disease = disease.upper()
     files = pysus.ftp.sinan(disease=disease, year=year, download=False)
     parquet_files = [item for item in files if str(item.path).lower().endswith(".parquet")]
+    if not parquet_files:
+        raise SinanSourceUnavailable(
+            f"Nenhum Parquet SINAN disponível para {disease}/{year}"
+        )
     if len(parquet_files) != 1:
         raise RuntimeError(
             f"Esperado exatamente um Parquet SINAN para {disease}/{year}; "

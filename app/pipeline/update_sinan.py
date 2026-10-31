@@ -11,7 +11,13 @@ from pathlib import Path
 from .run_load import run_load
 from .load import DISEASE_NAMES
 from .reference.ibge.models import MunicipalityCatalog
-from .sinan.source import RemoteSinanFile, download_remote_file, inspect_remote_file, is_changed
+from .sinan.source import (
+    RemoteSinanFile,
+    SinanSourceUnavailable,
+    download_remote_file,
+    inspect_remote_file,
+    is_changed,
+)
 
 # O catálogo operacional acompanha todos os grupos SINAN publicados pelo
 # PySUS. A opção ``--diseases`` continua permitindo recortes menores, mas o
@@ -105,6 +111,20 @@ def update(
                 remote = inspect_remote_file(disease, year)
                 result = update_one(remote, manifest, catalog=catalog)
                 _save_manifest(manifest_path, manifest)
+            except SinanSourceUnavailable as exc:
+                key = f"{disease}:{year}"
+                manifest[key] = {
+                    "remotePath": None,
+                    "remoteSizeBytes": None,
+                    "checkedAt": datetime.now(UTC).isoformat(),
+                    "status": "UNAVAILABLE",
+                    "reason": str(exc),
+                    "ibgeCatalogId": catalog.metadata.catalog_id if catalog else None,
+                    "ibgeCatalogSha256": catalog.metadata.sha256 if catalog else None,
+                }
+                _save_manifest(manifest_path, manifest)
+                result = f"{key}: unavailable"
+                logger.warning("%s: %s", result, exc)
             except Exception:
                 logger.error("Falha na atualização SINAN disease=%s year=%s", disease, year)
                 raise

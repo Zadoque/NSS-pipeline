@@ -4,7 +4,7 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from app.pipeline.sinan.source import RemoteSinanFile, is_changed
+from app.pipeline.sinan.source import RemoteSinanFile, SinanSourceUnavailable, is_changed
 from app.pipeline.sinan import source
 
 
@@ -42,7 +42,8 @@ def test_inspect_remote_file_normaliza_doenca_e_ignora_nao_parquet(mocker):
 def test_inspect_remote_file_exige_um_unico_parquet(mocker, catalog):
     mocker.patch.object(source.pysus.ftp, "sinan", return_value=catalog)
 
-    with pytest.raises(RuntimeError, match="exatamente um"):
+    expected = SinanSourceUnavailable if not catalog else RuntimeError
+    with pytest.raises(expected, match="(Nenhum Parquet|exatamente um)"):
         source.inspect_remote_file("DENG", 2026)
 
 
