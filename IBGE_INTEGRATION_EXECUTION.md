@@ -747,7 +747,13 @@ epidemiológica nacional completa. Permanecem necessários:
    para eventos explícitos já existem; nenhum evento é inferido por nome ou
    proximidade geográfica. A comparação real DTB 2024/2025 foi validada e
    gerou somente três eventos toponímicos, o que não equivale a um crosswalk
-   histórico completo.
+ histórico completo.
+   A inspeção do diretório oficial de evolução territorial também não encontrou
+   um arquivo tabular de genealogia equivalente: a publicação histórica está
+   disponível como PDF, enquanto as alterações recentes são disponibilizadas
+   nas edições anuais da DTB e nas planilhas toponímicas já processadas pelo
+   pipeline. Por isso, transformar o PDF em sucessões automaticamente ainda
+   não seria uma promoção segura.
 3. A homologação real CNES nacional confirmou a paginação com `page_size=100`,
    timeout de 60 segundos, oito workers e checkpoint reiniciável. O snapshot
    produzido contém 641.343 estabelecimentos e zero falhas; uma nova execução
