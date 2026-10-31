@@ -462,6 +462,17 @@ def test_storage_round_trip_loads_active_catalog(tmp_path):
     assert loaded.get_municipality("3301009").name == "Campos"
 
 
+def test_storage_cria_arvore_de_release_em_instalacao_nova(tmp_path):
+    root = tmp_path / "catalog" / "nested"
+    write_manifest(root / "fresh" / "manifest.json", METADATA)
+    release = root / "releases" / "test"
+    write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])
+    write_manifest(release / "manifest.json", METADATA)
+    promote_active(root / "active.json", "test")
+
+    assert load_active_catalog(root).metadata.catalog_id == "test"
+
+
 @pytest.mark.parametrize(
     ("active_id", "manifest_id", "validation_status", "message"),
     [
