@@ -103,6 +103,20 @@ def test_legacy_scope_preserves_four_rj_municipalities():
     assert scope.codes7 == {"3301009", "3305000", "3302205", "3302403"}
 
 
+def test_legacy_scope_reports_the_missing_code_explicitly():
+    incomplete = InMemoryMunicipalityCatalog(
+        [
+            municipality("3301009", "Campos"),
+            municipality("3305000", "São João da Barra"),
+            municipality("3302205", "Itaperuna"),
+        ],
+        METADATA,
+    )
+
+    with pytest.raises(ValueError, match="3302403"):
+        legacy_rj_scope(incomplete)
+
+
 def test_legacy_rj_mapping_is_owned_by_scope_and_isolated():
     mapping = legacy_rj_mapping()
     mapping.pop("3301009")
