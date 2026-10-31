@@ -134,6 +134,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `db34796` | Execução real do `run_cnes` no escopo amostral nacional |
 | `cd7721a` | Atualização do status de homologação CNES |
 | `36dfc21` | Fortalecimento dos contratos do cliente de Localidades |
+| `45939c1` | Registro da rodada de mutação do cliente de Localidades |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -298,9 +299,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 414 passed, 25 warnings
-pytest -q com PostgreSQL  → 414 passed, 25 warnings
-pytest -q nacional + PostgreSQL → 414 passed, 25 warnings
+pytest -q                  → 415 passed, 25 warnings
+pytest -q com PostgreSQL  → 415 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 415 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
