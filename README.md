@@ -160,6 +160,9 @@ também é provisionado para consultas SQL de auditoria; suas credenciais vêm
 de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do ambiente. O
 dashboard inclui tabelas de reconciliação de execução e de publicações no
 PostgreSQL, sem misturar contagens de camadas com métricas epidemiológicas.
+As credenciais administrativas do Grafana vêm de `GRAFANA_ADMIN_USER` e
+`GRAFANA_ADMIN_PASSWORD`; os defaults do Compose são somente para o ambiente
+local e devem ser substituídos antes de qualquer exposição compartilhada.
 Também são provisionadas regras Grafana para falha de etapa e descarte de
 linhas. Elas alteram o estado dos alertas, mas o canal de notificação deve ser
 configurado no ambiente produtivo com um contact point e uma notification
