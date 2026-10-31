@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -65,7 +66,7 @@ def fetch_estabelecimentos(
         codigo_municipio_7 = resolved.municipality.code7
         codigo_municipio_6 = resolved.municipality.code6
     else:
-        if not isinstance(codigo_municipio_7, str) or not codigo_municipio_7.isdigit() or len(codigo_municipio_7) != 7:
+        if not isinstance(codigo_municipio_7, str) or not re.fullmatch(r"[0-9]{7}", codigo_municipio_7):
             raise ValueError("CNES exige código municipal IBGE de 7 dígitos")
         codigo_municipio_6 = codigo_municipio_7[:6]
     client = session or _session_with_retries()

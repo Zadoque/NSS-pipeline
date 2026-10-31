@@ -75,6 +75,11 @@ def test_fetch_estabelecimentos_rejeita_limit_invalido(monkeypatch):
         cnes_bronze.fetch_estabelecimentos("3301009", limit=0)
 
 
+def test_fetch_estabelecimentos_rejeita_geocodigo_unicode_sem_catalogo():
+    with pytest.raises(ValueError, match="código municipal IBGE"):
+        cnes_bronze.fetch_estabelecimentos("３３０１００９")
+
+
 def test_fetch_estabelecimentos_rejeita_timeout_invalido():
     with pytest.raises(ValueError, match="timeout CNES"):
         cnes_bronze.fetch_estabelecimentos("3301009", timeout=0)
