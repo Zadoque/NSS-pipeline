@@ -271,6 +271,21 @@ def test_storage_writes_parquet_and_active_pointer(tmp_path):
     assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
 
 
+def test_catalog_content_hash_is_canonical_and_sensitive_to_attributes():
+    records = [
+        municipality("3550308", "São Paulo", "35", "SP"),
+        municipality("3301009", "Campos"),
+    ]
+
+    digest = catalog_content_sha256(records)
+
+    assert digest == "10c4dca16a710a069ee83021506c75f6be1bafb923e899fd5b2378055ad1a500"
+    assert digest == catalog_content_sha256(list(reversed(records)))
+    assert digest != catalog_content_sha256([
+        replace(records[0], name="São Paulo alterado"), records[1],
+    ])
+
+
 def test_promote_active_rejeita_release_inexistente_sem_trocar_ponteiro(tmp_path):
     active = tmp_path / "active.json"
     active.write_text('{"catalog_id": "old"}', encoding="utf-8")
