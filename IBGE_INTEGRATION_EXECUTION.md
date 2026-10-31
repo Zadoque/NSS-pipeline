@@ -94,6 +94,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `186561e` | Validação estrutural das entradas de checkpoint CNES |
 | `6e18209` | Vinculação do escopo geográfico à release IBGE |
 | `5a01782` | Teste do vínculo catálogo–escopo no executor SINAN |
+| `dd1c300` | Cobertura mutante integral do vínculo catálogo–escopo |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -218,9 +219,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 365 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 384 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 385 passed, 25 warnings
+pytest -q                  → 366 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 385 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 386 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
@@ -327,6 +328,13 @@ após o teste com release catalogada. A mesma rodada matou os caminhos de
 checkpoint inválido e o descarte indevido de `GeographicScope`.
 O mutante `run_cnes__mutmut_76`, que removia o UTC do timestamp de ingestão,
 foi morto após a asserção explícita do sufixo `+00:00`.
+
+Após a validação do vínculo entre catálogo e escopo, os nove mutantes gerados
+para `scope.validate_scope_catalog` foram executados e classificados como
+mortos (`9/9`). A cobertura inclui tanto o aceite de um escopo materializado
+pelo catálogo quanto a rejeição de município ausente, atributos divergentes e
+mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
+uma aprovação da meta global de mutação.
 
 ## Compatibilidade preservada
 
