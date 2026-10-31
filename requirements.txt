@@ -9,3 +9,4 @@ shapely
 alembic
 psycopg2-binary
 sqlalchemy
+prometheus-client>=0.20,<1

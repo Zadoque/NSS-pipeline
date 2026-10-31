@@ -1,0 +1,49 @@
+{
+  "annotations": {"list": []},
+  "editable": false,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Linhas por camada",
+      "type": "timeseries",
+      "targets": [{"expr": "nss_pipeline_rows", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "title": "Duração por camada",
+      "type": "timeseries",
+      "targets": [{"expr": "nss_pipeline_stage_duration_seconds", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "title": "Linhas descartadas",
+      "type": "timeseries",
+      "targets": [{"expr": "nss_pipeline_dropped_rows", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
+      "fieldConfig": {"defaults": {"min": 0, "max": 1}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "title": "Status das etapas",
+      "type": "stat",
+      "targets": [{"expr": "nss_pipeline_stage_status", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+    }
+  ],
+  "schemaVersion": 41,
+  "tags": ["nss", "pipeline", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "title": "NSS Pipeline — Visão operacional",
+  "uid": "nss-pipeline-overview",
+  "version": 1
+}

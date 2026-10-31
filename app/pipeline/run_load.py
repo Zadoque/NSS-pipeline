@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from time import monotonic
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
+import pyarrow.parquet as pq
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
 from .sinan.gold import (
@@ -15,6 +17,7 @@ from .sinan.gold import (
     resolve_catalog_municipality_codes,
 )
 from .load import get_engine, load_gold_to_postgres
+from .observability import export_stage_metrics
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 from .reference.ibge.models import MunicipalityCatalog
@@ -34,6 +37,22 @@ _GOLD_QUALITY_METRICS = (
     "invalid_municipality_rows", "out_of_scope_rows", "uf_mismatch_rows",
 )
 
+
+def _metric_parquet_rows(path: Path) -> int:
+    try:
+        return int(pq.ParquetFile(path).metadata.num_rows)
+    except (OSError, ValueError):
+        logger.debug("Não foi possível ler contagem auxiliar de métricas: %s", path)
+        return 0
+
+
+def _metric_metadata(path: Path) -> dict:
+    try:
+        value = json.loads(path.with_name("metadata.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
 def run_load(
     disease: str,
     year: int,
@@ -51,9 +70,23 @@ def run_load(
     logger.info("Iniciando carga SINAN disease=%s year=%s", disease, year)
 
     source = source_path if source_path is not None else fetch_sinan(disease, year)
+    stage_started = monotonic()
     bronze = write_bronze(source, disease, year, run_at=run_at)
+    export_stage_metrics(
+        pipeline="sinan", layer="bronze", disease=disease, year=year,
+        rows=_metric_parquet_rows(bronze),
+        duration_seconds=monotonic() - stage_started,
+    )
     logger.info("Bronze concluída: %s", bronze)
+    stage_started = monotonic()
     silver = transform_file(bronze, disease, year, run_at=run_at)
+    silver_metadata = _metric_metadata(silver)
+    export_stage_metrics(
+        pipeline="sinan", layer="silver", disease=disease, year=year,
+        rows=int(silver_metadata.get("rows", 0)),
+        dropped_rows=int(silver_metadata.get("dropped_rows", 0)),
+        duration_seconds=monotonic() - stage_started,
+    )
     logger.info("Silver concluída: %s", silver)
 
     if geographic_scope is not None:
@@ -76,6 +109,7 @@ def run_load(
         )
         expected_cases_total = int(resolved_codes.isin(municipios).sum())
 
+    stage_started = monotonic()
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
         municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
@@ -84,6 +118,7 @@ def run_load(
     )
 
     gold_df = pd.read_parquet(gold_path)
+    gold_metadata = {}
     quality_metrics = {}
     metadata_path = gold_path.with_name("metadata.json")
     if metadata_path.exists():
@@ -168,10 +203,17 @@ def run_load(
                 f"(invalid={invalid_rows}, uf_mismatch={uf_mismatch_rows})"
             )
     logger.info("Gold concluída: %s (linhas=%s)", gold_path, len(gold_df))
+    export_stage_metrics(
+        pipeline="sinan", layer="gold", disease=disease, year=year,
+        rows=len(gold_df), dropped_rows=int(gold_metadata.get("discarded_rows", 0)),
+        duration_seconds=monotonic() - stage_started,
+        extra={"scope": geographic_scope.kind if geographic_scope else "MUNICIPALITIES"},
+    )
     batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
 
     engine = get_engine()
     try:
+        stage_started = monotonic()
         logger.info("Publicando snapshot disease=%s year=%s batch_id=%s", disease, year, batch_id)
         load_gold_to_postgres(
             engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
@@ -181,6 +223,11 @@ def run_load(
             geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
             geographic_scope_sha256=scope_sha256(municipios),
             quality_metrics=quality_metrics,
+        )
+        export_stage_metrics(
+            pipeline="sinan", layer="postgresql", disease=disease, year=year,
+            rows=len(gold_df), duration_seconds=monotonic() - stage_started,
+            extra={"scope": geographic_scope.kind if geographic_scope else "MUNICIPALITIES"},
         )
     finally:
         engine.dispose()
