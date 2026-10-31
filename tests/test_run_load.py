@@ -177,8 +177,12 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(
     assert options["geographic_scope_sha256"] == scope_sha256(MUNICIPIOS_RJ)
     assert options["source_extracted_at"] == aggregate.call_args.kwargs["run_at"]
     assert aggregate.call_args.args[1] == "DENG"
+    assert aggregate.call_args.args[:3] == (Path("silver.parquet"), "DENG", 2026)
     assert aggregate.call_args.kwargs["municipios"] == MUNICIPIOS_RJ
+    assert aggregate.call_args.kwargs["selected_columns"] == runner.CANONICAL_GOLD_COLUMNS
     assert aggregate.call_args.kwargs["target"] == "serving"
+    assert aggregate.call_args.kwargs["geographic_scope_type"] == "MUNICIPALITIES"
+    assert options["quality_metrics"] == {}
     engine.dispose.assert_called_once()
 
 
@@ -210,8 +214,9 @@ def test_orquestrador_bloqueia_total_divergente_antes_de_abrir_transacao(
 def test_silver_vazia_nao_publica_mesmo_com_allow_empty(mocker, pipeline):
     aggregate, _, get_engine, load = pipeline
     mocker.patch.object(runner.pd, "read_parquet", return_value=pd.DataFrame(columns=["ID_MUNICIP"]))
-    with pytest.raises(RuntimeError, match="Silver sem notificações válidas"):
+    with pytest.raises(RuntimeError) as error:
         runner.run_load("DENG", 2026, allow_empty=True)
+    assert str(error.value) == "Silver sem notificações válidas: publicação bloqueada"
     aggregate.assert_not_called()
     get_engine.assert_not_called()
     load.assert_not_called()
@@ -268,6 +273,38 @@ def test_publicacao_vazia_bloqueia_por_padrao(mocker, pipeline):
     runner.run_load("deng", 2026)
 
     assert load.call_args.kwargs["allow_empty"] is False
+    engine.dispose.assert_called_once()
+
+
+def test_run_load_encaminha_metricas_do_metadata_gold(tmp_path, mocker, pipeline):
+    aggregate, engine, _, load = pipeline
+    gold_path = tmp_path / "gold.parquet"
+    aggregate.return_value = gold_path
+    gold_path.with_name("metadata.json").write_text(
+        '{"source_rows": 4, "resolved_rows": 1, "discarded_rows": 3, '
+        '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
+        '"out_of_scope_rows": 3, "uf_mismatch_rows": 0}',
+        encoding="utf-8",
+    )
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+
+    runner.run_load("DENG", 2026)
+
+    assert load.call_args.kwargs["quality_metrics"] == {
+        "source_rows": 4,
+        "resolved_rows": 1,
+        "discarded_rows": 3,
+        "aggregation_reduction": 0,
+        "invalid_municipality_rows": 0,
+        "out_of_scope_rows": 3,
+        "uf_mismatch_rows": 0,
+    }
     engine.dispose.assert_called_once()
 
 
@@ -340,7 +377,10 @@ def test_run_load_transmite_catalogo_e_escopo_ate_publicacao(mocker, pipeline):
     silver = pd.DataFrame({"ID_MUNICIP": ["330100", "3550308"]})
     mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, pd.DataFrame({"cases_total": [2]})])
 
-    runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
+    runner.run_load(
+        "DENG", 2026, catalog=catalog, geographic_scope=scope,
+        cnes_batch_id="20260101T000000Z",
+    )
 
     options = load.call_args.kwargs
     assert options["ibge_catalog"] is catalog
@@ -348,6 +388,7 @@ def test_run_load_transmite_catalogo_e_escopo_ate_publicacao(mocker, pipeline):
     assert options["geographic_scope_type"] == "UFs"
     assert options["geographic_scope_sha256"] == scope.sha256
     assert aggregate.call_args.kwargs["catalog"] is catalog
+    assert aggregate.call_args.kwargs["cnes_batch_id"] == "20260101T000000Z"
     assert aggregate.call_args.kwargs["geographic_scope_type"] == "UFs"
     engine.dispose.assert_called_once()
 
