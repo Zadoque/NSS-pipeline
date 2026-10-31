@@ -52,3 +52,14 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg2://test_user:test_pass@localhost:5432/situacao_saude_test
         run: pytest -m integration
+
+  compose-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validar configuração do Compose
+        run: docker compose --profile observability config --quiet
+
+      - name: Construir imagens operacionais
+        run: docker compose build pipeline migrate
