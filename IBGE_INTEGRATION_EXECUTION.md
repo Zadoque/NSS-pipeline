@@ -1366,6 +1366,13 @@ terminou com código de saída zero após processar **7.958 mutantes**:
 Entre os **7.865 mutantes classificáveis**, a taxa foi **78,51%**. A meta
 global de 95% continua pendente; o escopo da configuração não foi reduzido.
 
+O commit `58c11f5` (`test(sinan): cover updater CLI`) adicionou testes para o
+entrypoint de `update_sinan.py`, incluindo parsing de doenças/anos, manifesto,
+catálogo IBGE e rejeição de argumentos inválidos. Os **16 testes** do módulo
+passaram. Em rodada dirigida, os 92 mutantes de `main()` que antes estavam
+como `no tests` passaram a ser exercitados: **44 morreram e 48 sobreviveram**.
+Essa medição é complementar e não altera a baseline global anterior.
+
 Após a integração do parser histórico, a suíte integral com PostgreSQL passou
 em **602 testes**, com **3 pulados** e **25 warnings**. O `flake check` também
 permaneceu aprovado.

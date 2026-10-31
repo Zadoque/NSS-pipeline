@@ -281,6 +281,10 @@ IBGE-012 ──> IBGE-013
   mortos, 1.690 sobreviventes, 92 sem testes e 1 timeout em 7.958 mutantes;
   78,51% entre os 7.865 classificáveis**. A meta de 95% permanece pendente e
   o escopo não foi reduzido artificialmente.
+- O commit `58c11f5` cobriu o `main()` de `update_sinan.py`: os 92 mutantes
+  anteriormente sem testes passaram a ser exercitados; 44 morreram e 48
+  sobreviveram em rodada dirigida. A baseline global continua separada dessa
+  medição seletiva.
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição
     global nem atende à meta de 95%.
