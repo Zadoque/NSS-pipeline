@@ -1340,6 +1340,11 @@ contra o arquivo oficial (SHA-256
 `55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df`) produziu
 **2.149 eventos toponímicos observáveis**. Os testes históricos passaram em
 **77 casos**.
+URL do artefato: `https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/evolucao_da_divisao_territorial_do_brasil/evolucao_da_divisao_territorial_do_brasil_1872_2010/municipios_1872_1991/Documentacao/pop_mun_TUR_1872_a_2010.xls`.
+
+Foi inspecionada também a malha municipal histórica de 1991. Seu DBF contém
+somente `BR91POLY_I` e `NOMEMUNICP`, sem código de origem do desmembramento;
+por isso ela não foi usada para fabricar relações de sucessão.
 
 Após a integração do parser histórico, a suíte integral com PostgreSQL passou
 em **602 testes**, com **3 pulados** e **25 warnings**. O `flake check` também
