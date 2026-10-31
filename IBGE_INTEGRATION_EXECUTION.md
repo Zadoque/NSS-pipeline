@@ -1346,6 +1346,13 @@ Foi inspecionada também a malha municipal histórica de 1991. Seu DBF contém
 somente `BR91POLY_I` e `NOMEMUNICP`, sem código de origem do desmembramento;
 por isso ela não foi usada para fabricar relações de sucessão.
 
+O commit `e0d96ab` (`docs(ibge): add national rollout runbook`) adicionou
+[`IBGE_NATIONAL_ROLLOUT_RUNBOOK.md`](IBGE_NATIONAL_ROLLOUT_RUNBOOK.md), com o
+procedimento de promoção da release, ingestão CNES reiniciável, execução SINAN
+em `serving`, fallback exclusivamente local e critérios objetivos de
+encerramento. O rollout continua condicionado aos gates de dados autorizados,
+sucessões explícitas e mutação global.
+
 Após a integração do parser histórico, a suíte integral com PostgreSQL passou
 em **602 testes**, com **3 pulados** e **25 warnings**. O `flake check` também
 permaneceu aprovado.
