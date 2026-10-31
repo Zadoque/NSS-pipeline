@@ -1,6 +1,7 @@
 from pathlib import Path
+from zipfile import ZipFile
 
-from app.pipeline.reference.ibge.dtb import parse_dtb_table
+from app.pipeline.reference.ibge.dtb import parse_dtb_archive, parse_dtb_table
 from app.pipeline.reference.ibge.refresh import refresh_from_dtb_archive
 from app.pipeline.reference.ibge.refresh import refresh_from_localidades
 
@@ -64,6 +65,53 @@ def test_parse_dtb_rejeita_geocodigo_unicode(tmp_path):
 
     with pytest.raises(ValueError, match="geocódigo municipal inválido"):
         parse_dtb_table(path, 2025)
+
+
+def test_parse_dtb_rejeita_formato_desconhecido(tmp_path):
+    import pytest
+
+    path = tmp_path / "municipios.txt"
+    path.write_text("UF", encoding="utf-8")
+    with pytest.raises(ValueError, match="formato DTB não suportado"):
+        parse_dtb_table(path, 2025)
+
+
+def test_parse_dtb_rejeita_registro_municipal_conflitante(tmp_path):
+    import pytest
+
+    path = tmp_path / "conflict.csv"
+    header = "a,b,c,d,e,f,g,h,i\n" * 6
+    columns = "UF,Nome_UF,x,x,x,x,Município,Código Município Completo,Nome_Município\n"
+    rows = (
+        "33,Rio de Janeiro,1,1,1,1,00100,3301009,Campos\n"
+        "33,Rio de Janeiro,1,1,1,1,00100,3301009,Outro nome\n"
+    )
+    path.write_text(header + columns + rows, encoding="utf-8")
+    with pytest.raises(ValueError, match="registros conflitantes"):
+        parse_dtb_table(path, 2025)
+
+
+def test_parse_dtb_archive_seleciona_tabela_municipal(tmp_path):
+    archive_path = tmp_path / "dtb.zip"
+    with ZipFile(archive_path, "w") as archive:
+        archive.write(FIXTURE, "relatorio_municipios.csv")
+        archive.writestr("README.txt", "fixture")
+
+    records = parse_dtb_archive(archive_path, 2025)
+
+    assert len(records) == 6
+    assert records[0].reference_year == 2025
+
+
+def test_parse_dtb_archive_rejeita_zip_sem_tabela(tmp_path):
+    import pytest
+
+    archive_path = tmp_path / "empty.zip"
+    with ZipFile(archive_path, "w") as archive:
+        archive.writestr("README.txt", "sem tabela")
+
+    with pytest.raises(ValueError, match="não contém tabela"):
+        parse_dtb_archive(archive_path, 2025)
 
 
 def test_refresh_dtb_writes_release_and_active_pointer(tmp_path, monkeypatch):
