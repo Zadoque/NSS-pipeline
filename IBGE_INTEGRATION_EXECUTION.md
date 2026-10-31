@@ -302,6 +302,8 @@ IBGE Localidades real → 5571 municípios, 27 UFs; Boa Esperança do Norte
   (`5101837`) resolvida via hierarquia de região imediata/intermediária
 Refresh end-to-end da API de Localidades → release `ibge-api-2026-final`,
   5571 municípios, 27 UFs e ponteiro `active.json` recarregado com sucesso
+Comparação API de Localidades × DTB 2025 → 0 códigos exclusivos em qualquer
+fonte e 0 divergências de nome, UF ou sigla entre os 5571 registros
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
