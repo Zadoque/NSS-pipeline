@@ -96,7 +96,11 @@ IBGE-012 ──> IBGE-013
   - `330100` resolve para `3301009` pelo catálogo.
   - Código inválido não é corrigido por preenchimento arbitrário.
   - Nome e UF canônicos vêm do IBGE; campos de origem permanecem auditáveis.
-  - Recorte RJ mantém resultados compatíveis, salvo divergência explicada.
+- Recorte RJ mantém resultados compatíveis, salvo divergência explicada.
+- Quando um `MunicipalityCatalog` é fornecido sem escopo explícito, Gold e
+  `aggregate_file()` agora usam todo o catálogo; o default RJ só permanece no
+  caminho sem catálogo. Há regressão multi-UF contra a queda silenciosa para o
+  recorte legado.
 
 ### IBGE-005 — CNES com crosswalk e escopo canônico
 

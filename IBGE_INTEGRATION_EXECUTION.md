@@ -1597,3 +1597,10 @@ O commit `5b36b47` estendeu o contrato para rejeitar releases parcialmente
 materializadas: a presença de apenas um dos auxiliares agora impede a promoção
 para `active.json`. A regressão correspondente foi adicionada, e a suíte
 integral posterior passou em **630 testes**, com **0 skips** e **25 warnings**.
+
+O commit `7344381` corrigiu um risco de subcontagem: `aggregate()` e
+`aggregate_file()` agora derivam o escopo completo do catálogo quando nenhum
+`municipios` é fornecido com `catalog`; o recorte RJ continua sendo o default
+somente no caminho legado sem catálogo. A regressão multi-UF detecta a queda
+indevida para os quatro municípios históricos, e a suíte integral posterior
+passou em **631 testes**, com **0 skips** e **25 warnings**.
