@@ -410,6 +410,9 @@ IBGE-012 ──> IBGE-013
   - O commit `5c7b0e8` cobriu o encaminhamento dos parâmetros de cada worker
     paralelo CNES; 6 mutantes dirigidos morreram. A baseline global ainda não
     foi recalculada.
+  - A rodada global posterior processou novamente 7.958 mutantes: 6.237
+    mortos, 1.720 sobreviventes e 1 timeout, com **78,38%** entre os
+    classificáveis. A meta de 95% permanece pendente.
 
 ### IBGE-013 — Rollout nacional de produção
 

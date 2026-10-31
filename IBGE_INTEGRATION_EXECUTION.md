@@ -1420,3 +1420,8 @@ dirigidos correspondentes morreram.
 Revalidação integral após as duas etapas CNES: **611 testes passaram**, com
 **3 pulados** e **25 warnings**; `nix flake check --no-build` passou e o branch
 continua limpo e sincronizado com o remoto.
+
+Uma nova rodada global completa do mutmut, após as regressões CNES, processou
+**7.958 mutantes**: **6.237 mortos**, **1.720 sobreviventes** e **1 timeout**.
+Entre os 7.957 mutantes classificáveis, a taxa foi **78,38%**. A melhora em
+relação à baseline anterior foi registrada, mas a meta de 95% continua aberta.
