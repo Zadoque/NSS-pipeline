@@ -389,6 +389,14 @@ def test_validate_event_references_checks_source_and_target_editions():
     assert invalid.valid is False
     assert "3301009" in invalid.errors[0]
 
+    target_invalid = validate_event_references(
+        [event], source_codes={"3301009"}, target_codes={"5100000"}
+    )
+    assert target_invalid.valid is False
+    assert target_invalid.errors == (
+        "event: target_code7 ausente na edição de destino: 5101837",
+    )
+
 
 def test_promote_administrative_events_rejects_unresolved_reference(tmp_path):
     source = tmp_path / "administrative.csv"
@@ -401,6 +409,22 @@ def test_promote_administrative_events_rejects_unresolved_reference(tmp_path):
         promote_administrative_events(
             tmp_path / "catalog", source, reference_year=2025,
             source_codes={"3305000"}, target_codes={"5101837"},
+        )
+
+
+def test_require_event_references_preserves_all_reference_errors():
+    from app.pipeline.reference.ibge.historical import require_event_references
+
+    event = MunicipalityEvent("event", "SUCCESSION", "2025-01-01", "3301009", "5101837")
+    with pytest.raises(
+        ValueError,
+        match=(
+            r"^referências históricas inválidas: event: source_code7 ausente na edição de origem: "
+            r"3301009; event: target_code7 ausente na edição de destino: 5101837$"
+        ),
+    ):
+        require_event_references(
+            [event], source_codes={"3305000"}, target_codes={"5100000"}
         )
 
 
