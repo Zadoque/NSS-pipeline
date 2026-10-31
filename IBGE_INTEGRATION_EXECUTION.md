@@ -1183,6 +1183,14 @@ tipo do conjunto de validação em um caso que ainda possui os dois códigos
 obrigatórios, sendo equivalente nesse caminho. A suíte integral posterior
 passou em **576 testes**, com **3 pulados** e **25 warnings**.
 
+O commit `e297778` (`fix(sinan): normalize missing UF in quality metrics`)
+corrigiu um erro real na reconciliação Gold: `pd.NA` em `SG_UF_NOT` agora é
+tratado como UF ausente antes de chamar o catálogo, evitando
+`TypeError: boolean value of NA is ambiguous`. O teste também verifica a
+contagem de múltiplas linhas resolvidas, inválidas, fora do escopo e divergentes;
+os **5 mutantes** selecionados morreram. A suíte integral posterior passou em
+**577 testes**, com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
