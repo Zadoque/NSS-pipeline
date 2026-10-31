@@ -169,6 +169,8 @@ IBGE-012 ──> IBGE-013
 - Gold e `run_load.py` compartilham o helper `resolve_catalog_municipality_codes()`;
   a reconciliação independente não mantém uma segunda implementação do
   crosswalk IBGE.
+- O contrato CLI de `run_load.py` possui testes para obrigatoriedade de doença e
+  ano, tipos, defaults, ajuda e encaminhamento de escopo/lote CNES.
 - A Gold usa o mesmo resolvedor canônico quando o catálogo está ativo; a
   normalização textual legada ficou restrita ao modo sem catálogo.
 - `dropped_rows` na Gold representa somente linhas descartadas; a redução por

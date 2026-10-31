@@ -110,6 +110,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `56aad3e` | Cobertura direta do contrato do resolvedor Gold |
 | `879d637` | Cobertura do contrato CLI do executor SINAN |
 | `be0c06c` | Reuso do resolvedor IBGE da Gold no executor SINAN |
+| `4113812` | Endurecimento do contrato CLI de `run_load` |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -364,6 +365,18 @@ passed, 3 skipped e 25 warnings. O cálculo independente de totais em
 `run_load.py` agora chama `resolve_catalog_municipality_codes()`, o mesmo
 helper usado pela Gold, eliminando duas implementações concorrentes do
 crosswalk IBGE e mantendo a validação de UF declarada consistente.
+
+Após o endurecimento do contrato CLI, a suíte dirigida de `run_load.py` passou
+de 20 para 28 testes e a suíte completa com PostgreSQL passou para 445 passed,
+3 skipped e 25 warnings. Foram cobertos explicitamente os argumentos
+obrigatórios, conversão de ano, rejeição de ano inválido, defaults, texto de
+ajuda e encaminhamento de escopo/lote CNES pelo `main()`.
+
+A rodada dirigida dos 41 mutantes previamente sobreviventes do construtor do
+parser matou 6 mutantes. Os 35 restantes alteram principalmente textos de
+ajuda ou detalhes de assinatura sem efeito coberto pelo comportamento
+funcional atual; isso melhora a cobertura local, mas não é apresentado como
+uma nova medição global de mutação.
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
