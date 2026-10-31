@@ -769,7 +769,7 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **497 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **498 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
@@ -861,6 +861,11 @@ de Alterações Toponímicas Municipais 2025. O parser converte o registro para
 evento toponímico mantendo o mesmo código de origem e destino. A suíte completa
 posterior passou em **497 testes**; isso valida o formato da fonte, mas não
 transforma a planilha toponímica em sucessão territorial.
+
+O commit `47a5050` (`test(ibge): cover national catalog boundary`) adicionou
+o teste de fronteira para 5.500 municípios e a mensagem completa de rejeição de
+catálogos nacionais abaixo do mínimo. Os dois mutantes dessa fronteira morreram
+na rodada dirigida. A suíte completa posterior passou em **498 testes**.
 
 Os commits mais recentes desta continuação foram `44abf2c`
 (`test(ibge): strengthen historical source contracts`) e `89c5402`

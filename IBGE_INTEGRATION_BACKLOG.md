@@ -63,6 +63,9 @@ IBGE-012 ──> IBGE-013
   não deixam temporários no cache bruto; a suíte posterior passou em 496 testes.
 - Evidência adicional: `ebe81fd` cobre o esquema oficial 2025 de alterações
   toponímicas com colunas extras; a suíte posterior passou em 497 testes.
+- Evidência adicional: `47a5050` cobre a fronteira de 5.500 municípios e mata
+  os mutantes de comparação e mensagem dessa validação; a suíte posterior passou
+  em 498 testes.
 
 ### IBGE-004 — SINAN Gold canônica
 
