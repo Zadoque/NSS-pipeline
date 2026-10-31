@@ -1316,6 +1316,12 @@ testes de `tests/test_national_scope.py` passaram, confirmando **5.571
 municípios**, resolução Gold em múltiplas UFs e reconciliação sintética de uma
 linha por município. O ZIP não foi incorporado ao repositório.
 
+O commit `474c39b` (`test(ibge): cover malformed history source maps`) adicionou
+regressões para manifestos históricos cujo campo `sources` é nulo, textual ou
+lista. Os **74 testes** do histórico passaram; na rodada dirigida do mutmut,
+1 dos 3 mutantes selecionados desse contrato morreu e 2 permaneceram como
+variantes ainda não distinguidas pela suíte.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
