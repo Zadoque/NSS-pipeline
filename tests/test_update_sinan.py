@@ -5,7 +5,9 @@ import json
 
 import pytest
 
-from app.pipeline.update_sinan import _load_manifest, _parse_years, _save_manifest, update, update_one
+from app.pipeline.update_sinan import (
+    _load_manifest, _parse_years, _save_manifest, main, update, update_one,
+)
 
 
 def test_update_one_skips_same_size(tmp_path, monkeypatch):
@@ -198,3 +200,52 @@ def test_update_inspects_each_slice_and_persists_manifest(tmp_path, mocker, monk
     assert results == ["DENG:2026: unchanged (4 bytes)"]
     inspect.assert_called_once_with("DENG", 2026)
     assert _load_manifest(manifest_path)["DENG:2026"]["status"] == "UNCHANGED"
+
+
+def test_main_encaminha_diseases_years_manifesto_e_catalogo(monkeypatch, tmp_path):
+    import sys
+    import app.pipeline.reference.ibge.storage as storage
+
+    catalog = object()
+    captured = {}
+    monkeypatch.setattr(storage, "load_active_catalog", lambda root: catalog)
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda diseases, years, manifest, catalog=None: captured.update(
+            diseases=diseases, years=years, manifest=manifest, catalog=catalog
+        ),
+    )
+    monkeypatch.setattr(
+        sys, "argv", [
+            "update_sinan", "--diseases", "deng,chik", "--years", "2024,2026",
+            "--manifest", str(tmp_path / "manifest.json"),
+            "--catalog-root", str(tmp_path / "ibge"),
+        ],
+    )
+
+    main()
+
+    assert captured == {
+        "diseases": ["DENG", "CHIK"],
+        "years": [2024, 2026],
+        "manifest": tmp_path / "manifest.json",
+        "catalog": catalog,
+    }
+
+
+def test_main_rejeita_doenca_nao_acompanhada(monkeypatch, capsys):
+    import sys
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", "DENG,INVALID"])
+
+    with pytest.raises(SystemExit, match="Doenças não acompanhadas: INVALID"):
+        main()
+
+
+def test_main_rejeita_lista_de_doencas_vazia(monkeypatch):
+    import sys
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", ""])
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 2
