@@ -34,6 +34,8 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(
     mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, gold])
     runner.run_load("deng", 2026)
     options = load.call_args.kwargs
+    assert load.call_args.args[2] == "DENG"
+    assert runner.write_bronze.call_args.args[1] == "DENG"
     assert options["expected_cases_total"] == 3
     assert options["municipios"] == list(MUNICIPIOS_RJ)
     assert options["year"] == 2026
@@ -41,6 +43,7 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(
     assert options["allow_empty"] is False
     assert options["geographic_scope_sha256"] == scope_sha256(MUNICIPIOS_RJ)
     assert options["source_extracted_at"] == aggregate.call_args.kwargs["run_at"]
+    assert aggregate.call_args.args[1] == "DENG"
     assert aggregate.call_args.kwargs["municipios"] == MUNICIPIOS_RJ
     assert aggregate.call_args.kwargs["target"] == "serving"
     engine.dispose.assert_called_once()
@@ -109,6 +112,7 @@ def test_cache_local_passa_para_bronze_sem_leitura_em_memoria(mocker, pipeline):
         == runner.transform_file.call_args.kwargs["run_at"]
         == runner.aggregate_file.call_args.kwargs["run_at"]
     )
+    assert runner.write_bronze.call_args.kwargs["run_at"].tzinfo is not None
 
 
 def test_publicacao_vazia_explicita_e_falha_liberam_conexao(mocker, pipeline):
@@ -120,6 +124,17 @@ def test_publicacao_vazia_explicita_e_falha_liberam_conexao(mocker, pipeline):
         runner.run_load("DENG", 2026, allow_empty=True)
     assert load.call_args.kwargs["expected_cases_total"] == 0
     assert load.call_args.kwargs["allow_empty"] is True
+    engine.dispose.assert_called_once()
+
+
+def test_publicacao_vazia_bloqueia_por_padrao(mocker, pipeline):
+    _, engine, _, load = pipeline
+    silver = pd.DataFrame({"ID_MUNICIP": ["9999999"]})
+    mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, pd.DataFrame()])
+
+    runner.run_load("deng", 2026)
+
+    assert load.call_args.kwargs["allow_empty"] is False
     engine.dispose.assert_called_once()
 
 
