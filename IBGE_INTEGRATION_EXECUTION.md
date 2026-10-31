@@ -84,6 +84,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `f2c8cb5` | Bloqueio de rede em timeout CNES inválido |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
+| `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
+| `09f048a` | Vinculação do checkpoint à identidade da release IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -201,15 +203,15 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 349 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 368 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 369 passed, 25 warnings
+pytest -q                  → 354 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 373 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 374 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 368 testes foram executados com PostgreSQL real em container isolado,
+Os 373 testes foram executados com PostgreSQL real em container isolado,
 incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
@@ -304,6 +306,10 @@ Após a cobertura dos limites mínimos válidos, os mutantes
 `app.pipeline.run_cnes.x_run_cnes__mutmut_5` e
 `app.pipeline.run_cnes.x_run_cnes__mutmut_14` também foram classificados como
 mortos em rodada dirigida.
+Os mutantes `48`, `49`, `50`, `52`, `53` e `54` de `run_cnes`, que alteravam
+as chaves ou a validação da identidade IBGE no checkpoint, também morreram
+após o teste com release catalogada. A mesma rodada matou os caminhos de
+checkpoint inválido e o descarte indevido de `GeographicScope`.
 
 ## Compatibilidade preservada
 
