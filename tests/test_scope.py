@@ -13,6 +13,7 @@ def test_scope_hash_is_order_independent_and_canonical():
     first = scope_sha256(["3550308", "3301009"])
     second = scope_sha256(["3301009", "3550308", "3301009"])
     assert first == second
+    assert first == "455115f972838f67ef28111db20b89cd2db948ca11bd053bfad09198db2ff287"
     assert len(first) == 64
 
 
@@ -24,6 +25,12 @@ def test_geographic_scope_exposes_hash_of_its_codes():
 def test_scope_hash_rejects_non_municipal_codes():
     with pytest.raises(ValueError, match="7 dígitos"):
         scope_sha256(["330100"])
+
+
+def test_scope_hash_rejects_unicode_digits():
+    with pytest.raises(ValueError) as error:
+        scope_sha256(["３３０１００９"])
+    assert str(error.value) == "escopo deve conter códigos municipais IBGE de 7 dígitos"
 
 
 def test_select_scope_rejects_duplicate_municipalities():

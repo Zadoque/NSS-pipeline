@@ -8,7 +8,9 @@ from app.pipeline.reference.ibge.catalog import (
     ParquetMunicipalityCatalog,
     _as_municipality,
 )
-from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
+from app.pipeline.reference.ibge.models import (
+    CatalogMetadata, Municipality, ResolutionResult, ResolutionStatus,
+)
 from app.pipeline.reference.ibge.validation import (
     inspect_municipalities,
     validate_municipalities,
@@ -169,14 +171,56 @@ def test_legacy_rj_mapping_is_owned_by_scope_and_isolated():
 
 def test_scope_can_select_uf_or_municipalities_but_not_both():
     value = catalog()
-    assert select_scope(value, ufs=["SP"]).codes7 == {"3550308"}
+    selected_uf = select_scope(value, ufs=["SP"])
+    assert selected_uf.codes7 == {"3550308"}
+    assert selected_uf.kind == "UFs"
     assert select_scope(value, municipalities=["330100"]).codes7 == {"3301009"}
-    try:
+    with pytest.raises(ValueError) as error:
         select_scope(value, ufs=["RJ"], all_brazil=True)
-    except ValueError as error:
-        assert "apenas uma" in str(error)
-    else:
-        raise AssertionError("escopo ambíguo deveria falhar")
+    assert str(error.value) == "selecione apenas uma entre municípios, UFs ou Brasil inteiro"
+
+
+def test_scope_can_select_all_brazil_with_explicit_kind():
+    selected = select_scope(catalog(), all_brazil=True)
+    assert selected.kind == "BRAZIL"
+    assert selected.count == 5
+    assert selected.codes7 == {"3301009", "3305000", "3302205", "3302403", "3550308"}
+
+
+def test_scope_rejects_unknown_uf_and_empty_municipal_selection():
+    with pytest.raises(ValueError) as unknown_uf:
+        select_scope(catalog(), ufs=["AC"])
+    assert str(unknown_uf.value) == "nenhuma UF selecionada existe no catálogo"
+
+    with pytest.raises(ValueError) as empty_municipalities:
+        select_scope(catalog(), municipalities=[])
+    assert str(empty_municipalities.value) == "o escopo municipal não pode ser vazio"
+
+
+def test_scope_rejects_invalid_municipality_with_complete_reason():
+    with pytest.raises(ValueError) as error:
+        select_scope(catalog(), municipalities=["999999"])
+    assert str(error.value) == (
+        "município inválido no escopo: 999999 "
+        "(UNKNOWN_CODE)"
+    )
+
+
+def test_scope_rejects_non_valid_resolution_even_with_candidate(monkeypatch):
+    value = catalog()
+    candidate = municipality("3301009", "Campos")
+    monkeypatch.setattr(
+        value,
+        "resolve",
+        lambda code: ResolutionResult(
+            str(code), "CODE6", ResolutionStatus.UNKNOWN_CODE, candidate,
+            "código ausente no catálogo",
+        ),
+    )
+
+    with pytest.raises(ValueError) as error:
+        select_scope(value, municipalities=["330100"])
+    assert str(error.value) == "município inválido no escopo: 330100 (UNKNOWN_CODE)"
 
 
 def test_catalog_rejects_ambiguous_crosswalk():
