@@ -775,8 +775,9 @@ pulados** e **25 warnings**.
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
 incompatibilidade de sistema.
 
-O último commit funcional desta rodada foi `81dc7b1`
-(`test(load): cover pending catalog rejection`), precedido por `4a91f47`
+O último commit funcional desta rodada foi `0de9f7d`
+(`fix(load): reject unvalidated catalog releases`), precedido pelo teste
+`81dc7b1` (`test(load): cover pending catalog rejection`) e por `4a91f47`
 (`fix(ibge): reject truncated national catalogs`), precedido por `95b99b0`
 (`fix(ibge): reject non-ascii municipality codes`), precedido por `4cf6523`
 (`fix(cnes): enforce ascii municipality codes`) e seguido do registro da
