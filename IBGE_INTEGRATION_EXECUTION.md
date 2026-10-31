@@ -277,6 +277,13 @@ testes e passaram a ser classificados. Esse resultado continua abaixo da meta
 e não é apresentado como
 homologação integral de mutação.
 
+Uma rodada dirigida posterior, restrita aos módulos `run_cnes.py` e
+`reference/ibge/catalog.py`, gerou 673 mutantes e foi interrompida após
+406 execuções: 247 mortos, 155 sobreviventes e 4 timeouts. Os workers que
+ficaram presos em mutantes do entrypoint CNES foram encerrados e a configuração
+oficial completa do `mutmut` foi restaurada. O resultado é evidência parcial de
+qualidade, não um score final nem uma justificativa para reduzir o escopo.
+
 ## Compatibilidade preservada
 
 - O dicionário `MUNICIPIOS_RJ` continua aceito pelas interfaces legadas.
