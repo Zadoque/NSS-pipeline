@@ -14,6 +14,7 @@ COPY territories ./territories
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY pytest.ini ./
+COPY pyproject.toml ./
 COPY tests ./tests
 
 ENTRYPOINT ["python", "-m", "app.pipeline.run"]
