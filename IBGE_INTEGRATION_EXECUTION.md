@@ -1523,7 +1523,7 @@ testes de `tests/test_national_scope.py` passaram offline em **30,24 s**; o ZIP
 bruto continua aceito por variável de ambiente para homologação de proveniência.
 
 Após versionar essa fixture e habilitar o fallback offline, a suíte integral
-passou em **626 testes**, com **0 skips** e **25 warnings**; `nix flake check
+passou em **627 testes**, com **0 skips** e **25 warnings**; `nix flake check
 --no-build` também passou.
 
 Para reforçar a reprodutibilidade do histórico, a planilha oficial
@@ -1534,3 +1534,7 @@ regressão offline reproduz os **2.149 eventos toponímicos** observáveis e
 confirma que todos preservam o mesmo código de origem e destino. As descrições
 textuais de desmembramento continuam sem promoção automática quando não há
 código de origem inequívoco.
+
+Verificação pós-commit `5ca9224`: a suíte integral passou em **627 testes**,
+com **0 skips** e **25 warnings** em **61,95 s**; `nix flake check
+--no-build` passou e a branch ficou limpa e sincronizada com o remoto.
