@@ -317,6 +317,7 @@ regressão local sem PostgreSQL disponível → 395 passed, 22 skipped, 25 warni
 suíte completa com PostgreSQL de integração → 415 passed, 2 skipped, 25 warnings
 tests/integration com PostgreSQL → 20 passed, 1 warning
 suíte completa após retentativa CNES → 415 passed, 2 skipped, 25 warnings
+suíte completa após workers CNES e série histórica → 420 passed, 2 skipped, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
