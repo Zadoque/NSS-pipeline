@@ -128,7 +128,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-009 — Homologação CNES nacional real
 
 - Prioridade: **P1**
-- Estado: **Parcial; amostra de 27/27 UFs executada**
+- Estado: **Parcial; executor nacional tolerante a falhas implementado; amostra de 27/27 UFs executada**
 - Dependências: IBGE-005, IBGE-006
 - Escopo: execução autorizada para todos os municípios ou lotes nacionais,
   medição de taxa de erro, duração, limite da API e retomada.
@@ -137,6 +137,9 @@ IBGE-012 ──> IBGE-013
   - Não há salto de paginação nem duplicação após retomada.
   - O lote e seus parâmetros ficam registrados no metadata.
   - A API não é consultada durante reprocessamento de Bronze já validado.
+- Implementação adicional: `run_cnes(..., continue_on_error=True)` percorre o lote,
+  registra falhas por município no checkpoint e publica o snapshot como `PARTIAL`;
+  o comportamento estrito continua sendo o padrão.
 
 ### IBGE-010 — Fixtures e reconciliação epidemiológica nacional
 

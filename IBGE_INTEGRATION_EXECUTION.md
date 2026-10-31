@@ -86,6 +86,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `36dfc21` | Fortalecimento dos contratos do cliente de Localidades |
 | `45939c1` | Registro da rodada de mutação do cliente de Localidades |
 | `feb6303` | Registro da suíte de testes do cliente de Localidades |
+| `1a65c89` | Classificação de falhas municipais em lotes CNES |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
@@ -484,6 +485,19 @@ os nomes completos dos mutantes; os caminhos de ownership e URL morreram, mas
 alguns mutantes de parsing continuam sobrevivendo por associação incompleta da
 ferramenta entre testes novos e a função mutada. Eles permanecem pendentes e
 não alteram o score global declarado acima.
+
+## Execução CNES tolerante a falhas
+
+O executor CNES agora oferece `continue_on_error=True` e a opção de CLI
+`--continue-on-error`. Nesse modo, cada município termina como `completed` ou
+`failed`, com tipo e mensagem de erro no checkpoint e no metadata do lote.
+Quando há municípios com falha, o snapshot recebe status `PARTIAL`; o modo
+estrito continua sendo o default para preservar a compatibilidade e impedir
+que uma publicação parcial seja confundida com uma carga completa.
+
+O checkpoint também fixa esse parâmetro junto da release IBGE, do escopo, do
+page size e do timeout. Municípios já concluídos são lidos da Bronze validada,
+sem nova consulta à API.
 
 ## Compatibilidade preservada
 
