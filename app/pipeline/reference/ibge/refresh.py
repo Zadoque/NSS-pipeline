@@ -129,6 +129,10 @@ def _reuse_immutable_release(release: Path, metadata: CatalogMetadata) -> Path |
     return catalog_path
 
 
+def _promotion_timestamp() -> str:
+    return datetime.now(UTC).isoformat()
+
+
 def _release_path(root: Path, catalog_id: str) -> Path:
     if not catalog_id or catalog_id in {".", ".."} or Path(catalog_id).name != catalog_id:
         raise ValueError("catalog_id inválido para uma release local")
@@ -184,6 +188,7 @@ def refresh_from_localidades(
         retrieved_at=datetime.now(UTC).isoformat(),
         sha256=_records_sha256(records),
         content_sha256=catalog_content_sha256(records),
+        promoted_at=_promotion_timestamp(),
     )
     existing = _reuse_immutable_release(release, metadata)
     if existing is not None:
@@ -216,6 +221,7 @@ def refresh_from_dtb_archive(
         retrieved_at=datetime.now(UTC).isoformat(),
         sha256=sha256,
         content_sha256=catalog_content_sha256(records),
+        promoted_at=_promotion_timestamp(),
     )
     existing = _reuse_immutable_release(release, metadata)
     if existing is not None:

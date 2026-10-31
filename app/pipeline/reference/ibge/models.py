@@ -38,6 +38,7 @@ class CatalogMetadata:
     schema_version: str = "1.0"
     validation_status: str = "VALIDATED"
     content_sha256: str | None = None
+    promoted_at: str | None = None
 
 
 @dataclass(frozen=True)

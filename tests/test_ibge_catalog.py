@@ -789,6 +789,10 @@ def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
         client=Client(), require_national=False,
     )
     assert result.exists()
+    manifest = __import__("json").loads(
+        result.with_name("manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["promoted_at"]
     assert (result.parent / "ufs.parquet").exists()
     assert (result.parent / "code_crosswalk.parquet").exists()
     loaded = load_active_catalog(tmp_path)
