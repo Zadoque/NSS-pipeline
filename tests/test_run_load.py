@@ -162,8 +162,6 @@ def test_catalogo_ibge_bloqueia_publicacao_com_resolucao_invalida(mocker, pipeli
         ],
         CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
     )
-    from app.pipeline.scope import GeographicScope
-    scope = GeographicScope(catalog.municipalities())
     silver = pd.DataFrame({"ID_MUNICIP": ["330100"]})
     mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, pd.DataFrame({"cases_total": [1]})])
     aggregate.return_value = Path("gold.parquet")
