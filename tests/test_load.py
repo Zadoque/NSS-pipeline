@@ -328,14 +328,26 @@ def test_register_release_accepts_sha256_hexadecimal_em_maiusculas(mocker):
     _register_catalog_release(conn, catalog)
 
 
+@pytest.mark.parametrize("scope_type", ["MUNICIPALITIES", "UFs", "BRAZIL"])
+def test_load_accepts_declared_scope_types(scope_type):
+    load_gold_to_postgres(
+        _Engine(_Connection()), _gold_minima(), "DENG", "b1",
+        year=2026, municipios=["3301009"], expected_cases_total=5,
+        snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
+        geographic_scope_type=scope_type,
+    )
+
+
 def test_load_rejects_unknown_scope_type():
-    with pytest.raises(ValueError, match="escopo"):
+    with pytest.raises(ValueError) as error:
         load_gold_to_postgres(
             _Engine(_Connection()), _gold_minima(), "DENG", "b1",
             year=2026, municipios=["3301009"], expected_cases_total=5,
             snapshot_complete=True, source_extracted_at=datetime(2026, 1, 1, tzinfo=UTC),
             geographic_scope_type="UNKNOWN",
         )
+
+    assert str(error.value) == "tipo de escopo geográfico inválido"
 
 
 def test_load_rejects_unknown_or_negative_quality_metric():
