@@ -448,6 +448,40 @@ def test_catalogo_ibge_bloqueia_metadata_gold_incompleto(mocker, pipeline, tmp_p
     get_engine.assert_not_called()
 
 
+def test_catalogo_ibge_bloqueia_metadata_gold_ausente(mocker, pipeline, tmp_path):
+    aggregate, _, get_engine, load = pipeline
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3305000", "330500", "São João", "33", "RJ", "Rio", 2025),
+            Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+    gold_path = tmp_path / "gold.parquet"
+    aggregate.return_value = gold_path
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.unlink(missing_ok=True)
+    mocker.patch.object(Path, "with_name", return_value=metadata_path)
+
+    with pytest.raises(ValueError, match="métricas obrigatórias"):
+        runner.run_load("DENG", 2026, catalog=catalog)
+
+    load.assert_not_called()
+    get_engine.assert_not_called()
+
+
 @pytest.mark.parametrize("invalid_metric", ['"0"', "true", "-1"])
 def test_catalogo_ibge_bloqueia_metadata_gold_com_metrica_invalida(
     mocker, pipeline, tmp_path, invalid_metric,
