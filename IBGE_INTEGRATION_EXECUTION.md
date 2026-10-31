@@ -116,6 +116,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `fa7d43b` | Cobertura das invariantes do relatório de validação IBGE |
 | `958f160` | Cobertura do hash lógico canônico do catálogo |
 | `121ab52` | Cobertura da validação de metadados de release |
+| `135c375` | Inserção de fatos nacionais em lotes limitados |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -472,6 +473,20 @@ CNES real nacional         → `COMPLETED`, 5571/5571 municípios, 5571 Bronzes,
   catálogo `ibge-dtb-2025-full` (SHA bruto `d077a0e4...dad27`), 8 workers
 ```
 
+Também foi executada uma homologação epidemiológica com o arquivo público
+SINAN DENG 2024 obtido pelo PySUS. O download isolado teve 165009354 bytes;
+o pipeline processou 6564163 linhas na Silver em 62 lotes e produziu Gold
+nacional com 6179051 linhas, das quais 6179050 foram resolvidas, uma foi
+descartada, nenhuma foi classificada como código municipal inválido e nenhuma
+ficou fora do escopo. Houve uma divergência de UF sinalizada, sem associação
+geográfica indevida; o resultado final contém 2428428 grupos e 6179050 casos.
+
+Essa Gold foi publicada em PostgreSQL de integração isolado, com 2428428 fatos,
+6179050 casos e 5571 municípios, mantendo a linhagem da release IBGE. A carga
+inicial confirmou o custo elevado de materializar todos os parâmetros em uma
+única chamada; por isso `insert_fato_casos()` passou a enviar lotes de 10000
+registros dentro da mesma transação (`135c375`).
+
 A suíte completa foi executada com PostgreSQL real em container isolado,
 incluindo os testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
@@ -699,7 +714,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
 | Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; genealogia de sucessões ainda não promovida | Parcial; sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
-| Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
+| Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
 | Mutação ≥95% | Última medição global: 63,44% entre 6.255 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
@@ -725,8 +740,9 @@ epidemiológica nacional completa. Permanecem necessários:
 4. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
    de produção; a configuração e as rodadas dirigidas são classificáveis, mas
    a meta de 95% ainda não foi alcançada.
-5. Execução nacional de homologação com dados autorizados e reconciliação dos
-   totais da Silver, Gold e PostgreSQL.
+5. Reconciliação adicional com dados autorizados, quando disponibilizados, para
+   complementar a homologação pública já executada. A cadeia pública teve
+   totais reconciliados entre Silver, Gold e PostgreSQL.
 
 ## Conclusão
 
