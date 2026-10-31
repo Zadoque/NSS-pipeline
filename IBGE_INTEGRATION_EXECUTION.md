@@ -433,7 +433,7 @@ sem ser tratado como morto artificialmente.
 | Seleção por município, UF e Brasil | CLI, `GeographicScope` e smoke nacional com 27 UFs | Concluído |
 | CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído no modo offline |
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
-| Histórico de sucessões municipais | Parser explícito disponível, sem fonte oficial completa promovida | Pendente externo |
+| Histórico de sucessões municipais | IBGE possui genealogia histórica 1872–2010 em PDF; não há crosswalk tabular 2011–2025 promovido | Pendente externo |
 | CNES real em todas as UFs | Piloto real de Campos; execução nacional ainda não observada | Pendente externo |
 | Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
 | Mutação ≥95% | Última medição global: 68,7% entre mutantes classificáveis | Pendente de qualidade |
@@ -445,10 +445,13 @@ completa. Permanecem necessários:
    o código de atualização já mantém cache bruto, SHA-256 e promoção atômica,
    enquanto o repositório mantém checksum e fixture representativa, não o ZIP
    integral.
-2. Obter e promover a tabela oficial completa de criação, extinção e sucessão
-   administrativa, além de definir a política temporal efetiva. O contrato e
-   o parser para esses eventos já existem, mas nenhum evento é inferido sem
-   fonte declarada.
+2. Normalizar e promover uma fonte histórica oficial de criação, extinção e
+   sucessão administrativa. O IBGE publica a [genealogia municipal histórica
+   1872–2010](https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/evolucao_da_divisao_territorial_do_brasil/evolucao_da_divisao_territorial_do_brasil_1872_2010/municipios_genealogia_e_alteracao_de_nome_e_grafia.pdf)
+   em PDF, mas essa publicação ainda não é um crosswalk tabular
+   integrado ao NSS e não cobre diretamente 2011–2025. O contrato e o parser
+   para eventos explícitos já existem; nenhum evento é inferido por nome ou
+   proximidade geográfica.
 3. Observar e calibrar a paginação CNES para todas as UFs; `page_size`, timeout,
    reutilização de sessão e checkpoint reiniciável já estão disponíveis, mas o
    limite operacional máximo e a execução de todas as requisições ainda
