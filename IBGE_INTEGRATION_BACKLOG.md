@@ -288,6 +288,8 @@ IBGE-012 ──> IBGE-013
   - O commit `213c94c` adicionou o contrato direto de normalização com catálogo;
     a rodada dirigida matou **4 de 5 mutantes** desse caminho. O quinto foi
     classificado como equivalente sob a restrição de códigos numéricos.
+  - O commit `585450d` adicionou regressão para UF divergente; a Gold mantém o
+    recorte vazio e não mascara a inconsistência com a UF canônica.
   - A suíte integral posterior passou em **500 testes**, com **3 pulados** e
     **25 warnings**, incluindo PostgreSQL de integração local.
   - Após `88f4949`, a suíte integral passou em **501 testes**, com **3 pulados**

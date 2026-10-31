@@ -1041,6 +1041,12 @@ adicionou uma regressão direta para o caminho que recebe um
 dirigida matou **4 de 5 mutantes** previamente sobreviventes; o restante é
 equivalente porque as entradas válidas já são exclusivamente numéricas.
 
+O commit `585450d` (`test(sinan): assert UF mismatch quarantine`) adicionou um
+caso explícito em que o código municipal resolve no catálogo, mas a UF da
+fonte diverge. A Gold mantém o resultado vazio e não substitui a divergência
+por uma UF canônica; o mutante que força o fallback para a UF da fonte é
+inalcançável para entradas válidas porque a resolução já rejeita o registro.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
