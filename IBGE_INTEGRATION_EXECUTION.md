@@ -1191,6 +1191,12 @@ contagem de múltiplas linhas resolvidas, inválidas, fora do escopo e divergent
 os **5 mutantes** selecionados morreram. A suíte integral posterior passou em
 **577 testes**, com **3 pulados** e **25 warnings**.
 
+O commit `21b8195` (`fix(sinan): reject malformed source metadata`) passou a
+validar que o `metadata.json` da Silver seja um objeto antes de consultar
+doença e ano. A regressão cobre uma lista JSON inválida e evita falha indireta
+durante a Gold. A suíte integral posterior passou em **578 testes**, com **3
+pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
