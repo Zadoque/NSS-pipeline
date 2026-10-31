@@ -1392,3 +1392,11 @@ essa regra é coberta por regressão unitária e pelo commit `ea9c0b6`.
 Mutações dirigidas de `run_load._build_parser()` → 22 de 64 mutantes
 previamente sobreviventes morreram após o teste de contrato dos argumentos;
 os demais continuam pendentes e não são apresentados como aprovação global.
+
+O commit desta etapa adicionou regressões
+para os defaults e falhas observáveis do CLI de `update_sinan.py`: doenças
+acompanhadas por padrão, manifesto padrão, carregamento condicional do catálogo,
+conversão do caminho para `Path`, erro de lista vazia e código de saída 1 em
+falha de atualização. O módulo passou em **19 testes**. Na reexecução dirigida
+dos 12 mutantes comportamentais selecionados, **10 morreram**; os dois
+sobreviventes removem apenas texto de ajuda sem alterar o contrato operacional.

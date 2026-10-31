@@ -397,6 +397,11 @@ IBGE-012 ──> IBGE-013
     só afetam caminhos já encerrados por formato inválido. Nenhum mutante altera
     uma resolução `VALID`, `UNKNOWN_CODE`, `UF_MISMATCH` ou
     `HISTORICAL_UNRESOLVED` observável.
+  - O CLI do atualizador SINAN passou a ter regressões para defaults, caminho do
+    manifesto, conversão de `--catalog-root`, carregamento condicional,
+    mensagem de lista vazia e código de saída em falha. Na rodada dirigida, 10
+    de 12 mutantes comportamentais morreram; os dois sobreviventes são apenas
+    remoções do texto de ajuda do argumento.
 
 ### IBGE-013 — Rollout nacional de produção
 

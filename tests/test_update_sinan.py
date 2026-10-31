@@ -208,7 +208,10 @@ def test_main_encaminha_diseases_years_manifesto_e_catalogo(monkeypatch, tmp_pat
 
     catalog = object()
     captured = {}
-    monkeypatch.setattr(storage, "load_active_catalog", lambda root: catalog)
+    loaded_roots = []
+    monkeypatch.setattr(
+        storage, "load_active_catalog", lambda root: loaded_roots.append(root) or catalog
+    )
     monkeypatch.setattr(
         "app.pipeline.update_sinan.update",
         lambda diseases, years, manifest, catalog=None: captured.update(
@@ -231,6 +234,39 @@ def test_main_encaminha_diseases_years_manifesto_e_catalogo(monkeypatch, tmp_pat
         "manifest": tmp_path / "manifest.json",
         "catalog": catalog,
     }
+    assert loaded_roots == [tmp_path / "ibge"]
+
+
+def test_main_aplica_defaults_sem_catalogo(monkeypatch):
+    import sys
+
+    captured = {}
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda diseases, years, manifest, catalog=None: captured.update(
+            diseases=diseases, years=years, manifest=manifest, catalog=catalog
+        ),
+    )
+    monkeypatch.setattr(sys, "argv", ["update_sinan"])
+
+    main()
+
+    assert captured["diseases"] == ["DENG", "CHIK", "ZIKA", "FMAC", "TOXC", "TOXG"]
+    assert captured["manifest"] == Path("/data/source/sinan/manifest.json")
+    assert captured["catalog"] is None
+
+
+def test_main_nao_carrega_catalogo_sem_argumento(monkeypatch):
+    import sys
+    import app.pipeline.reference.ibge.storage as storage
+
+    monkeypatch.setattr(
+        storage, "load_active_catalog", lambda _root: pytest.fail("catálogo não deveria ser carregado")
+    )
+    monkeypatch.setattr("app.pipeline.update_sinan.update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sys, "argv", ["update_sinan"])
+
+    main()
 
 
 def test_main_rejeita_doenca_nao_acompanhada(monkeypatch, capsys):
@@ -241,7 +277,7 @@ def test_main_rejeita_doenca_nao_acompanhada(monkeypatch, capsys):
         main()
 
 
-def test_main_rejeita_lista_de_doencas_vazia(monkeypatch):
+def test_main_rejeita_lista_de_doencas_vazia(monkeypatch, capsys):
     import sys
     monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", ""])
 
@@ -249,3 +285,16 @@ def test_main_rejeita_lista_de_doencas_vazia(monkeypatch):
         main()
 
     assert error.value.code == 2
+    assert "Informe ao menos uma doença em --diseases" in capsys.readouterr().err
+
+
+def test_main_sai_com_codigo_um_quando_atualizacao_falha(monkeypatch):
+    import sys
+
+    monkeypatch.setattr("app.pipeline.update_sinan.update", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("falha")))
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", "DENG"])
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 1
