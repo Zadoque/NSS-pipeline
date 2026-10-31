@@ -89,6 +89,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `1a65c89` | Classificação de falhas municipais em lotes CNES |
 | `8839764` | Documentação da retomada de lotes CNES parciais |
 | `17cdf1d` | Defaults locais para PostgreSQL de desenvolvimento |
+| `44e07b4` | Retentativa de municípios falhos na retomada CNES |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
@@ -311,6 +312,7 @@ pytest -q nacional + PostgreSQL → 415 passed, 25 warnings
 regressão local sem PostgreSQL disponível → 395 passed, 22 skipped, 25 warnings
 suíte completa com PostgreSQL de integração → 415 passed, 2 skipped, 25 warnings
 tests/integration com PostgreSQL → 20 passed, 1 warning
+suíte completa após retentativa CNES → 415 passed, 2 skipped, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
