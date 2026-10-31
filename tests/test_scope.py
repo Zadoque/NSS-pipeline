@@ -64,3 +64,15 @@ def test_validate_scope_catalog_accepts_scope_materialized_by_catalog():
     )
 
     validate_scope_catalog(catalog, GeographicScope((municipality,)))
+
+
+def test_all_brazil_can_require_a_nationally_validated_catalog():
+    catalog = InMemoryMunicipalityCatalog(
+        [_municipality("3301009")],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+
+    with pytest.raises(ValueError, match="UFs ausentes"):
+        select_scope(catalog, all_brazil=True, require_national=True)
+
+    assert select_scope(catalog, all_brazil=True).count == 1

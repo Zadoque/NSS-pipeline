@@ -5,6 +5,7 @@ import hashlib
 import json
 
 from .reference.ibge.models import Municipality, MunicipalityCatalog, ResolutionStatus
+from .reference.ibge.validation import validate_national_municipalities
 
 LEGACY_RJ_CODES = (
     "3301009",  # Campos dos Goytacazes
@@ -83,6 +84,7 @@ def select_scope(
     municipalities: list[str] | tuple[str, ...] | None = None,
     ufs: list[str] | tuple[str, ...] | None = None,
     all_brazil: bool = False,
+    require_national: bool = False,
 ) -> GeographicScope:
     options = sum(value is not None for value in (municipalities, ufs)) + int(all_brazil)
     if options > 1:
@@ -90,6 +92,8 @@ def select_scope(
     if options == 0:
         return legacy_rj_scope(catalog)
     if all_brazil:
+        if require_national:
+            validate_national_municipalities(catalog.municipalities())
         return GeographicScope(catalog.municipalities(), kind="BRAZIL")
     if ufs is not None:
         wanted = {str(value).strip().upper() for value in ufs}

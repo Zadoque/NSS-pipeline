@@ -131,6 +131,7 @@ def test_main_encaminha_escopo_e_lote_cnes(mocker, tmp_path):
         municipalities=None,
         ufs=None,
         all_brazil=True,
+        require_national=True,
     )
     execute.assert_called_once_with(
         "deng",

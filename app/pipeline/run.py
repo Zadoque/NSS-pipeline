@@ -78,12 +78,17 @@ def main() -> None:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
         if catalog is None and (args.municipios or args.ufs or args.all_brazil):
             raise ValueError("seleção geográfica exige --catalog-root")
-        scope = select_scope(
-            catalog,
-            municipalities=args.municipios.split(",") if args.municipios else None,
-            ufs=args.ufs.split(",") if args.ufs else None,
-            all_brazil=args.all_brazil,
-        ) if catalog is not None else None
+        if catalog is not None:
+            scope_kwargs = {
+                "municipalities": args.municipios.split(",") if args.municipios else None,
+                "ufs": args.ufs.split(",") if args.ufs else None,
+                "all_brazil": args.all_brazil,
+            }
+            if args.all_brazil:
+                scope_kwargs["require_national"] = True
+            scope = select_scope(catalog, **scope_kwargs)
+        else:
+            scope = None
         run(
             args.disease, args.year, selected, catalog=catalog,
             geographic_scope=scope, cnes_batch_id=args.cnes_batch_id,
