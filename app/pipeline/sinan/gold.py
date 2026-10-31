@@ -85,6 +85,26 @@ def normalize_municipality_codes(
     }
     return municipality_key.map(ibge_by_sinan_code).fillna(raw)
 
+
+def resolve_catalog_municipality_codes(
+    series: pd.Series,
+    catalog: MunicipalityCatalog,
+    declared_ufs: pd.Series | None = None,
+) -> pd.Series:
+    """Resolve códigos pela identidade IBGE, sem truncar códigos completos."""
+    ufs = declared_ufs.tolist() if declared_ufs is not None else [None] * len(series)
+    resolved_codes = []
+    for value, declared_uf in zip(series.tolist(), ufs):
+        if declared_uf is not None and pd.isna(declared_uf):
+            declared_uf = None
+        result = catalog.resolve(value, declared_uf=declared_uf)
+        resolved_codes.append(
+            result.municipality.code7
+            if result.status.value == "VALID" and result.municipality is not None
+            else pd.NA
+        )
+    return pd.Series(resolved_codes, index=series.index, dtype="string")
+
 def gold_root(target: GoldTarget) -> Path:
     if target not in {"ad_hoc", "serving"}:
         raise ValueError(f"Destino Gold inválido: {target!r}")
@@ -115,7 +135,12 @@ def aggregate(
     ]
 
     work = df.copy()
-    work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
+    if catalog is not None:
+        work["cd_mun"] = resolve_catalog_municipality_codes(
+            work["ID_MUNICIP"], catalog, work.get("SG_UF_NOT")
+        )
+    else:
+        work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
     work = work[work["cd_mun"].isin(municipios)]
     if catalog is not None and not work.empty:
         canonical = work["cd_mun"].map(catalog.get_municipality)

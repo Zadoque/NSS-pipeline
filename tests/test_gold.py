@@ -93,11 +93,29 @@ def test_aggregate_usa_uf_canonica_do_catalogo():
         CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
     )
     result = aggregate(
-        _silver_minima(ID_MUNICIP=["330100"] * 3, SG_UF_NOT=["35"] * 3, NM_UF=["São Paulo"] * 3),
+        _silver_minima(ID_MUNICIP=["330100"] * 3, SG_UF_NOT=["33"] * 3),
         "DENG", municipios=catalog, catalog=catalog,
     )
     assert result.loc[0, "cd_uf"] == "33"
     assert result.loc[0, "nm_uf"] == "Rio de Janeiro"
+
+
+def test_aggregate_rejeita_codigo_completo_invalido_e_uf_divergente_com_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(
+            ID_MUNICIP=["3301008", "330100", "3301008"],
+            SG_UF_NOT=["33", "35", "33"],
+        ),
+        "DENG", municipios=catalog, catalog=catalog,
+    )
+    assert result.empty
 
 
 def test_resolution_metrics_separa_escopo_e_codigo_invalido():
