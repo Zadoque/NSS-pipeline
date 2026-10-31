@@ -202,7 +202,17 @@ def test_catalog_validation_report_preserves_error_without_throwing():
     report = inspect_municipalities((replace(municipality("3301009", "Campos"), code6="330101"),))
     assert report.valid is False
     assert report.municipality_count == 1
-    assert report.errors
+    assert report.errors == ("crosswalk inconsistente: 3301009/330101",)
+
+
+def test_catalog_validation_report_preserves_error_text_for_empty_catalog():
+    report = inspect_municipalities(())
+
+    assert report.valid is False
+    assert report.municipality_count == 0
+    assert report.uf_count == 0
+    assert report.code6_count == 0
+    assert report.errors == ("catálogo municipal vazio",)
 
 
 def test_national_validation_rejects_missing_uf():
@@ -218,11 +228,20 @@ def test_validation_rejects_duplicate_code7():
 
 def test_validation_rejects_conflicting_uf_identity():
     records = [
-        municipality("3301009", "Campos", uf_abbr="RJ"),
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
         Municipality("3302205", "330220", "Itaperuna", "33", "XX", "Rio de Janeiro", 2025),
     ]
     with pytest.raises(ValueError, match="identidade da UF"):
         validate_municipalities(records)
+
+
+def test_validation_compares_uf_abbreviation_case_insensitively():
+    records = [
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3302205", "330220", "Itaperuna", "33", "rj", "Rio de Janeiro", 2025),
+    ]
+
+    assert validate_municipalities(records) == tuple(records)
 
 
 @pytest.mark.parametrize(
