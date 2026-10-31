@@ -235,6 +235,9 @@ IBGE-012 ──> IBGE-013
   `historical/sources/`, com manifesto imutável, SHA-256, URL, período e
   `extraction_status=RAW_ONLY`. A genealogia IBGE 1872–2010 foi homologada
   nesse modo; nenhum crosswalk é criado sem extração tabular validada.
+- `download_historical_source()` baixa esses artefatos com temporário, fecha a
+  sessão HTTP e valida SHA-256 antes da promoção; falhas não deixam fonte
+  parcial no catálogo.
 
 - A validação nacional também rejeita candidatas com menos de 5.500 municípios,
   além de exigir as 27 UFs, para impedir a promoção de respostas truncadas.

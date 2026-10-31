@@ -1019,6 +1019,13 @@ ordenar eventos históricos por data de vigência e `event_id` antes de gravar o
 Parquet. A regressão compara duas entradas equivalentes em ordens opostas e
 confirma a mesma materialização, reforçando a reprodutibilidade do histórico.
 
+O commit `a5ea378` (`feat(ibge): download historical sources safely`) adicionou
+a aquisição HTTP controlada de fontes históricas documentais. O download usa
+arquivo temporário, fecha a resposta/sessão, valida SHA-256 quando fornecido e
+só então promove o artefato com `extraction_status=RAW_ONLY`; uma divergência
+de hash não deixa fonte parcial no catálogo. Isso melhora a proveniência sem
+converter automaticamente o PDF de genealogia em sucessões.
+
 A suíte integral posterior passou em **535 testes**, com **3 testes pulados** e
 **25 warnings**. `nix flake check --no-build` também passou após essa mudança.
 
