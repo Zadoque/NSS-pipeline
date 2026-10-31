@@ -1117,6 +1117,14 @@ classificadas como equivalentes porque continuam rejeitando o formato `.txt`.
 A suíte integral posterior passou em **553 testes**, com **3 pulados** e **25
 warnings**.
 
+O commit `9ed4667` (`test(ibge): cover toponymic history parser`) adicionou
+regressões para formato não suportado, esquema incompleto, fonte vazia, data
+inválida e nomes ausentes na planilha de alterações toponímicas. A rodada
+dirigida matou **2 de 8 mutantes** selecionados; as seis variantes restantes
+apenas retiravam extensões permitidas e continuavam rejeitando o formato de
+teste não suportado. A suíte integral posterior passou em **558 testes**, com
+**3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
