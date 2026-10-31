@@ -108,6 +108,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `c466409` | Teste de erro explícito para município legado ausente |
 | `7843e10` | Fechamento seguro de sessões HTTP próprias do refresh IBGE |
 | `08fb037` | Teste de linhagem do catálogo no executor de carga |
+| `e29cf60` | Rejeição de linhas DTB municipais malformadas |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -147,6 +148,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - O executor `run_load` agora possui teste que comprova a propagação conjunta
   da release IBGE, do escopo por UFs, do tipo de escopo e de seu hash até a
   chamada de publicação PostgreSQL.
+- O parser DTB rejeita códigos municipais ou UFs malformados em linhas
+  preenchidas e continua aceitando o ZIP oficial 2025: 5.571 municípios, 27 UFs
+  e Brasília classificada como `FEDERAL_DISTRICT`.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
   executores SINAN e CNES, com `--page-size` no CNES.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
@@ -259,7 +263,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 372 passed, 20 skipped, 25 warnings
 pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 401 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 402 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
