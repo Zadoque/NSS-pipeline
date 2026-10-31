@@ -23,6 +23,32 @@ TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 logger = logging.getLogger(__name__)
 DEFAULT_CNES_PAGE_SIZE = 100
 DEFAULT_CNES_REQUEST_TIMEOUT = 60.0
+_SHA256_LENGTH = 64
+
+
+def _validate_checkpoint_completed(completed: object, municipios: dict[str, str]) -> dict:
+    if not isinstance(completed, dict):
+        raise ValueError("checkpoint CNES com completed inválido")
+    expected_codes = set(municipios)
+    if not set(completed).issubset(expected_codes):
+        raise ValueError("checkpoint CNES contém município fora do escopo")
+    for code, entry in completed.items():
+        if not isinstance(code, str) or not isinstance(entry, dict):
+            raise ValueError("checkpoint CNES com completed inválido")
+        bronze_path = entry.get("bronze_path")
+        bronze_sha256 = entry.get("bronze_sha256")
+        rows = entry.get("rows")
+        if (
+            not isinstance(bronze_path, str) or not bronze_path
+            or not isinstance(bronze_sha256, str)
+            or len(bronze_sha256) != _SHA256_LENGTH
+            or any(character not in "0123456789abcdefABCDEF" for character in bronze_sha256)
+            or not isinstance(rows, int)
+            or isinstance(rows, bool)
+            or rows < 0
+        ):
+            raise ValueError("checkpoint CNES com completed inválido")
+    return completed
 
 
 def run_cnes(
@@ -71,9 +97,7 @@ def run_cnes(
             raise ValueError("checkpoint CNES sem ingested_at válido") from exc
     else:
         run_at = datetime.now(UTC)
-    completed = (checkpoint or {}).get("completed", {})
-    if not isinstance(completed, dict):
-        raise ValueError("checkpoint CNES com completed inválido")
+    completed = _validate_checkpoint_completed((checkpoint or {}).get("completed", {}), municipios)
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []

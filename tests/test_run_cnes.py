@@ -332,6 +332,44 @@ def test_run_cnes_checkpoint_rejects_invalid_completed_shape(tmp_path):
     assert str(error.value) == "checkpoint CNES com completed inválido"
 
 
+def test_run_cnes_checkpoint_rejects_completed_municipio_fora_do_escopo(tmp_path):
+    checkpoint = tmp_path / "checkpoint-extra.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {"3302403": {}},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES contém município fora do escopo"
+
+
+def test_run_cnes_checkpoint_rejects_completed_entry_invalida(tmp_path):
+    checkpoint = tmp_path / "checkpoint-entry.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {"3301009": {"bronze_path": "data.parquet"}},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
 def test_run_cnes_checkpoint_rejects_invalid_json_with_context(tmp_path):
     checkpoint = tmp_path / "broken.json"
     checkpoint.write_text("{not-json", encoding="utf-8")
