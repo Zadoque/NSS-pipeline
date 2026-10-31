@@ -115,6 +115,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `36eeaa7` | Asserção do contexto completo do resolvedor IBGE |
 | `fa7d43b` | Cobertura das invariantes do relatório de validação IBGE |
 | `958f160` | Cobertura do hash lógico canônico do catálogo |
+| `121ab52` | Cobertura da validação de metadados de release |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -444,6 +445,11 @@ ordem de entrada permutada e alteração de atributo. Na rodada dirigida de 16
 mutantes desse cálculo, 14 morreram e dois foram classificados como
 equivalentes: `ensure_ascii=None` mantém a semântica efetiva usada nesse caso,
 e nomes de encoding UTF-8 são tratados sem distinção pelo Python.
+
+A validação de metadados da release agora cobre separadamente identificador
+vazio, SHA-256 inválido, hash lógico inválido, status pendente e a aceitação
+explícita de hash lógico ausente. Os 14 mutantes dirigidos desse helper foram
+todos mortos.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
