@@ -2,6 +2,7 @@ import pytest
 
 from app.pipeline.reference.ibge.historical import (
     MunicipalityEvent,
+    _event_id,
     derive_annual_events,
     derive_annual_event_series,
     parse_administrative_events,
@@ -22,6 +23,14 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
     assert result.exists()
     frame = __import__("pandas").read_parquet(result)
     assert frame.loc[0, "target_code7"] == "5101837"
+
+
+def test_event_id_is_deterministic_delimited_and_fixed_width():
+    assert _event_id("2025", "CREATION", "5101837") == _event_id(
+        "2025", "CREATION", "5101837"
+    )
+    assert _event_id("a", "bc") != _event_id("ab", "c")
+    assert len(_event_id("2025", "CREATION", "5101837")) == 20
 
 
 def test_promote_historical_source_preserves_raw_artifact_and_manifest(tmp_path):
@@ -65,11 +74,31 @@ def test_promote_historical_source_is_immutable(tmp_path):
 def test_promote_historical_source_rejeita_identificador_invalido(tmp_path, source_id):
     source = tmp_path / "genealogia.pdf"
     source.write_bytes(b"source")
-    with pytest.raises(ValueError, match="source_id inválido"):
+    with pytest.raises(ValueError) as error:
         promote_historical_source(
             tmp_path / "catalog", source, source_id=source_id,
             source_url="fixture://genealogia", reference_period="1872-2010",
         )
+    assert str(error.value) == "source_id inválido para uma fonte histórica local"
+
+
+def test_promote_historical_source_rejeita_fonte_ausente_e_vazia(tmp_path):
+    with pytest.raises(ValueError) as missing:
+        promote_historical_source(
+            tmp_path / "catalog", tmp_path / "missing.pdf",
+            source_id="missing.pdf", source_url="fixture://missing",
+            reference_period="1872-2010",
+        )
+    assert str(missing.value) == f"fonte histórica ausente: {tmp_path / 'missing.pdf'}"
+
+    empty = tmp_path / "empty.pdf"
+    empty.write_bytes(b"")
+    with pytest.raises(ValueError) as blank:
+        promote_historical_source(
+            tmp_path / "catalog", empty, source_id="empty.pdf",
+            source_url="fixture://empty", reference_period="1872-2010",
+        )
+    assert str(blank.value) == "fonte histórica vazia"
 
 
 def test_historical_events_reject_duplicates(tmp_path):
