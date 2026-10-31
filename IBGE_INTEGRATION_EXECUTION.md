@@ -1322,6 +1322,13 @@ lista. Os **74 testes** do histórico passaram; na rodada dirigida do mutmut,
 1 dos 3 mutantes selecionados desse contrato morreu e 2 permaneceram como
 variantes ainda não distinguidas pela suíte.
 
+O commit `cf39978` (`test(ibge): distinguish historical manifest errors`)
+adicionou ainda o caso de SHA-256 ausente e tornou mais específico o contrato
+da mensagem de mapa inválido. O conjunto histórico passou em **75 testes**.
+Os dois mutantes de mensagem/estrutura continuam classificados como
+sobreviventes na execução dirigida, portanto não são contabilizados como
+mutantes mortos.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
