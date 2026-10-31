@@ -286,8 +286,36 @@ def test_national_validation_rejects_catalog_truncated_with_all_ufs():
         })
     ]
 
-    with pytest.raises(ValueError, match="quantidade de municípios"):
+    with pytest.raises(ValueError) as error:
         validate_national_municipalities(records)
+    assert str(error.value) == (
+        "catálogo nacional incompleto; quantidade de municípios abaixo do "
+        "mínimo esperado (5500): 27"
+    )
+
+
+def test_national_validation_accepts_exact_minimum_boundary():
+    uf_codes = sorted({
+        "11", "12", "13", "14", "15", "16", "17", "21", "22", "23",
+        "24", "25", "26", "27", "28", "29", "31", "32", "33", "35",
+        "41", "42", "43", "50", "51", "52", "53",
+    })
+    records = []
+    for index in range(5500):
+        uf = uf_codes[index % len(uf_codes)]
+        local = index // len(uf_codes) + 1
+        code6 = f"{uf}{local:04d}"
+        code7 = f"{code6}{index % 10}"
+        records.append(
+            Municipality(
+                code7, code6, f"Município {index}", uf, f"U{uf}",
+                f"UF {uf}", 2025,
+            )
+        )
+
+    result = validate_national_municipalities(records)
+
+    assert len(result) == 5500
 
 
 def test_validation_rejects_duplicate_code7():
