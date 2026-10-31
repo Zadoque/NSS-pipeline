@@ -1309,6 +1309,13 @@ Após essa alteração, a suíte integral com PostgreSQL passou em **596 testes*
 com **3 pulados** e **25 warnings**. O teste de ambiente continuou usando as
 mesmas migrations e os bancos temporários configurados no `flake.nix`.
 
+Também foi repetida a homologação nacional com o ZIP oficial `DTB_2025.zip`,
+baixado temporariamente do FTP do IBGE. O artefato tinha SHA-256
+`d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27`; os três
+testes de `tests/test_national_scope.py` passaram, confirmando **5.571
+municípios**, resolução Gold em múltiplas UFs e reconciliação sintética de uma
+linha por município. O ZIP não foi incorporado ao repositório.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
