@@ -1,6 +1,7 @@
 import json
 
 import pandas as pd
+from shapely.geometry import Point
 
 from app.pipeline.sinan.gold import age_band, decode_sinan_age_years
 from app.pipeline.territory_mapping import (
@@ -61,6 +62,23 @@ def test_territory_mapper_classifies_neighborhood_district_and_invalid_point(tmp
     assert mapper.classify(8, 8) == ("D1", None, DISTRICT_ONLY)
     assert mapper.classify("longitude", 8) == (None, None, UNMAPPED)
     assert mapper.classify(20, 20) == (None, None, UNMAPPED)
+
+
+def test_territory_mapper_load_preserva_propriedades_e_geometrias(tmp_path):
+    square = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
+    (tmp_path / "campos-districts.geojson").write_text(
+        json.dumps(_geojson([_feature("D1", square, name="Centro")])),
+        encoding="utf-8",
+    )
+    (tmp_path / "campos-neighborhoods.geojson").write_text(
+        json.dumps(_geojson([])), encoding="utf-8"
+    )
+
+    mapper = TerritoryMapper(tmp_path)
+    properties, geometry = mapper._load("campos-districts.geojson")[0]
+
+    assert properties == {"territoryId": "D1", "name": "Centro"}
+    assert geometry.covers(Point(0.5, 0.5))
 
 
 def test_enrich_cnes_territories_preserves_index_and_adds_contract_columns(tmp_path):
