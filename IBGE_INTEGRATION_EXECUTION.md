@@ -1148,6 +1148,13 @@ morreram; dois sobreviventes não produziram diferença observável nos contrato
 atuais. A suíte integral posterior passou em **564 testes**, com **3 pulados**
 e **25 warnings**.
 
+O commit `fa190c5` (`test(ibge): preserve historical parquet round trips`)
+adicionou uma regressão direta para leitura do Parquet histórico, preservando
+`event_id`, nomes, códigos, fonte e campos opcionais, além do comportamento de
+arquivo ausente. Os **9 mutantes** selecionados de `_read_events()` morreram.
+A suíte integral posterior passou em **565 testes**, com **3 pulados** e **25
+warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
