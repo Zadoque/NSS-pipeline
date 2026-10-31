@@ -1069,9 +1069,23 @@ continua sendo a de **7.459 mutantes**, com **5.586 mortos**, **1.779
 sobreviventes**, **93 sem testes** e **1 timeout**; mutantes dirigidos
 posteriores não devem ser somados a essa taxa sem uma nova rodada global limpa.
 
+Os commits `2300c77` (`fix(ibge): validate complete release artifacts`) e
+`46a4ddf` (`test(ibge): cover incomplete release artifacts`) fecharam uma
+lacuna na reutilização idempotente de releases. O refresh agora exige a
+presença de `manifest.json`, `municipalities.parquet`, `ufs.parquet` e
+`code_crosswalk.parquet` antes de reutilizar uma release existente; há uma
+regressão para cada artefato ausente. A tentativa de mutação dirigida desse
+trecho foi invalidada por um mutante que alterou deliberadamente o manifesto
+do cenário de teste e falhou na pré-condição; ela não é contabilizada como
+mutante morto.
+
 A suíte integral posterior, executada com PostgreSQL de integração local, passou
 em **544 testes**, com **3 testes pulados** e **25 warnings**. `nix flake check
 --no-build` permanece como verificação adicional do ambiente reprodutível.
+
+Após os commits de integridade da release e o ajuste dos fixtures de manifesto,
+a suíte integral foi repetida com PostgreSQL local: **547 testes passaram, 3
+foram pulados e 25 warnings foram emitidos**.
 
 ## Conclusão
 
