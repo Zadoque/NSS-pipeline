@@ -1101,6 +1101,13 @@ de substituir a release, e o mutante dirigido que invertia essa comparação
 morreu. A suíte integral posterior passou em **548 testes**, com **3 pulados**
 e **25 warnings**.
 
+O commit `f13ff22` (`test(ibge): assert canonical release hashing`) adicionou
+um digest fixo para `_records_sha256()`, cobrindo ordem dos registros, Unicode
+e separadores JSON. Na rodada dirigida, **3 de 4 mutantes** selecionados
+morreram; o sobrevivente que substitui `ensure_ascii=False` por `None` é
+equivalente no comportamento do serializador Python usado pelo projeto. A
+suíte específica do contrato passou em **1 teste**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
