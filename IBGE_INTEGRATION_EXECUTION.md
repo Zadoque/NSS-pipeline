@@ -343,6 +343,14 @@ pelo catálogo quanto a rejeição de município ausente, atributos divergentes 
 mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
 uma aprovação da meta global de mutação.
 
+Também foi executada a rodada global configurada no `pyproject.toml`, com 6.257
+mutantes gerados: 4.070 mortos, 1.853 sobreviventes, 332 sem testes associados
+e 2 timeouts. A taxa entre os mutantes classificáveis
+(`mortos / (mortos + sobreviventes)`) foi de aproximadamente 68,7%. O resultado
+é a medição integral mais recente da configuração, mas ainda está abaixo da
+meta de 95%; sobreviventes, casos sem testes e timeouts permanecem pendências
+de qualidade.
+
 ## Compatibilidade preservada
 
 - O dicionário `MUNICIPIOS_RJ` continua aceito pelas interfaces legadas.
