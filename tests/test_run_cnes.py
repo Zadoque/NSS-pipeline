@@ -53,6 +53,27 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     assert parquet == result
 
 
+def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.models import Municipality
+    from app.pipeline.scope import GeographicScope
+
+    scope = GeographicScope((
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+    ))
+    calls: list[str] = []
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code: calls.append(code) or _bronze(code))
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes(geographic_scope=scope)
+
+    assert calls == ["3301009"]
+
+
 def test_run_cnes_rejects_empty_scope():
     with pytest.raises(ValueError, match="ao menos"):
         pipeline.run_cnes({})
@@ -218,10 +239,11 @@ def test_run_cnes_checkpoint_rejects_changed_parameters(tmp_path, monkeypatch):
         }),
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="não corresponde"):
+    with pytest.raises(ValueError) as error:
         pipeline.run_cnes(
             {"3301009": "Campos"}, checkpoint_path=checkpoint, page_size=250,
         )
+    assert str(error.value) == "checkpoint CNES não corresponde ao escopo ou parâmetros solicitados"
 
 
 def test_run_cnes_checkpoint_rejects_invalid_completed_shape(tmp_path):
@@ -238,8 +260,46 @@ def test_run_cnes_checkpoint_rejects_invalid_completed_shape(tmp_path):
         }),
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="completed inválido"):
+    with pytest.raises(ValueError) as error:
         pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_run_cnes_checkpoint_rejects_invalid_json_with_context(tmp_path):
+    checkpoint = tmp_path / "broken.json"
+    checkpoint.write_text("{not-json", encoding="utf-8")
+
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == f"checkpoint CNES inválido: {checkpoint}"
+
+
+def test_run_cnes_checkpoint_rejects_non_object_json_with_context(tmp_path):
+    checkpoint = tmp_path / "list.json"
+    checkpoint.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == f"checkpoint CNES inválido: {checkpoint}"
+
+
+def test_run_cnes_checkpoint_rejects_invalid_timestamp(tmp_path):
+    checkpoint = tmp_path / "bad-time.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "not-a-date",
+            "completed": {},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES sem ingested_at válido"
 
 
 def test_run_cnes_checkpoint_rejects_tampered_bronze(tmp_path, monkeypatch):
