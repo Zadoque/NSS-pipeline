@@ -286,6 +286,10 @@ IBGE-012 ──> IBGE-013
     `catalog_id` ou SHA e o caminho idêntico `UNCHANGED`; os **3 mutantes**
     selecionados do vínculo territorial morreram. A suíte integral posterior
     passou em **522 testes**, com **3 pulados** e **25 warnings**.
+  - O commit `3d28740` cobriu os três tipos de escopo aceitos na publicação
+    PostgreSQL e a mensagem exata para tipo inválido; **6 mutantes** selecionados
+    morreram. A suíte integral posterior passou em **525 testes**, com **3
+    pulados** e **25 warnings**.
 
 ### IBGE-013 — Rollout nacional de produção
 

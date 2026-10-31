@@ -918,6 +918,12 @@ release ou apenas no SHA do catálogo força reprocessamento, enquanto arquivo,
 selecionados desse vínculo morreram. A suíte integral posterior passou em
 **522 testes**, com **3 testes pulados** e **25 warnings**.
 
+O commit `3d28740` (`test(load): cover publication scope types`) adicionou
+regressões para `MUNICIPALITIES`, `UFs` e `BRAZIL` no contrato de publicação,
+além da mensagem exata para escopo inválido. Os **6 mutantes** selecionados
+desse contrato morreram. A suíte integral posterior passou em **525 testes**,
+com **3 testes pulados** e **25 warnings**.
+
 O commit `9f39029` (`test(cnes): harden checkpoint validation contracts`)
 reforçou as invariantes do checkpoint CNES para `rows`, SHA-256, tipos de
 entradas e mensagens de erro. A rodada dirigida matou **7 mutantes** previamente
