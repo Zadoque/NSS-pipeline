@@ -730,7 +730,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; PDF oficial 1872–2010 preservado como `RAW_ONLY` | Parcial; extração tabular/sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
-| Mutação ≥95% | Última medição global: 63,11% entre 6.108 mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Última medição global limpa: 74,39% entre 7.244 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:
@@ -801,10 +801,10 @@ no PostgreSQL. Uma rodada dirigida limpa dos 59 mutantes de
 `_register_catalog_release()` matou **59/59**. A suíte completa posterior passou
 em 488 testes.
 
-A rodada global de mutação reexecutada após as coberturas de refresh, storage,
-DTB e CLI produziu 7.047 mutantes: 3.855 mortos, 2.250 sobreviventes, 939
-sem testes associados e 3 timeouts. Considerando mortos, sobreviventes e
-timeouts, a taxa atual é **63,11%** (3.855 / 6.108). A meta de 95% permanece
+A rodada global de mutação limpa, executada após as coberturas de catálogo e
+publicação, produziu 7.336 mutantes: 5.389 mortos, 1.854 sobreviventes, 92
+sem testes associados e 1 timeout. Considerando mortos, sobreviventes e
+timeout, a taxa atual é **74,39%** (5.389 / 7.244). A meta de 95% permanece
 pendente; a rodada não foi artificialmente restringida nem usada para
 reclassificar sobreviventes como equivalentes.
 
