@@ -351,6 +351,13 @@ IBGE-012 ──> IBGE-013
   anteriormente sem testes passaram a ser exercitados; 44 morreram e 48
   sobreviveram em rodada dirigida. A baseline global continua separada dessa
   medição seletiva.
+
+- Após os contratos de manifesto, anos-limite e `--allow-unavailable`, uma
+  rodada dirigida do módulo `update_sinan.py` processou 374 mutantes: 216
+  morreram, 150 sobreviveram e 8 terminaram em timeout. O resultado melhora a
+  rodada dirigida anterior do módulo, mas não substitui a medição global nem
+  reduz a exigência de 95%; os timeouts permanecem registrados para nova
+  execução controlada.
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição
     global nem atende à meta de 95%.
