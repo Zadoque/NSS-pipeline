@@ -149,7 +149,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-010 — Fixtures e reconciliação epidemiológica nacional
 
 - Prioridade: **P1**
-- Estado: **Pendente por dados autorizados**
+- Estado: **Parcial; contrato sintético nacional validado, dados autorizados pendentes**
 - Dependências: IBGE-004, IBGE-007
 - Escopo: dados SINAN autorizados, Gold nacional e reconciliação Silver → Gold
   → PostgreSQL.
@@ -158,6 +158,9 @@ IBGE-012 ──> IBGE-013
     divergente.
   - Soma de casos elegíveis coincide com a expectativa independente.
   - Resultados são reproduzíveis com Silver, release IBGE e lote CNES fixos.
+- Evidência local: fixture sintética com uma linha por cada um dos 5.571
+  municípios passa pela Gold sem perdas; isso não substitui uma carga SINAN
+  nacional real/autorizada.
 
 ### IBGE-011 — Histórico territorial explícito
 

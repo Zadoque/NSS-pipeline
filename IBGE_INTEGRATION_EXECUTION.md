@@ -93,6 +93,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `78d3dd9` | Workers limitados para ingestão CNES nacional |
 | `28bf78a` | Janela limitada de requisições CNES |
 | `3d4e019` | Série anual explícita de eventos territoriais |
+| `ea1ca07` | Reconciliação sintética SINAN em todos os municípios |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -318,6 +319,7 @@ suíte completa com PostgreSQL de integração → 415 passed, 2 skipped, 25 war
 tests/integration com PostgreSQL → 20 passed, 1 warning
 suíte completa após retentativa CNES → 415 passed, 2 skipped, 25 warnings
 suíte completa após workers CNES e série histórica → 420 passed, 2 skipped, 25 warnings
+fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
