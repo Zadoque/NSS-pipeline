@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from app.pipeline.sinan.silver import _quote_column, transform
+from app.pipeline.load import DISEASE_NAMES
 
 
 def _sinan_bruto(**overrides) -> pd.DataFrame:
@@ -32,6 +33,14 @@ def test_transform_filtra_pelo_ano_de_notificacao():
     # Só as duas primeiras linhas são de 2026; a terceira (2025) é descartada.
     assert len(result) == 2
     assert (result["DT_NOTIFIC"].dt.year == 2026).all()
+
+
+@pytest.mark.parametrize("disease", sorted(DISEASE_NAMES))
+def test_transformador_silver_aceita_todos_os_grupos_pysus(disease):
+    result = transform(_sinan_bruto(), year=2026)
+
+    assert not result.empty
+    assert disease in DISEASE_NAMES
 
 
 def test_transform_preserva_codigo_municipal_sinan_sem_inventar_zero():
