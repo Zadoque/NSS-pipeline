@@ -91,6 +91,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `a9a64cb` | Garantia de timestamps UTC no lote CNES |
 | `11bcf8e` | Parâmetros e sessão HTTP respeitados no escopo RJ legado |
 | `90dbd9b` | Validação explícita do schema de respostas CNES |
+| `186561e` | Validação estrutural das entradas de checkpoint CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -158,6 +159,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   ou substituição do arquivo persistido bloqueia a retomada.
 - Checkpoints com JSON estruturalmente inválido são rejeitados com erro de
   contrato controlado antes de qualquer consulta à API.
+- Entradas `completed` de checkpoints são validadas quanto ao escopo, caminho,
+  hash SHA-256 e contagem antes da retomada; municípios extras ou registros
+  incompletos são bloqueados.
 - `resolve(..., reference_year=...)` retorna `HISTORICAL_UNRESOLVED` quando a
   edição carregada não corresponde ao ano solicitado, evitando aplicar uma
   territorialidade corrente a uma série histórica silenciosamente.
@@ -210,9 +214,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 359 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 378 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 379 passed, 25 warnings
+pytest -q                  → 361 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 380 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 381 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
