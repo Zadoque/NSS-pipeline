@@ -12,6 +12,7 @@ from app.pipeline import run_cnes as pipeline
 from app.pipeline.run_cnes import (
     _canonicalize_municipalities,
     _classify_cnes_error,
+    _parallel_fetch_batches,
     _validate_checkpoint_completed,
     _validate_checkpoint_failed,
 )
@@ -518,6 +519,39 @@ def test_run_cnes_paralleliza_buscas_em_janelas_limitadas(tmp_path, monkeypatch,
     assert [code for code, _ in calls] == ["3301009", "3302403", "3302205"]
     assert len(sessions) == 3
     assert {session.close.call_count for session in sessions} == {1}
+
+
+def test_parallel_fetch_batches_encaminha_parametros_a_cada_worker(mocker):
+    catalog = Mock()
+    sessions = []
+    calls = []
+
+    def make_session():
+        session = mocker.Mock()
+        sessions.append(session)
+        return session
+
+    monkeypatch = mocker.patch.object(pipeline, "session_with_retries", side_effect=make_session)
+    fetch = mocker.patch.object(
+        pipeline,
+        "fetch_estabelecimentos",
+        side_effect=lambda code, **kwargs: calls.append((code, kwargs)) or _bronze(code),
+    )
+
+    result = list(_parallel_fetch_batches(
+        ["M1", "M2"], page_size=17, catalog=catalog,
+        request_timeout=3.5, workers=2,
+    ))
+
+    assert [code for code, _ in result] == ["M1", "M2"]
+    assert [code for code, _ in calls] == ["M1", "M2"]
+    assert all(call["limit"] == 17 for _, call in calls)
+    assert all(call["catalog"] is catalog for _, call in calls)
+    assert all(call["timeout"] == 3.5 for _, call in calls)
+    assert {call["session"] for _, call in calls} == set(sessions)
+    assert fetch.call_count == 2
+    assert {session.close.call_count for session in sessions} == {1}
+    assert monkeypatch.call_count == 2
 
 
 def test_run_cnes_workers_rejeita_sessao_compartilhada(mocker):
