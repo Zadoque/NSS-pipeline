@@ -402,6 +402,11 @@ IBGE-012 ──> IBGE-013
     mensagem de lista vazia e código de saída em falha. Na rodada dirigida, 10
     de 12 mutantes comportamentais morreram; os dois sobreviventes são apenas
     remoções do texto de ajuda do argumento.
+  - O commit `fddcbff` cobriu o crosswalk CNES com um resultado de resolução
+    inconsistente e a preservação da identidade canônica; os 2 mutantes
+    dirigidos correspondentes morreram. A baseline global continua sendo a
+    última rodada completa documentada, pois esta alteração foi medida apenas
+    de forma dirigida.
 
 ### IBGE-013 — Rollout nacional de produção
 

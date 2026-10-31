@@ -1404,3 +1404,10 @@ sobreviventes removem apenas texto de ajuda sem alterar o contrato operacional.
 Verificação final após essa etapa: a suíte integral passou em **608 testes**,
 com **3 pulados** e **25 warnings**; `nix flake check --no-build` também passou.
 O branch permaneceu limpo e sincronizado com `origin/work/nss-pipeline`.
+
+O commit `fddcbff` (`test(cnes): harden canonical municipality resolution`)
+adicionou regressões para rejeitar um resultado de resolução com status inválido
+mesmo quando ele carrega um município, e para preservar a identidade canônica
+7 dígitos/nome no mapa CNES. O módulo passou em **61 testes**; os dois mutantes
+dirigidos correspondentes morreram. A baseline global de mutação não foi
+recalculada nesta etapa.
