@@ -203,9 +203,16 @@ def _validate_auxiliary_artifacts(
         "ufs.parquet": expected_ufs,
         "code_crosswalk.parquet": expected_crosswalk,
     }
+    present = {filename: (release / filename).exists() for filename in expected}
+    if any(present.values()) and not all(present.values()):
+        missing = sorted(filename for filename, exists in present.items() if not exists)
+        raise ValueError(
+            "release IBGE possui artefatos auxiliares incompletos: "
+            f"ausente(s) {missing}"
+        )
     for filename, expected_frame in expected.items():
         path = release / filename
-        if not path.exists():
+        if not present[filename]:
             continue
         try:
             actual = pd.read_parquet(path).reset_index(drop=True)

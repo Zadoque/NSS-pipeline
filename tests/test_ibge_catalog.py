@@ -537,6 +537,17 @@ def test_active_catalog_rejects_auxiliary_artifact_divergence(tmp_path, artifact
         load_active_catalog(tmp_path)
 
 
+def test_active_catalog_rejects_partial_auxiliary_artifacts(tmp_path):
+    records = [municipality("3301009", "Campos")]
+    release = tmp_path / "releases" / "test"
+    write_release(release, records)
+    write_manifest(release / "manifest.json", replace(METADATA, content_sha256=catalog_content_sha256(records)))
+    (release / "code_crosswalk.parquet").unlink()
+
+    with pytest.raises(ValueError, match="artefatos auxiliares incompletos"):
+        promote_active(tmp_path / "active.json", "test")
+
+
 def test_storage_cria_arvore_de_release_em_instalacao_nova(tmp_path):
     root = tmp_path / "catalog" / "nested"
     write_manifest(root / "fresh" / "manifest.json", METADATA)
