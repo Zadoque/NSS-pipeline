@@ -53,6 +53,12 @@ def test_run_cnes_rejects_empty_scope():
         pipeline.run_cnes({})
 
 
+@pytest.mark.parametrize("timeout", [0, -1])
+def test_run_cnes_rejects_non_positive_timeout(timeout):
+    with pytest.raises(ValueError, match="timeout CNES"):
+        pipeline.run_cnes({"3301009": "Campos"}, request_timeout=timeout)
+
+
 def test_run_cnes_cli_requires_catalog_for_explicit_scope(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["run_cnes", "--ufs", "SP"])
     with pytest.raises(SystemExit, match="1"):

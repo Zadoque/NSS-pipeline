@@ -49,7 +49,9 @@ def test_resolve_codes_and_rejects_invalid_code():
     value = catalog()
     assert value.resolve("330100").municipality.code7 == "3301009"
     assert value.resolve("3301009").status is ResolutionStatus.VALID
-    assert value.resolve("0330100").municipality.code7 == "3301009"
+    legacy = value.resolve("0330100")
+    assert legacy.municipality.code7 == "3301009"
+    assert legacy.input_format == "LEGACY_CODE6"
     assert value.resolve("3301008").status is ResolutionStatus.UNKNOWN_CODE
     assert value.resolve("Bom Jesus").status is ResolutionStatus.INVALID_FORMAT
 
@@ -86,7 +88,7 @@ def test_resolve_distinguishes_unknown_code_and_preserves_input_context():
     assert result.status is ResolutionStatus.UNKNOWN_CODE
     assert result.original_code == "999999"
     assert result.input_format == "CODE6"
-    assert "ausente" in result.reason
+    assert result.reason == "código ausente no catálogo"
 
 
 def test_legacy_scope_preserves_four_rj_municipalities():
