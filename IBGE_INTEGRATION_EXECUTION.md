@@ -769,7 +769,7 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **487 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **488 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
@@ -795,6 +795,11 @@ O commit `1e378f6` (`fix(ibge): merge annual historical lineage`) estendeu a
 mesma garantia às edições anuais da DTB: fontes explícitas e diferenças anuais
 agora coexistem no manifesto, com política `MIXED_EXPLICIT_AND_OBSERVABLE`.
 A suíte completa posterior passou em 487 testes.
+
+Os commits `8b26762` e `8a2d581` fortaleceram o contrato de registro de releases
+no PostgreSQL. Uma rodada dirigida limpa dos 59 mutantes de
+`_register_catalog_release()` matou **59/59**. A suíte completa posterior passou
+em 488 testes.
 
 A rodada global de mutação reexecutada após as coberturas de refresh, storage,
 DTB e CLI produziu 7.047 mutantes: 3.855 mortos, 2.250 sobreviventes, 939

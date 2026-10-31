@@ -242,6 +242,8 @@ IBGE-012 ──> IBGE-013
   - Após `0d029e6`, `4d90061` e `576b1c0`, os 30 sobreviventes então
     associados a `reference/ibge/catalog.py` foram reexecutados: 22 mortos e
     8 sobreviventes; a rodada dirigida não altera a medição global limpa.
+  - Os 59 mutantes de `_register_catalog_release()` foram executados em cache
+    limpo após `8b26762` e `8a2d581`: **59/59 mortos**.
 
 ### IBGE-013 — Rollout nacional de produção
 
