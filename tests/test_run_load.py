@@ -187,6 +187,7 @@ def test_orquestrador_declara_recorte_e_total_independente_da_gold(
     runner.run_load("deng", 2026)
     options = load.call_args.kwargs
     assert load.call_args.args[2] == "DENG"
+    runner.fetch_sinan.assert_called_once_with("DENG", 2026)
     assert runner.write_bronze.call_args.args[1] == "DENG"
     assert options["expected_cases_total"] == 3
     assert options["municipios"] == list(MUNICIPIOS_RJ)
