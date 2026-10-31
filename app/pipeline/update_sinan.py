@@ -10,6 +10,7 @@ import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .atomic_io import write_json_atomic
 from .run_load import run_load
 from .load import DISEASE_NAMES
 from .reference.ibge.models import MunicipalityCatalog
@@ -67,10 +68,7 @@ def _load_manifest(path: Path) -> dict:
 
 
 def _save_manifest(path: Path, manifest: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    write_json_atomic(manifest, path)
 
 
 def update_one(remote: RemoteSinanFile, manifest: dict, catalog: MunicipalityCatalog | None = None) -> str:

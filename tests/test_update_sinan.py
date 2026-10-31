@@ -188,6 +188,16 @@ def test_manifest_round_trip_and_invalid_payload(tmp_path):
         _load_manifest(path)
 
 
+def test_save_manifest_nao_deixa_temporario_previsivel(tmp_path):
+    path = tmp_path / "manifest.json"
+
+    _save_manifest(path, {"DENG:2026": {"status": "UPDATED"}})
+
+    assert path.exists()
+    assert not (tmp_path / "manifest.tmp").exists()
+    assert not list(tmp_path.glob(".manifest.json.*.tmp"))
+
+
 def test_update_inspects_each_slice_and_persists_manifest(tmp_path, mocker, monkeypatch):
     monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path / "source")
     remote = RemoteSinanFile("DENG", 2026, "remote", 4)
