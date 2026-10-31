@@ -224,7 +224,18 @@ def test_upsert_release_requires_sha256(mocker):
     conn = mocker.Mock()
     catalog = mocker.Mock()
     catalog.metadata.sha256 = ""
+    catalog.metadata.validation_status = "VALIDATED"
     with pytest.raises(ValueError, match="SHA-256"):
+        _register_catalog_release(conn, catalog)
+
+
+def test_upsert_release_rejeita_catalogo_pendente(mocker):
+    conn = mocker.Mock()
+    catalog = mocker.Mock()
+    catalog.metadata.validation_status = "PENDING"
+    catalog.metadata.sha256 = "a" * 64
+
+    with pytest.raises(ValueError, match="não validada"):
         _register_catalog_release(conn, catalog)
 
 
@@ -237,6 +248,7 @@ def test_register_release_serializa_por_catalog_id(mocker):
     catalog.metadata.catalog_id = "ibge-dtb-2025"
     catalog.metadata.sha256 = "a" * 64
     catalog.metadata.content_sha256 = None
+    catalog.metadata.validation_status = "VALIDATED"
 
     _register_catalog_release(conn, catalog)
 
@@ -254,6 +266,7 @@ def test_register_release_rejeita_content_sha256_diferente(mocker):
     catalog.metadata.catalog_id = "ibge-dtb-2025"
     catalog.metadata.sha256 = "a" * 64
     catalog.metadata.content_sha256 = "c" * 64
+    catalog.metadata.validation_status = "VALIDATED"
 
     with pytest.raises(ValueError, match="imutável"):
         _register_catalog_release(conn, catalog)
@@ -273,6 +286,7 @@ def test_register_release_insere_todos_os_metadados_da_release(mocker):
     catalog.metadata.source_name = "IBGE - DTB"
     catalog.metadata.source_url = "https://example.test/DTB_2025.zip"
     catalog.metadata.retrieved_at = "2026-10-29T19:00:00Z"
+    catalog.metadata.validation_status = "VALIDATED"
 
     _register_catalog_release(conn, catalog)
 
