@@ -737,7 +737,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; PDF oficial 1872–2010 preservado como `RAW_ONLY` | Parcial; extração tabular/sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
-| Mutação ≥95% | Medição global mais recente: 76,07% entre 7.281 mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Medição global mais recente: 75,85% entre 7.365 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:
@@ -1025,6 +1025,12 @@ arquivo temporário, fecha a resposta/sessão, valida SHA-256 quando fornecido e
 só então promove o artefato com `extraction_status=RAW_ONLY`; uma divergência
 de hash não deixa fonte parcial no catálogo. Isso melhora a proveniência sem
 converter automaticamente o PDF de genealogia em sucessões.
+
+A rodada global posterior, regenerada após a aquisição histórica, produziu
+**7.459 mutantes: 5.586 mortos, 1.779 sobreviventes, 93 sem testes e 1
+timeout**. Entre os **7.365 mutantes classificáveis**, a taxa foi **75,85%**.
+O aumento de escopo explica a diferença em relação à medição anterior; a
+execução não excluiu módulos nem tratou sobreviventes equivalentes como mortos.
 
 A suíte integral posterior passou em **535 testes**, com **3 testes pulados** e
 **25 warnings**. `nix flake check --no-build` também passou após essa mudança.
