@@ -425,6 +425,49 @@ def test_promotions_merge_toponymic_and_administrative_events(tmp_path):
     assert len(manifest["sources"]) == 2
 
 
+def test_promote_administrative_events_is_idempotent(tmp_path):
+    source = tmp_path / "administrative.csv"
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7,TARGET_NAME\n"
+        "CREATION,2025-01-01,,5101837,Novo\n",
+        encoding="utf-8",
+    )
+    root = tmp_path / "catalog"
+
+    first = promote_administrative_events(root, source, reference_year=2025)
+    first_frame = __import__("pandas").read_parquet(first)
+    first_manifest = __import__("json").loads(
+        first.with_name("municipality_events.manifest.json").read_text(encoding="utf-8")
+    )
+    second = promote_administrative_events(root, source, reference_year=2025)
+    second_frame = __import__("pandas").read_parquet(second)
+    second_manifest = __import__("json").loads(
+        second.with_name("municipality_events.manifest.json").read_text(encoding="utf-8")
+    )
+
+    assert len(first_frame) == len(second_frame) == 1
+    assert first_manifest["sources"] == second_manifest["sources"]
+
+
+def test_promote_administrative_events_rejects_conflicting_event_identity(tmp_path):
+    source = tmp_path / "administrative.csv"
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7,TARGET_NAME\n"
+        "CREATION,2025-01-01,,5101837,Novo\n",
+        encoding="utf-8",
+    )
+    root = tmp_path / "catalog"
+    promote_administrative_events(root, source, reference_year=2025)
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7,TARGET_NAME\n"
+        "CREATION,2025-01-01,,5101837,Novo alterado\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="event_id conflitante"):
+        promote_administrative_events(root, source, reference_year=2025)
+
+
 def test_derive_annual_events_does_not_infer_succession():
     from app.pipeline.reference.ibge.models import Municipality
 
