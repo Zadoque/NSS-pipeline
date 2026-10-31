@@ -1577,3 +1577,10 @@ API oficial de Localidades sem fixture, retornou **5.571 municípios e 27 UFs**,
 e `validate_national_municipalities()` aprovou a resposta. O primeiro registro
 foi interpretado como `1100015` / `110001`, Rondônia. A execução normal continua
 sem depender dessa chamada em tempo real, usando releases locais aprovadas.
+
+O commit `93990ec` adicionou validação dos artefatos auxiliares de release:
+quando presentes, `ufs.parquet` e `code_crosswalk.parquet` precisam reproduzir
+exatamente os atributos derivados de `municipalities.parquet`; divergências de
+esquema ou conteúdo falham antes da publicação. Foram adicionados dois testes
+de corrupção/divergência, e a suíte integral posterior passou em **629 testes**,
+com **0 skips** e **25 warnings**.

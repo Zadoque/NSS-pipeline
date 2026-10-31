@@ -46,6 +46,10 @@ IBGE-012 ──> IBGE-013
   - Candidata inválida não pode ser promovida.
   - O mesmo artefato gera o mesmo hash lógico independentemente da ordem.
   - Release ativa é imutável por `catalog_id` e SHA-256.
+- Releases que possuem `ufs.parquet` e `code_crosswalk.parquet` agora validam
+  esses artefatos contra `municipalities.parquet` no carregamento; divergências
+  de esquema ou conteúdo são rejeitadas. Releases legadas sem os auxiliares
+  continuam legíveis por compatibilidade.
 
 ### IBGE-003 — Escopo geográfico explícito
 
