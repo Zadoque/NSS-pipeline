@@ -158,10 +158,15 @@ def refresh_from_localidades(
     require_national: bool = True,
 ) -> Path:
     release = _release_path(root, catalog_id)
-    records = tuple(
-        replace(record, reference_year=reference_year)
-        for record in (client or IbgeLocalidadesClient()).fetch_municipalities()
-    )
+    localidades_client = client or IbgeLocalidadesClient()
+    try:
+        records = tuple(
+            replace(record, reference_year=reference_year)
+            for record in localidades_client.fetch_municipalities()
+        )
+    finally:
+        if client is None:
+            localidades_client.close()
     if require_national:
         records = validate_national_municipalities(records)
     metadata = CatalogMetadata(

@@ -459,6 +459,20 @@ def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
     assert len(loaded.metadata.sha256) == 64
 
 
+def test_refresh_from_localidades_fecha_cliente_próprio(mocker, tmp_path):
+    client = mocker.patch("app.pipeline.reference.ibge.refresh.IbgeLocalidadesClient")
+    client.return_value.fetch_municipalities.return_value = (
+        municipality("3301009", "Campos"),
+    )
+
+    refresh_from_localidades(
+        tmp_path, catalog_id="ibge-api-test", source_url="fixture://localidades",
+        reference_year=2025, require_national=False,
+    )
+
+    client.return_value.close.assert_called_once_with()
+
+
 def test_refresh_from_dtb_archive_hashes_raw_artifact(tmp_path, mocker):
     archive = tmp_path / "DTB_2025.zip"
     archive.write_bytes(b"official-dtb-fixture")

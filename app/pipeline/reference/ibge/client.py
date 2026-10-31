@@ -13,7 +13,12 @@ DEFAULT_MUNICIPALITIES_URL = "https://servicodados.ibge.gov.br/api/v1/localidade
 class IbgeLocalidadesClient:
     def __init__(self, session: requests.Session | None = None, base_url: str = DEFAULT_MUNICIPALITIES_URL):
         self.session = session or requests.Session()
+        self._owns_session = session is None
         self.base_url = base_url.rstrip("/")
+
+    def close(self) -> None:
+        if self._owns_session:
+            self.session.close()
 
     def fetch_municipalities(self, *, timeout: float = 60) -> tuple[Municipality, ...]:
         response = self.session.get(self.base_url, timeout=timeout)
