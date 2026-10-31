@@ -14,6 +14,14 @@ PySUS / SINAN -> Bronze -> Silver -> Gold
 - **Silver:** validação, normalização, filtro temporal e deduplicação.
 - **Gold:** agregações prontas para consumo posterior pela arquitetura de persistência/API.
 
+Além do fluxo epidemiológico, a pipeline mantém a identidade territorial canônica
+do IBGE e integra o CNES. O modo legado do RJ continua disponível para execuções
+incrementais; seleções explícitas podem abranger municípios, UFs ou o Brasil.
+
+O catálogo IBGE é versionado com manifesto, SHA-256, hash lógico e promoção
+atômica. A release usada pelo SINAN, CNES e PostgreSQL fica registrada para
+permitir reprocessamento e auditoria.
+
 O caminho síncrono definitivo da aplicação é mantido fora deste repositório: frontend -> API Java/Spring Boot -> PostgreSQL. Esta pipeline é responsável pela preparação e atualização dos dados.
 
 ## Estrutura
@@ -26,7 +34,10 @@ O caminho síncrono definitivo da aplicação é mantido fora deste repositório
 │       ├── atomic_io.py
 │       ├── columns.py
 │       ├── gold.py
+│       ├── load.py
+│       ├── reference/ibge/
 │       ├── run.py
+│       ├── run_cnes.py
 │       ├── silver.py
 │       └── sinan.py
 ├── Dockerfile
@@ -35,6 +46,15 @@ O caminho síncrono definitivo da aplicação é mantido fora deste repositório
 ```
 
 A documentação detalhada da pipeline está em [`app/pipeline/README.md`](app/pipeline/README.md).
+
+Os contratos e resultados da integração nacional estão documentados em:
+
+- [`IBGE_INTEGRATION_EXECUTION.md`](IBGE_INTEGRATION_EXECUTION.md): execuções,
+  evidências e resultados de homologação;
+- [`IBGE_INTEGRATION_BACKLOG.md`](IBGE_INTEGRATION_BACKLOG.md): critérios de
+  aceite e pendências da integração IBGE/CNES/SINAN;
+- [`tests/test_national_scope.py`](tests/test_national_scope.py): regressões
+  nacionais offline com a DTB oficial e histórico territorial.
 
 ## Execução
 
@@ -48,6 +68,22 @@ ou localmente:
 python -m app.pipeline.run --disease DENG --year 2026 --columns ""
 ```
 
+Para selecionar uma doença do catálogo PySUS e um recorte territorial:
+
+```bash
+python -m app.pipeline.run \
+  --disease DENG \
+  --year 2026 \
+  --all-brazil \
+  --columns ""
+```
+
+O catálogo de doenças acompanhado pela pipeline é derivado dos grupos SINAN
+expostos pelo PySUS. A matriz de cobertura e os grupos temporariamente
+indisponíveis em fontes externas ficam registrados no relatório de execução;
+uma falha de disponibilidade não deve ser confundida com ausência de suporte
+do pipeline.
+
 Exemplo com dimensões adicionais:
 
 ```bash
@@ -60,6 +96,32 @@ python -m app.pipeline.run --disease CHIK --year 2026 --columns "sexo,evolucao"
 - PySUS
 - pandas
 - pyarrow
+
+Para executar o processamento CNES nacional, use o executor específico e um
+catálogo IBGE válido. O lote publicado deve estar completo e vinculado à mesma
+release IBGE usada na Gold:
+
+```bash
+python -m app.pipeline.run_cnes --all-brazil
+```
+
+Consulte `--help` para os parâmetros de checkpoint, concorrência, timeout e
+seleção geográfica.
+
+## Qualidade e CI
+
+As verificações locais recomendadas são:
+
+```bash
+pytest -q
+nix flake check --no-build
+```
+
+O workflow de testes também é executado em pushes para `work/nss-pipeline`,
+além de `main`, `master` e pull requests. A branch não é considerada pronta
+para produção nacional apenas pela aprovação da suíte: a homologação deve
+incluir PostgreSQL, artefatos oficiais do IBGE, dados autorizados do SINAN e
+os critérios de cobertura e mutação registrados no backlog.
 
 ## Teste de mutação
 
