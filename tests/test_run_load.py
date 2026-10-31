@@ -448,7 +448,10 @@ def test_catalogo_ibge_bloqueia_metadata_gold_incompleto(mocker, pipeline, tmp_p
     get_engine.assert_not_called()
 
 
-def test_catalogo_ibge_bloqueia_metadata_gold_com_metrica_invalida(mocker, pipeline, tmp_path):
+@pytest.mark.parametrize("invalid_metric", ['"0"', "true", "-1"])
+def test_catalogo_ibge_bloqueia_metadata_gold_com_metrica_invalida(
+    mocker, pipeline, tmp_path, invalid_metric,
+):
     aggregate, _, get_engine, load = pipeline
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
@@ -475,7 +478,7 @@ def test_catalogo_ibge_bloqueia_metadata_gold_com_metrica_invalida(mocker, pipel
     metadata_path.write_text(
         '{"source_rows": 1, "resolved_rows": 1, "discarded_rows": 0, '
         '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
-        '"out_of_scope_rows": 0, "uf_mismatch_rows": "0"}',
+        f'"out_of_scope_rows": 0, "uf_mismatch_rows": {invalid_metric}}}',
         encoding="utf-8",
     )
     _add_catalog_lineage(metadata_path, catalog, [
