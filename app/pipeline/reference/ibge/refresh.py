@@ -35,6 +35,7 @@ def download_dtb_archive(
     destination = destination_dir / f"DTB_{reference_year}.zip"
     client = session or requests.Session()
     owns_session = session is None
+    response = None
     try:
         response = client.get(url, stream=True, timeout=timeout)
         response.raise_for_status()
@@ -60,6 +61,8 @@ def download_dtb_archive(
         os.replace(temporary_path, destination)
         return destination
     finally:
+        if response is not None:
+            response.close()
         if owns_session:
             client.close()
 
