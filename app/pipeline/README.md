@@ -10,12 +10,22 @@ O resultado alimenta um dashboard de sala de situação de saúde.
 
 Este repositório cobre **apenas a pipeline**.
 
+> **Estado atual:** a integração territorial IBGE, a seleção nacional, o
+> relacionamento SINAN/CNES e a publicação PostgreSQL estão implementados.
+> Os quatro bloqueadores operacionais de integridade foram fechados: unidades
+> CNES usam o município cadastrado na própria unidade, lotes CNES parciais não
+> enriquecem a Gold, resoluções municipais inválidas bloqueiam a publicação e
+> a CI acompanha a branch de desenvolvimento. A prontidão para produção
+> nacional ainda depende dos critérios de homologação registrados no backlog,
+> incluindo evidências operacionais, dados autorizados e a meta de mutação.
+
 ---
 
 ## Sumário
 
 - [Arquitetura](#arquitetura)
 - [Fonte de dados e doenças suportadas](#fonte-de-dados-e-doenças-suportadas)
+- [Seleção territorial IBGE](#seleção-territorial-ibge)
 - [Estrutura de diretórios e partições](#estrutura-de-diretórios-e-partições)
 - [Catálogo de colunas](#catálogo-de-colunas)
 - [Enriquecimento com CNES (unidades de saúde)](#enriquecimento-com-cnes-unidades-de-saúde)
@@ -29,7 +39,7 @@ Este repositório cobre **apenas a pipeline**.
 ## Arquitetura
 
 ```
-PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold ─▶ (planejado) PostgreSQL ─▶ Backend Java
+PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold ─▶ PostgreSQL ─▶ Backend Java
                  (cru)     (limpo)     ▲
                                        │ join (unidade de notificação)
                                        │
@@ -45,8 +55,9 @@ API Dados Abertos (CNES) ─▶ Bronze ─▶ Silver
 
 Cada camada só lê da camada imediatamente anterior — nenhuma etapa pula ou
 acessa uma camada não adjacente. O CNES é uma **dimensão** com ciclo de vida
-próprio (ingerido separadamente do fluxo por doença) — a Gold apenas lê o
-lookup mais recente da Silver do CNES no momento da agregação.
+próprio (ingerido separadamente do fluxo por doença). A Gold seleciona somente
+um lote CNES `COMPLETED`, com metadata, cobertura e release IBGE compatíveis;
+um lote parcial ou incompatível é rejeitado.
 
 ### Por que Medallion?
 
@@ -133,6 +144,25 @@ código da doença é passado como está definido pelo próprio SINAN/PySUS:
 > de paridade. Os campos específicos de cada ficha não são descartados pela
 > Silver: somente o subconjunto canônico comum é usado na Gold; veja
 > [Limitações conhecidas](#limitações-conhecidas-e-roadmap).
+
+## Seleção territorial IBGE
+
+O catálogo municipal é a fonte canônica de identidade territorial. Releases
+contêm os municípios, as 27 UFs, o crosswalk de códigos de seis para sete
+dígitos, manifesto, SHA-256 e hash lógico. A seleção pode ser feita por:
+
+- municípios (`--municipios`);
+- UFs (`--ufs`); ou
+- Brasil inteiro (`--all-brazil`).
+
+Essas opções são mutuamente exclusivas. Com um catálogo explícito, qualquer
+UF ou município desconhecido é rejeitado; sem catálogo, o modo legado mantém o
+recorte RJ para compatibilidade. O catálogo e o escopo selecionados são
+propagados aos executores SINAN e CNES e registrados nos metadados/publicações.
+
+O histórico territorial é processado a partir das DTBs e fontes oficiais
+versionadas. Relações de sucessão que não estejam explicitamente documentadas
+não são inferidas automaticamente.
 
 ---
 
@@ -291,7 +321,9 @@ a Bronze por município e consolida tudo em uma única Silver de lookup
 
 Em uma execução com catálogo, a sessão HTTP com retries é reutilizada entre os
 municípios, reduzindo o overhead do escopo nacional. O `page_size` continua
-registrado no metadata para permitir auditoria da execução.
+registrado no metadata para permitir auditoria da execução. A consolidação
+nacional usa partes Parquet e DuckDB, evitando acumular todos os DataFrames
+municipais em memória.
 
 Essa ingestão é **manual e independente** do `run.py` principal — não há
 agendamento automático definido ainda (veja
@@ -300,8 +332,7 @@ agendamento automático definido ainda (veja
 ### Como o join acontece na Gold
 
 Quando `unidade_notificacao` é passada em `--columns`, `aggregate_file` lê o
-**Silver do CNES mais recente disponível** (`_latest_cnes_lookup()`, que
-escolhe o `batch_id` mais alto por ordenação lexicográfica do timestamp) e
+lote CNES `COMPLETED` mais recente e compatível (`_latest_cnes_lookup()`) e
 faz um `left join` entre `ID_UNIDADE` (SINAN) e `cd_unidade` (CNES),
 trazendo `nm_unidade`, `razao_social_unidade` e `tp_unidade` para a Gold.
 
@@ -316,9 +347,10 @@ docker compose run --rm pipeline --disease DENG --year 2026 \
   --columns="unidade_notificacao" --cnes-batch-id 20261014T120000Z
 ```
 
-Sem `--cnes-batch-id`, a compatibilidade legada seleciona o lote mais recente
-disponível. Quando informado, o lote precisa existir exatamente em
-`silver/cnes/batch_id={id}`; a Gold registra o identificador no próprio
+Sem `--cnes-batch-id`, a seleção automática considera apenas lotes válidos.
+Quando informado, o lote precisa existir exatamente em
+`silver/cnes/batch_id={id}` e atender ao mesmo contrato de completude,
+cobertura e release IBGE; a Gold registra o identificador no próprio
 `metadata.json`.
 
 Se nenhuma Silver do CNES existir ainda (`run_cnes.py` nunca foi executado),
@@ -423,7 +455,9 @@ execução. Com `--continue-on-error`, o lote termina como `PARTIAL` quando há
 falhas e elas são retentadas na chamada seguinte; sem essa opção, o modo estrito
 aborta na primeira falha. Em ambos os modos, municípios já persistidos não são
 consultados novamente. A retomada rejeita mudanças no escopo, na release IBGE,
-no `--page-size`, no timeout ou no número de workers.
+no `--page-size`, no timeout ou no número de workers. Lotes `PARTIAL`, códigos
+municipais `UNKNOWN_CODE`, `INVALID_FORMAT` ou `OUT_OF_SCOPE` e status ausente
+não podem ser usados para enriquecer a Gold.
 
 ### Executando camadas isoladamente
 
@@ -480,10 +514,10 @@ A gravação final continua atômica. `aggregate_file(..., batch_size=...)`
 permite ajustar o tamanho dos lotes; os comandos existentes usam o padrão.
 Os metadados da Gold registram `source_rows`, `batch_size` e `batches_processed`.
 
-`silver_cnes.py` também pode transformar uma Bronze do CNES isoladamente:
+`cnes/silver.py` também pode transformar uma Bronze do CNES isoladamente:
 
 ```bash
-python -m app.pipeline.silver_cnes --source <bronze_cnes.parquet> --municipio <codigo_ibge>
+python -m app.pipeline.cnes.silver --source <bronze_cnes.parquet> --municipio <codigo_ibge>
 ```
 
 ---
@@ -543,10 +577,11 @@ crosswalk validado entre códigos de seis e sete dígitos.
 
 Itens já identificados e ainda não resolvidos, para não serem esquecidos:
 
-- **Carga no PostgreSQL disponível via `run_load.py`.** A publicação substitui
+- **Carga no PostgreSQL via `run_load.py`.** A publicação substitui
   transacionalmente o recorte doença/ano/municípios após validar o total contra
-  a Silver. Resultados vazios são bloqueados por padrão. Veja os comandos e
-  cuidados em [`migrations/README.md`](../../migrations/README.md).
+  a Silver. Resultados vazios são bloqueados por padrão, a linhagem IBGE é
+  preservada e as métricas globais ficam separadas das métricas municipais.
+  Veja os comandos e cuidados em [`migrations/README.md`](../../migrations/README.md).
 - **`year` filtrado por `DT_NOTIFIC`, não por `NU_ANO`.** O SINAN também
   expõe um "ano epidemiológico" (`NU_ANO`), que pode divergir do ano
   calendário perto da virada do ano. Vale confirmar com quem define a regra
@@ -566,15 +601,14 @@ Itens já identificados e ainda não resolvidos, para não serem esquecidos:
   antigos.
 - **Uso de `print()` em vez de `logging`.** Adequado para execução manual,
   mas deve ser substituído antes de rodar em produção/agendado.
-- **Sem tabela de controle de execuções (`pipeline_runs`).** Hoje a
-  rastreabilidade depende de vasculhar os `metadata.json`. Uma tabela simples
-  de controle (`disease`, `year`, `batch_id`, `layer`, `status`) facilitaria
-  saber o que já foi processado/carregado, especialmente quando a carga no
-  Postgres for implementada.
+- **Controle operacional de execuções.** A rastreabilidade de arquivos ainda
+  depende dos `metadata.json` e das tabelas de publicação/métricas; uma tabela
+  dedicada de controle (`disease`, `year`, `batch_id`, `layer`, `status`)
+  facilitaria monitoramento, reprocessamento e alertas.
 - **Ingestão do CNES sem agendamento.** `run_cnes.py` é executado
   manualmente hoje. Vale definir uma cadência (ex.: mensal) e automatizá-la,
-  já que a Gold sempre usa o lookup mais recente disponível — se ele nunca
-  for atualizado, unidades novas nunca aparecerão no enriquecimento.
+  A Gold rejeita lotes parciais e incompatíveis, mas unidades novas só
+  aparecerão no enriquecimento depois que um lote válido for atualizado.
 - **Recorte RJ legado mantido por compatibilidade.** A definição agora vive em
   `scope.py`; novas execuções devem usar o catálogo IBGE e uma seleção
   geográfica explícita.
@@ -590,26 +624,30 @@ Itens já identificados e ainda não resolvidos, para não serem esquecidos:
 
 ```
 app/pipeline/
-├── sinan.py        # Ingestão via PySUS -> Bronze (SINAN)
-├── silver.py        # Limpeza, tipagem, deduplicação -> Silver (SINAN)
-├── gold.py           # Agregação por doença/tempo/geografia + join com CNES -> Gold
-├── columns.py        # Catálogo declarativo de colunas do SINAN
-├── bronze_cnes.py    # Ingestão via API de Dados Abertos -> Bronze (CNES)
-├── silver_cnes.py    # Limpeza do cadastro de estabelecimentos -> Silver (CNES)
-├── run_cnes.py        # Orquestrador da ingestão do CNES (todos os municípios)
-├── atomic_io.py       # Escrita atômica de parquet/json
-└── run.py             # Orquestrador da pipeline completa do SINAN (CLI)
+├── sinan/             # Bronze, Silver, Gold e fontes do SINAN
+├── cnes/              # Bronze e Silver do cadastro CNES
+├── reference/ibge/    # Catálogo, DTB, histórico e releases IBGE
+├── esporo/            # Fluxo específico de esporotricose
+├── load.py            # Publicação e dimensões no PostgreSQL
+├── run.py             # Orquestrador SINAN (CLI)
+├── run_cnes.py        # Orquestrador nacional do CNES
+├── run_load.py        # Orquestrador de carga PostgreSQL
+├── update_sinan.py    # Atualização incremental das séries SINAN
+├── scope.py           # Seleção territorial e compatibilidade RJ
+└── atomic_io.py       # Escrita atômica de Parquet/JSON
 ```
 
 | Módulo | Responsabilidade |
 |---|---|
-| `sinan.py` | Baixa dados via PySUS e grava a camada Bronze com metadata de ingestão |
-| `silver.py` | Valida colunas obrigatórias, aplica transformações, filtra por ano, deduplica e grava a Silver |
-| `columns.py` | Define quais colunas do SINAN existem, como são limpas, e quais podem ser usadas como dimensão |
-| `gold.py` | Filtra por municípios de interesse, agrega casos por período/geografia/dimensões extras, enriquece com o CNES quando aplicável, e grava a Gold |
-| `bronze_cnes.py` | Consulta a API de Dados Abertos por município e grava a Bronze do CNES |
-| `silver_cnes.py` | Limpa e normaliza o cadastro de estabelecimentos (código, nome, tipo, município) |
+| `sinan/bronze.py` | Baixa dados via PySUS e grava a camada Bronze com metadata de ingestão |
+| `sinan/silver.py` | Valida colunas obrigatórias, aplica transformações, filtra por ano, deduplica e grava a Silver |
+| `sinan/columns.py` | Define quais colunas do SINAN existem, como são limpas, e quais podem ser usadas como dimensão |
+| `sinan/gold.py` | Resolve o território IBGE, agrega casos e enriquece com lote CNES válido quando aplicável |
+| `cnes/bronze.py` | Consulta a API de Dados Abertos por município e grava a Bronze do CNES |
+| `cnes/silver.py` | Limpa e normaliza o cadastro de estabelecimentos e valida o município da unidade |
 | `run_cnes.py` | Itera sobre os municípios de interesse, ingere e consolida a Silver de lookup do CNES |
+| `reference/ibge/` | Adquire, valida, versiona e promove releases territoriais do IBGE |
+| `load.py` | Publica Gold e dimensões no PostgreSQL, preservando a linhagem e as métricas |
 | `atomic_io.py` | Utilitário genérico de escrita atômica, usado por todas as camadas |
 | `run.py` | Ponto de entrada CLI que encadeia Bronze → Silver → Gold do SINAN com `batch_id` compartilhado |
 
