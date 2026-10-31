@@ -224,6 +224,23 @@ def test_national_validation_rejects_missing_uf():
         validate_national_municipalities([municipality("3301009", "Campos")])
 
 
+def test_national_validation_rejects_catalog_truncated_with_all_ufs():
+    records = [
+        Municipality(
+            f"{uf}00001", f"{uf}0000", f"Município {uf}", uf, f"U{uf}",
+            f"UF {uf}", 2025,
+        )
+        for uf in sorted({
+            "11", "12", "13", "14", "15", "16", "17", "21", "22", "23",
+            "24", "25", "26", "27", "28", "29", "31", "32", "33", "35",
+            "41", "42", "43", "50", "51", "52", "53",
+        })
+    ]
+
+    with pytest.raises(ValueError, match="quantidade de municípios"):
+        validate_national_municipalities(records)
+
+
 def test_validation_rejects_duplicate_code7():
     record = municipality("3301009", "Campos")
     with pytest.raises(ValueError, match="code7 duplicado"):

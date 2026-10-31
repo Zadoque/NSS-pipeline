@@ -14,6 +14,11 @@ NATIONAL_UF_CODES = frozenset({
     "25", "26", "27", "28", "29", "31", "32", "33", "35", "41", "42",
     "43", "50", "51", "52", "53",
 })
+# As edições contemporâneas da DTB possuem mais de 5.500 municípios. Um
+# limite conservador detecta respostas nacionais truncadas sem fixar o catálogo
+# a uma contagem anual específica (a edição efetiva continua sendo validada
+# pelo artefato e pelo hash da release).
+MIN_NATIONAL_MUNICIPALITIES = 5500
 
 
 def inspect_municipalities(records: Iterable[Municipality]) -> CatalogValidationReport:
@@ -77,4 +82,9 @@ def validate_national_municipalities(
     missing = sorted(NATIONAL_UF_CODES - {item.uf_code for item in values})
     if missing:
         raise ValueError(f"catálogo nacional incompleto; UFs ausentes: {missing}")
+    if len(values) < MIN_NATIONAL_MUNICIPALITIES:
+        raise ValueError(
+            "catálogo nacional incompleto; quantidade de municípios abaixo do "
+            f"mínimo esperado ({MIN_NATIONAL_MUNICIPALITIES}): {len(values)}"
+        )
     return values
