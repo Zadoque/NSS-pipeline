@@ -1502,3 +1502,7 @@ para uma das releases previamente validadas.
 Verificação integral posterior à correção de armazenamento: **622 testes
 passaram**, com **3 pulados** e **25 warnings**; `nix flake check --no-build`
 passou e o branch permaneceu limpo no commit `d6ab4e1`.
+
+Após a regressão de promoção concorrente, a suíte integral passou em **623
+testes**, com **3 pulados** e **25 warnings**; o `flake check` permaneceu
+aprovado e o branch está limpo no commit `e0336bf`.
