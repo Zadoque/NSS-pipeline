@@ -416,6 +416,9 @@ IBGE-012 ──> IBGE-013
   - O commit `cb25975` cobriu o contrato de chamada da fonte SINAN no
     `run_load`; os 4 mutantes dirigidos de argumentos morreram. A baseline
     global não foi recalculada após essa alteração.
+  - O commit `6da713a` cobriu métricas Gold textuais, booleanas e negativas;
+    o mutante comportamental correspondente morreu. A baseline global ainda
+    precisa ser recalculada para incorporar a alteração.
 
 ### IBGE-013 — Rollout nacional de produção
 

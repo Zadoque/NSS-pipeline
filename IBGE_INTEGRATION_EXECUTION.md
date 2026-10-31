@@ -1431,3 +1431,8 @@ assertiva de que o orquestrador chama `fetch_sinan` com doença e ano canônicos
 Os 4 mutantes dirigidos de argumentos desse caminho morreram. A baseline global
 acima permanece a última rodada completa; esta correção foi medida apenas de
 forma dirigida.
+
+O commit `6da713a` (`test(sinan): reject invalid Gold metrics`) ampliou a
+regressão de métricas Gold para tipos textual, booleano e negativo. O módulo
+passou em **38 testes** e o mutante comportamental da validação de métricas
+morreu.
