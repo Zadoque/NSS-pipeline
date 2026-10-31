@@ -101,6 +101,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `0a908e8` | Timeout do download DTB exposto no wrapper e na CLI |
 | `9ddd663` | Validação semântica dos eventos históricos |
 | `72a16af` | Testes dos contratos de erro do histórico |
+| `d6d2efa` | Asserção dos códigos históricos persistidos |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -338,6 +339,9 @@ suíte completa após contratos de erro do histórico → 430 passed, 3 skipped,
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
+O mutante restante que troca um `None` por `str(None)` não altera a saída
+persistida e é neutralizado pela própria guarda de valor nulo; foi mantido
+como equivalente documentado, sem ser contado artificialmente como morto.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
