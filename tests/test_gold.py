@@ -14,6 +14,7 @@ from app.pipeline.sinan.gold import (
     decode_sinan_age_years,
     aggregate,
     normalize_municipality_codes,
+    resolve_catalog_municipality_codes,
 )
 
 MUNICIPIOS_TESTE = {"1234567": "Cidade Teste"}
@@ -116,6 +117,25 @@ def test_aggregate_rejeita_codigo_completo_invalido_e_uf_divergente_com_catalogo
         "DENG", municipios=catalog, catalog=catalog,
     )
     assert result.empty
+
+
+def test_resolve_catalog_municipality_codes_preserves_index_and_contract():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    values = pd.Series(["330100", "3301008", None], index=[10, 20, 30])
+    ufs = pd.Series(["33", "33", pd.NA], index=[10, 20, 30])
+
+    result = resolve_catalog_municipality_codes(values, catalog, ufs)
+
+    assert result.index.tolist() == [10, 20, 30]
+    assert str(result.dtype) == "string"
+    assert result.tolist() == ["3301009", pd.NA, pd.NA]
+    assert resolve_catalog_municipality_codes(pd.Series(["330100"]), catalog).tolist() == ["3301009"]
 
 
 def test_resolution_metrics_separa_escopo_e_codigo_invalido():
