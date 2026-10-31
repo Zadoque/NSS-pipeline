@@ -438,6 +438,13 @@ def write_events(path: Path, events: list[MunicipalityEvent] | tuple[Municipalit
     frame = pd.DataFrame([asdict(event) for event in ordered_events])
     if frame["event_id"].duplicated().any():
         raise ValueError("event_id duplicado no histórico municipal")
+    for row in frame.itertuples(index=False):
+        if not isinstance(row.event_id, str) or not row.event_id.strip():
+            raise ValueError("event_id obrigatório no histórico municipal")
+        if not isinstance(row.source, str) or not row.source.strip():
+            raise ValueError(
+                f"fonte obrigatória no histórico municipal: {row.event_id}"
+            )
     unknown_types = sorted(set(frame["event_type"]) - ADMINISTRATIVE_EVENT_TYPES - {"TOPONYMIC_CHANGE"})
     if unknown_types:
         raise ValueError(f"tipo de evento municipal desconhecido: {unknown_types}")
