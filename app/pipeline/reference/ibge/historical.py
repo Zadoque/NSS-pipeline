@@ -629,10 +629,12 @@ def promote_annual_dtb_events(
         if not isinstance(loaded, dict):
             raise ValueError(f"manifesto histórico inválido: {manifest_path}")
         previous_manifest = loaded
-    sources: list[dict[str, object]] = [
-        item for item in previous_manifest.get("sources", [])
-        if isinstance(item, dict)
-    ]
+    raw_sources = previous_manifest.get("sources", [])
+    if not isinstance(raw_sources, list) or any(
+        not isinstance(item, dict) for item in raw_sources
+    ):
+        raise ValueError("manifesto histórico inválido: sources deve ser uma lista de objetos")
+    sources: list[dict[str, object]] = list(raw_sources)
     source_keys = {
         (item.get("reference_year"), item.get("source_path"), item.get("sha256"))
         for item in sources
