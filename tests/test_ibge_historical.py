@@ -26,9 +26,7 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
 
 
 def test_event_id_is_deterministic_delimited_and_fixed_width():
-    assert _event_id("2025", "CREATION", "5101837") == _event_id(
-        "2025", "CREATION", "5101837"
-    )
+    assert _event_id("2025", "CREATION", "5101837") == "9287a6172fd94922cf52"
     assert _event_id("a", "bc") != _event_id("ab", "c")
     assert len(_event_id("2025", "CREATION", "5101837")) == 20
 
@@ -43,6 +41,7 @@ def test_promote_historical_source_preserves_raw_artifact_and_manifest(tmp_path)
         reference_period="1872-2010",
     )
 
+    assert result == tmp_path / "catalog" / "historical" / "sources" / "genealogia-1872-2010.pdf"
     assert result.read_bytes() == b"official genealogy"
     manifest = __import__("json").loads(
         (tmp_path / "catalog/historical/sources.manifest.json").read_text(encoding="utf-8")
