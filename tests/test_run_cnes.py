@@ -9,8 +9,8 @@ import pytest
 from app.pipeline import run_cnes as pipeline
 
 
-def _bronze(code: str) -> pd.DataFrame:
-    return pd.DataFrame({"codigo_cnes": [code], "codigo_municipio": [3301009]})
+def _bronze(code: str, municipality_code: str = "3301009") -> pd.DataFrame:
+    return pd.DataFrame({"codigo_cnes": [code], "codigo_municipio": [municipality_code]})
 
 
 def _silver(code: str) -> pd.DataFrame:
@@ -78,7 +78,7 @@ def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monke
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: calls.append(code) or _bronze(code))
     monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
-    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
     monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
     monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
     monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
@@ -103,6 +103,31 @@ def test_run_cnes_rejeita_escopo_de_catalogo_diferente():
 
     with pytest.raises(ValueError, match="não corresponde"):
         pipeline.run_cnes(catalog=catalog, geographic_scope=stale_scope)
+
+
+def test_run_cnes_bloqueia_estabelecimento_de_municipio_diferente(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = InMemoryMunicipalityCatalog(
+        [municipality, Municipality("3305000", "330500", "São João da Barra", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope((municipality,))
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: pd.DataFrame({
+            "codigo_cnes": [12], "codigo_municipio": ["330500"],
+        }),
+    )
+
+    with pytest.raises(ValueError, match="fora do município solicitado"):
+        pipeline.run_cnes(catalog=catalog, geographic_scope=scope)
 
 
 def test_run_cnes_checkpoint_binds_ibge_release_identity(tmp_path, monkeypatch, mocker):
@@ -246,7 +271,7 @@ def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monke
     monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         pipeline, "fetch_estabelecimentos",
-        lambda code, **kwargs: calls.append((code, kwargs)) or _bronze(code),
+        lambda code, **kwargs: calls.append((code, kwargs)) or _bronze(code, code),
     )
     monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
 
@@ -287,7 +312,7 @@ def test_run_cnes_checkpoint_resumes_after_failure(tmp_path, monkeypatch):
         return _bronze(code)
 
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
-    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
     monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
 
     with pytest.raises(TimeoutError):
@@ -435,7 +460,7 @@ def test_run_cnes_checkpoint_rejects_tampered_bronze(tmp_path, monkeypatch):
         return _bronze(code)
 
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
-    monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
     monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
 
     with pytest.raises(RuntimeError, match="parada"):

@@ -31,11 +31,20 @@ def transform_cnes(
 
     if catalog is not None:
         resolutions = out["codigo_municipio"].map(catalog.resolve)
-        out["cd_mun"] = resolutions.map(
+        expected = municipality_code7
+        resolved_codes = resolutions.map(
             lambda result: result.municipality.code7
             if result.status is ResolutionStatus.VALID and result.municipality else pd.NA
         ).astype("string")
-        out["municipality_resolution_status"] = resolutions.map(lambda result: result.status.value).astype("string")
+        if expected is not None:
+            is_mismatch = resolved_codes.notna() & resolved_codes.ne(expected)
+            out["cd_mun"] = resolved_codes.mask(is_mismatch, pd.NA).astype("string")
+            out["municipality_resolution_status"] = resolutions.map(
+                lambda result: result.status.value
+            ).astype("string").mask(is_mismatch, "OUT_OF_SCOPE")
+        else:
+            out["cd_mun"] = resolved_codes
+            out["municipality_resolution_status"] = resolutions.map(lambda result: result.status.value).astype("string")
     elif municipality_code7 is not None:
         out["cd_mun"] = municipality_code7
         out["municipality_resolution_status"] = "VALID_LEGACY_SCOPE"
@@ -62,7 +71,7 @@ def transform_cnes_file(
     df = pd.read_parquet(source)
     len_before = len(df)
 
-    result = transform_cnes(df, catalog=catalog, municipality_code7=municipio if catalog is None else None)
+    result = transform_cnes(df, catalog=catalog, municipality_code7=municipio)
     len_after = len(result)
 
     now = run_at or datetime.now(UTC)

@@ -154,10 +154,17 @@ def run_cnes(
                     checkpoint_path,
                 )
             silver = (
-                transform_cnes(bronze_df, catalog=catalog)
+                transform_cnes(bronze_df, catalog=catalog, municipality_code7=cod_municipio)
                 if catalog is not None
-                else transform_cnes(bronze_df)
+                else transform_cnes(bronze_df, municipality_code7=cod_municipio)
             )
+            if (
+                "municipality_resolution_status" in silver
+                and silver["municipality_resolution_status"].eq("OUT_OF_SCOPE").any()
+            ):
+                raise ValueError(
+                    f"CNES retornou estabelecimento fora do município solicitado: {cod_municipio}"
+                )
             territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
             if territory_assets is not None:
                 silver = enrich_cnes_territories(silver, territory_assets)

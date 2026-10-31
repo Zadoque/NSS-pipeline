@@ -49,6 +49,27 @@ def test_transform_cnes_resolves_canonical_municipality_with_catalog():
     assert result.loc[0, "municipality_resolution_status"] == "VALID"
 
 
+def test_transform_cnes_sinaliza_municipio_retornado_fora_do_solicitado():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3305000", "330500", "São João da Barra", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = cnes_silver.transform_cnes(
+        pd.DataFrame({"codigo_cnes": [12], "codigo_municipio": ["330500"]}),
+        catalog=catalog,
+        municipality_code7="3301009",
+    )
+
+    assert pd.isna(result.loc[0, "cd_mun"])
+    assert result.loc[0, "municipality_resolution_status"] == "OUT_OF_SCOPE"
+
+
 def test_fetch_estabelecimentos_rejeita_limit_invalido(monkeypatch):
     with pytest.raises(ValueError, match="maior que zero"):
         cnes_bronze.fetch_estabelecimentos("3301009", limit=0)
