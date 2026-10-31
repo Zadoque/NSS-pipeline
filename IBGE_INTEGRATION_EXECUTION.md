@@ -1332,6 +1332,15 @@ mutantes de mensagem/estrutura foram reexecutados e **ambos morreram**. O
 resultado anterior foi, portanto, classificado como artefato de cache e não
 como falha da cobertura atual.
 
+O commit `ca10257` (`feat(ibge): parse historical municipality workbook`)
+adicionou suporte à planilha oficial `pop_mun_TUR_1872_a_2010.xls`. O parser
+promove somente mudanças toponímicas com o mesmo código em anos consecutivos;
+descrições textuais de desmembramento continuam fora do crosswalk. A execução
+contra o arquivo oficial (SHA-256
+`55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df`) produziu
+**2.149 eventos toponímicos observáveis**. Os testes históricos passaram em
+**77 casos**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
