@@ -1494,3 +1494,7 @@ artefatos auxiliares de release e o ponteiro `active.json` agora usam nomes
 temporários exclusivos no mesmo diretório, evitando disputa entre atualizações
 simultâneas. `tests/test_ibge_catalog.py` passou em **111 testes**, incluindo a
 regressão de exclusividade dos temporários.
+
+Verificação integral posterior à correção de armazenamento: **622 testes
+passaram**, com **3 pulados** e **25 warnings**; `nix flake check --no-build`
+passou e o branch permaneceu limpo no commit `d6ab4e1`.
