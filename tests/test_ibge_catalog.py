@@ -729,6 +729,25 @@ def test_download_dtb_archive_cleans_temporary_after_stream_error(tmp_path, mock
     assert not list((tmp_path / "raw" / "dtb_2025").glob("*.tmp"))
 
 
+def test_download_dtb_archive_cleans_temporary_after_atomic_replace_error(tmp_path, mocker):
+    import app.pipeline.reference.ibge.refresh as refresh
+
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"archive"]
+    session = mocker.Mock()
+    session.get.return_value = response
+    mocker.patch.object(refresh.os, "replace", side_effect=OSError("replace failed"))
+
+    with pytest.raises(OSError, match="replace failed"):
+        download_dtb_archive(
+            tmp_path, url="https://example.invalid/DTB_2025.zip",
+            reference_year=2025, session=session,
+        )
+
+    response.close.assert_called_once_with()
+    assert not list((tmp_path / "raw" / "dtb_2025").glob("*.tmp"))
+
+
 def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
     class Client:
         def fetch_municipalities(self):

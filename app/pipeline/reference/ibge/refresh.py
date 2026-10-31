@@ -36,6 +36,7 @@ def download_dtb_archive(
     client = session or requests.Session()
     owns_session = session is None
     response = None
+    temporary_path: Path | None = None
     try:
         response = client.get(url, stream=True, timeout=timeout)
         response.raise_for_status()
@@ -53,13 +54,15 @@ def download_dtb_archive(
                 temporary_path.unlink(missing_ok=True)
                 raise
         actual_sha256 = digest.hexdigest()
-        if expected_sha256 and actual_sha256 != expected_sha256:
+        try:
+            if expected_sha256 and actual_sha256 != expected_sha256:
+                raise ValueError(
+                    f"SHA-256 da DTB diverge: esperado {expected_sha256}, obtido {actual_sha256}"
+                )
+            os.replace(temporary_path, destination)
+            return destination
+        finally:
             temporary_path.unlink(missing_ok=True)
-            raise ValueError(
-                f"SHA-256 da DTB diverge: esperado {expected_sha256}, obtido {actual_sha256}"
-            )
-        os.replace(temporary_path, destination)
-        return destination
     finally:
         if response is not None:
             response.close()
