@@ -730,7 +730,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; PDF oficial 1872–2010 preservado como `RAW_ONLY` | Parcial; extração tabular/sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
-| Mutação ≥95% | Última medição global: 63,44% entre 6.255 mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Última medição global: 63,11% entre 6.108 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:
@@ -759,8 +759,6 @@ epidemiológica nacional completa. Permanecem necessários:
    complementar a homologação pública já executada. A cadeia pública teve
    totais reconciliados entre Silver, Gold e PostgreSQL.
 
-## Conclusão
-
 ## Verificação final desta execução
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
@@ -771,9 +769,9 @@ pulados** e **25 warnings**.
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
 incompatibilidade de sistema.
 
-O último commit funcional desta rodada foi `9102192`
-(`feat(ibge): preserve historical source artifacts`), seguido do registro da
-homologação nacional pública em `8dc1565`.
+O último commit funcional desta rodada foi `4cf6523`
+(`fix(cnes): enforce ascii municipality codes`), seguido do registro da
+preservação histórica em `ce08236`.
 
 A rodada global de mutação reexecutada após as coberturas de refresh, storage,
 DTB e CLI produziu 7.047 mutantes: 3.855 mortos, 2.250 sobreviventes, 939
@@ -781,6 +779,8 @@ sem testes associados e 3 timeouts. Considerando mortos, sobreviventes e
 timeouts, a taxa atual é **63,11%** (3.855 / 6.108). A meta de 95% permanece
 pendente; a rodada não foi artificialmente restringida nem usada para
 reclassificar sobreviventes como equivalentes.
+
+## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
 com compatibilidade para o RJ e commits semânticos por etapa. A promoção para
@@ -795,8 +795,3 @@ essa regra é coberta por regressão unitária e pelo commit `ea9c0b6`.
 Mutações dirigidas de `run_load._build_parser()` → 22 de 64 mutantes
 previamente sobreviventes morreram após o teste de contrato dos argumentos;
 os demais continuam pendentes e não são apresentados como aprovação global.
-
-Suíte completa após separação das métricas Gold → 437 passed, 3 skipped,
-25 warnings
-testes de integração PostgreSQL após separação das métricas Gold → 20 passed,
-1 warning
