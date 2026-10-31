@@ -1460,3 +1460,10 @@ sobrepostos do IBGE-007 fica coberto diretamente, além dos testes já existente
 de lock transacional, rollback e preservação de outras doenças/anos.
 
 O arquivo de integração PostgreSQL passou em **21 testes**, com **1 warning**.
+
+O commit desta etapa também corrigiu a estabilidade dos `event_id` históricos:
+os parsers administrativo, toponímico e da planilha histórica não dependem mais
+do índice da linha. Foram adicionadas regressões que reordenam as fontes e
+confirmam a mesma identidade de evento; o teste de alteração do payload mantém
+o bloqueio por conflito de `event_id`. `tests/test_ibge_historical.py` passou em
+**80 testes**.

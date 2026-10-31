@@ -104,6 +104,36 @@ def test_parse_historical_workbook_promove_apenas_mudanca_com_mesmo_codigo(
     assert all(event.source == "fixture://history" for event in events)
 
 
+def test_parse_historical_workbook_event_ids_sao_estaveis_com_reordenacao(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "history.xlsx"
+    source.write_bytes(b"fixture")
+    frames = [
+        __import__("pandas").DataFrame([
+            {"cod.1991": "3301009", "Município 1991": "Campos",
+             "cod.2000": "3301009", "Município 2000": "Campos dos Goytacazes"},
+            {"cod.1991": "3302008", "Município 1991": "Outro",
+             "cod.2000": "3302008", "Município 2000": "Outro Novo"},
+        ]),
+        __import__("pandas").DataFrame([
+            {"cod.1991": "3302008", "Município 1991": "Outro",
+             "cod.2000": "3302008", "Município 2000": "Outro Novo"},
+            {"cod.1991": "3301009", "Município 1991": "Campos",
+             "cod.2000": "3301009", "Município 2000": "Campos dos Goytacazes"},
+        ]),
+    ]
+    monkeypatch.setattr(
+        "app.pipeline.reference.ibge.historical.pd.read_excel",
+        lambda *args, **kwargs: frames.pop(0),
+    )
+
+    first = parse_historical_municipality_workbook(source)
+    second = parse_historical_municipality_workbook(source)
+
+    assert {event.event_id for event in first} == {event.event_id for event in second}
+
+
 def test_promote_historical_workbook_preserva_eventos_e_manifesto(tmp_path, monkeypatch):
     source = tmp_path / "history.xlsx"
     source.write_bytes(b"fixture")
@@ -547,6 +577,21 @@ def test_promote_toponymic_events_writes_manifest(tmp_path):
     assert result.with_name("municipality_events.manifest.json").exists()
 
 
+def test_parse_toponymic_event_ids_sao_estaveis_com_reordenacao(tmp_path):
+    source = tmp_path / "alteracoes.csv"
+    header = "UF,MUN,ALT,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n"
+    rows = [
+        "24,00100,1,Nome antigo,Novo nome,2020-07-14\n",
+        "33,01009,2,Campo antigo,Campo atual,2021-01-01\n",
+    ]
+    source.write_text(header + "".join(rows), encoding="utf-8")
+    first = parse_toponymic_events(source, reference_year=2025)
+    source.write_text(header + "".join(reversed(rows)), encoding="utf-8")
+    second = parse_toponymic_events(source, reference_year=2025)
+
+    assert {event.event_id for event in first} == {event.event_id for event in second}
+
+
 def test_parse_administrative_events_requires_explicit_codes(tmp_path):
     source = tmp_path / "administrative.csv"
     source.write_text(
@@ -558,6 +603,21 @@ def test_parse_administrative_events_requires_explicit_codes(tmp_path):
     assert events[0].event_type == "SUCCESSION"
     assert events[0].source_code7 == "5101234"
     assert events[0].target_code7 == "5101837"
+
+
+def test_parse_administrative_event_ids_sao_estaveis_com_reordenacao(tmp_path):
+    source = tmp_path / "administrative.csv"
+    header = "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7,SOURCE_NAME,TARGET_NAME\n"
+    rows = [
+        "SUCCESSION,2025-01-01,3301009,5101837,Origem,Novo\n",
+        "CREATION,2025-01-01,,5101838,,Outro\n",
+    ]
+    source.write_text(header + "".join(rows), encoding="utf-8")
+    first = parse_administrative_events(source, reference_year=2025)
+    source.write_text(header + "".join(reversed(rows)), encoding="utf-8")
+    second = parse_administrative_events(source, reference_year=2025)
+
+    assert {event.event_id for event in first} == {event.event_id for event in second}
 
 
 def test_parse_administrative_events_rejects_unsupported_format(tmp_path):

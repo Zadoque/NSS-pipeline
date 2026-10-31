@@ -328,7 +328,9 @@ def parse_toponymic_events(
         if not old_name or not new_name or pd.isna(effective):
             raise ValueError(f"evento toponímico incompleto, linha {index + 2}")
         code7 = uf + mun
-        event_id = _event_id(reference_year, index, code7, old_name, new_name, effective.date())
+        event_id = _event_id(
+            reference_year, "TOPONYMIC_CHANGE", effective.date(), code7,
+        )
         events.append(MunicipalityEvent(
             event_id=event_id,
             event_type="TOPONYMIC_CHANGE",
@@ -398,7 +400,10 @@ def parse_historical_municipality_workbook(
             if not current_name or current_name.lower() == "nan" or previous_name == current_name:
                 continue
             events.append(MunicipalityEvent(
-                event_id=_event_id(current_year, index, previous_code, previous_name, current_name),
+                event_id=_event_id(
+                    current_year, "TOPONYMIC_CHANGE", f"{current_year}-01-01",
+                    previous_code,
+                ),
                 event_type="TOPONYMIC_CHANGE",
                 effective_date=f"{current_year}-01-01",
                 source_code7=previous_code,
@@ -683,7 +688,9 @@ def parse_administrative_events(
             raise ValueError(f"TARGET_CODE7 ausente, linha {index + 2}")
         if event_type in {"EXTINCTION", "SUCCESSION", "MERGER", "SPLIT"} and not source_code:
             raise ValueError(f"SOURCE_CODE7 ausente, linha {index + 2}")
-        event_id = _event_id(reference_year, index, event_type, effective.date(), source_code, target_code)
+        event_id = _event_id(
+            reference_year, event_type, effective.date(), source_code, target_code,
+        )
         events.append(MunicipalityEvent(
             event_id=event_id,
             event_type=event_type,

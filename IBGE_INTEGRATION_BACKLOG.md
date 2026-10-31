@@ -259,6 +259,11 @@ IBGE-012 ──> IBGE-013
 - Após `5dc9822`, eventos sem `event_id` ou sem proveniência textual são
   rejeitados antes da materialização; `tests/test_ibge_historical.py` passou
   com 71 testes.
+- Os parsers administrativo, toponímico e da planilha histórica agora formam
+  `event_id` somente a partir da identidade semântica do evento (tipo, data e
+  geocódigos), sem depender da posição da linha; reordenação da mesma fonte é
+  idempotente e mudança de payload para a mesma identidade continua gerando
+  conflito.
 - O commit `ca10257` adicionou o parser da planilha oficial
   `pop_mun_TUR_1872_a_2010.xls`, promovendo somente alterações de nome com o
   mesmo código. A execução do artefato oficial produziu 2.149 eventos
