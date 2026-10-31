@@ -1659,3 +1659,9 @@ consultou os 49 grupos sem publicar dados: **47 possuem Parquet remoto** e
 falhou antes da consulta por WAL inconsistente no cache global; o cache isolado
 concluiu normalmente. A ausência foi mantida como condição explícita da fonte,
 não como sucesso de cobertura.
+
+A auditoria de concorrência posterior executou dois processos consultando
+simultaneamente `DENG/2024` no mesmo cache isolado; ambos retornaram o mesmo
+Parquet e tamanho, sem erro de catálogo. A matriz foi repetida após esse teste
+e reproduziu **49/49 consultas**, com **47 disponíveis** e apenas `HEPA`/`INFL`
+indisponíveis em 2024.

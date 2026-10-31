@@ -534,6 +534,10 @@ indisponíveis. O resultado não altera o estado de IBGE-010: a pipeline suporta
 os 49 grupos, mas uma carga autorizada nacional e a disponibilidade temporal
 de cada fonte continuam critérios de produção separados.
 
+O teste concorrente posterior confirmou duas consultas simultâneas a
+`DENG/2024` no mesmo cache isolado sem corrupção; a matriz completa foi
+reexecutada com o mesmo resultado 47/49.
+
 ## Evidência
 
 O estado de execução, commits, comandos e limitações estão registrados em
