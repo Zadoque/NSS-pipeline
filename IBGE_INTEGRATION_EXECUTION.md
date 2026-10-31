@@ -1272,6 +1272,13 @@ tamanho positivo e status de extração compatível. A regressão cobre entrada
 documental sem URL. A suíte integral passou em **588 testes**, com **3 pulados**
 e **25 warnings**.
 
+O commit `fdb0786` (`fix(ibge): require release provenance metadata`)
+endureceu o manifesto das releases principais: ano de referência, nome da
+fonte, URL e `retrieved_at` ISO-8601 com timezone agora são obrigatórios,
+além dos hashes e status já validados. Foram adicionadas regressões para
+campos ausentes e timestamps inválidos. A suíte integral passou em **594
+testes**, com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
