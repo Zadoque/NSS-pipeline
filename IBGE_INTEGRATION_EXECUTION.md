@@ -1155,6 +1155,13 @@ arquivo ausente. Os **9 mutantes** selecionados de `_read_events()` morreram.
 A suíte integral posterior passou em **565 testes**, com **3 pulados** e **25
 warnings**.
 
+O commit `39014f0` (`test(ibge): preserve historical reference errors`)
+completou o contrato de validação das edições de origem e destino: os erros
+permanecem distintos e a exceção agregada conserva todas as referências
+inválidas. Os **3 mutantes** direcionados restantes desse contrato morreram.
+A suíte integral posterior passou em **566 testes**, com **3 pulados** e **25
+warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
