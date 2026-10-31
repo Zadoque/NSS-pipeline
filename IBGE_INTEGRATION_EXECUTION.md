@@ -423,6 +423,21 @@ sem ser tratado como morto artificialmente.
 
 ## Pendências para declarar suporte nacional de produção
 
+## Matriz de completude da execução
+
+| Requisito | Evidência atual | Situação |
+| --- | --- | --- |
+| Catálogo nacional versionado em Parquet | DTB 2025 real, 5.571 municípios, manifesto, hash bruto e hash lógico | Concluído no código |
+| Crosswalk 6→7 e validação de UF | Testes de resolução, homônimos, UF divergente e Gold em cinco UFs | Concluído |
+| Recorte RJ compatível | Defaults legados e suíte de regressão verde | Concluído |
+| Seleção por município, UF e Brasil | CLI, `GeographicScope` e smoke nacional com 27 UFs | Concluído |
+| CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído no modo offline |
+| Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
+| Histórico de sucessões municipais | Parser explícito disponível, sem fonte oficial completa promovida | Pendente externo |
+| CNES real em todas as UFs | Piloto real de Campos; execução nacional ainda não observada | Pendente externo |
+| Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
+| Mutação ≥95% | Última medição global: 68,7% entre mutantes classificáveis | Pendente de qualidade |
+
 Esta execução não deve ser interpretada como homologação de uma carga nacional
 completa. Permanecem necessários:
 
