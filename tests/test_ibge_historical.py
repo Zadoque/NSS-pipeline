@@ -247,6 +247,29 @@ def test_promote_historical_source_rejeita_manifesto_sources_invalido(tmp_path):
         )
 
 
+@pytest.mark.parametrize("raw_sources", [None, "not-a-map", ["not-an-entry"]])
+def test_promote_historical_source_rejeita_sources_que_nao_sao_mapa(
+    tmp_path, raw_sources
+):
+    root = tmp_path / "catalog"
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"source")
+    promote_historical_source(
+        root, source, source_id="genealogia.pdf", source_url="fixture://genealogia",
+        reference_period="1872-2010",
+    )
+    manifest = root / "historical" / "sources.manifest.json"
+    manifest.write_text(
+        __import__("json").dumps({"sources": raw_sources}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="sources deve ser um mapa"):
+        promote_historical_source(
+            root, source, source_id="other.pdf", source_url="fixture://other",
+            reference_period="1872-2010",
+        )
+
+
 def test_promote_historical_source_rejeita_entrada_documental_incompleta(tmp_path):
     root = tmp_path / "catalog"
     source = tmp_path / "genealogia.pdf"
