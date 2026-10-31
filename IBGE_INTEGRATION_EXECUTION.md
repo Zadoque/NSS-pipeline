@@ -106,6 +106,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `77b4276` | Smoke SINAN Gold nacional com DTB oficial e cinco UFs |
 | `d618302` | Teste de reprocessamento após mudança da release IBGE |
 | `c466409` | Teste de erro explícito para município legado ausente |
+| `7843e10` | Fechamento seguro de sessões HTTP próprias do refresh IBGE |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -140,6 +141,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   mesmo tamanho.
 - A mutação dirigida de `legacy_rj_scope` matou o caso que substituía a
   mensagem de município legado ausente por um erro sem contexto.
+- O download da DTB fecha a sessão HTTP quando ela é criada internamente,
+  mantendo sessões fornecidas externamente sob responsabilidade do chamador.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
   executores SINAN e CNES, com `--page-size` no CNES.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
@@ -252,7 +255,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 372 passed, 20 skipped, 25 warnings
 pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 399 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 400 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
