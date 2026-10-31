@@ -119,7 +119,8 @@ def aggregate(
     catalog: MunicipalityCatalog | None = None,
 ) -> pd.DataFrame:
     selected_columns = validate_keys(selected_columns)
-    municipios = municipios if municipios is not None else legacy_rj_mapping()
+    if municipios is None:
+        municipios = catalog.as_mapping() if catalog is not None else legacy_rj_mapping()
     if hasattr(municipios, "as_mapping"):
         municipios = municipios.as_mapping()
     disease = disease.upper()
@@ -357,7 +358,8 @@ def aggregate_file(
     if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
         raise ValueError("tipo de escopo geográfico inválido")
     if municipios is None:
-        scope_codes = sorted(legacy_rj_mapping())
+        municipios = catalog.as_mapping() if catalog is not None else legacy_rj_mapping()
+        scope_codes = sorted(municipios)
     elif isinstance(municipios, Mapping):
         scope_codes = sorted(municipios)
     else:
