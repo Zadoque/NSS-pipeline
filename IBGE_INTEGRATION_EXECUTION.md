@@ -1233,6 +1233,12 @@ testes**, com **3 pulados** e **25 warnings**. Na rodada dirigida, os
 mutantes substantivos desse contrato morreram; sobreviventes restantes são
 variantes de logging ou de argumentos sem efeito observável no contrato atual.
 
+O commit `7ef49b5` (`fix(run-load): validate gold execution identity`) passou
+a exigir que a Gold catalogada declare a mesma doença, ano de origem e destino
+`serving` da execução. A regressão cobre uma doença divergente, evitando que
+uma publicação reutilize uma Gold semanticamente incompatível. A suíte integral
+passou em **584 testes**, com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

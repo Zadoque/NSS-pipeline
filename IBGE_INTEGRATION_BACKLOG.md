@@ -300,6 +300,10 @@ IBGE-012 ──> IBGE-013
     do escopo no metadata Gold antes da publicação. Os cenários de release e
     escopo divergentes foram adicionados; a suíte integral chegou a **583
     testes**, com **3 pulados** e **25 warnings**.
+  - O commit `7ef49b5` adicionou a validação de doença, ano e destino
+    `serving` no metadata da Gold antes da carga catalogada; o teste de
+    identidade divergente foi adicionado e a suíte chegou a **584 testes**,
+    com **3 pulados** e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.
