@@ -78,6 +78,21 @@ def test_parse_toponymic_events_preserves_code_and_names(tmp_path):
     assert events[0].effective_date == "1988-10-24"
 
 
+def test_historical_codes_accept_only_ascii_digits(tmp_path):
+    event = MunicipalityEvent("unicode", "CREATION", "2025-01-01", None, "１２３４５６７")
+    with pytest.raises(ValueError, match="target_code7 inválido"):
+        write_events(tmp_path / "invalid.parquet", [event])
+
+    source = tmp_path / "unicode.csv"
+    source.write_text(
+        "UF,MUN,ALT,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n"
+        "３３,０１００９,2,Nome antigo,Nome atual,1988-10-24\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="geocódigo inválido"):
+        parse_toponymic_events(source, reference_year=2025)
+
+
 def test_promote_toponymic_events_writes_manifest(tmp_path):
     source = tmp_path / "alteracoes.csv"
     source.write_text(

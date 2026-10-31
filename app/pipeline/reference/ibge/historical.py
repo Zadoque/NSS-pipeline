@@ -15,7 +15,7 @@ from .models import HistoricalReferenceValidationReport, Municipality
 ADMINISTRATIVE_EVENT_TYPES = frozenset({
     "CREATION", "EXTINCTION", "SUCCESSION", "MERGER", "SPLIT", "RENAME",
 })
-CODE7_PATTERN = re.compile(r"^\d{7}$")
+CODE7_PATTERN = re.compile(r"^[0-9]{7}$")
 
 
 def _event_id(*parts: object) -> str:
@@ -114,7 +114,7 @@ def parse_toponymic_events(
         old_name = str(row["NOME_ANTERIOR"]).strip()
         new_name = str(row["NOME_ATUAL"]).strip()
         effective = pd.to_datetime(row["DATA_OCORRÊNCIA"], errors="coerce")
-        if not (uf.isdigit() and mun.isdigit() and len(uf + mun) == 7):
+        if not CODE7_PATTERN.fullmatch(uf + mun):
             raise ValueError(f"geocódigo inválido nas alterações toponímicas, linha {index + 2}")
         if not old_name or not new_name or pd.isna(effective):
             raise ValueError(f"evento toponímico incompleto, linha {index + 2}")
@@ -237,7 +237,7 @@ def write_events(path: Path, events: list[MunicipalityEvent] | tuple[Municipalit
         target_code = None if pd.isna(row.target_code7) or str(row.target_code7) == "" else str(row.target_code7)
         for field in ("source_code7", "target_code7"):
             code = getattr(row, field)
-            if code is not None and not pd.isna(code) and (not str(code).isdigit() or len(str(code)) != 7):
+            if code is not None and not pd.isna(code) and not CODE7_PATTERN.fullmatch(str(code)):
                 raise ValueError(f"{field} inválido no histórico municipal: {code}")
         if event_type == "CREATION" and (source_code is not None or target_code is None):
             raise ValueError("evento CREATION exige somente target_code7")
