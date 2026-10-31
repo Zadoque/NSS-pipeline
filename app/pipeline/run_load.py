@@ -29,6 +29,11 @@ from .scope import (
 
 logger = logging.getLogger(__name__)
 
+_GOLD_QUALITY_METRICS = (
+    "source_rows", "resolved_rows", "discarded_rows", "aggregation_reduction",
+    "invalid_municipality_rows", "out_of_scope_rows", "uf_mismatch_rows",
+)
+
 def run_load(
     disease: str,
     year: int,
@@ -94,6 +99,23 @@ def run_load(
     else:
         gold_metadata = {}
     if catalog is not None:
+        missing_metrics = [key for key in _GOLD_QUALITY_METRICS if key not in gold_metadata]
+        if missing_metrics:
+            raise ValueError(
+                "Publicação bloqueada: metadata.json da Gold não contém métricas obrigatórias "
+                f"({', '.join(missing_metrics)})"
+            )
+        invalid_metrics = [
+            key for key in _GOLD_QUALITY_METRICS
+            if not isinstance(gold_metadata[key], int)
+            or isinstance(gold_metadata[key], bool)
+            or gold_metadata[key] < 0
+        ]
+        if invalid_metrics:
+            raise ValueError(
+                "Publicação bloqueada: métricas Gold inválidas "
+                f"({', '.join(invalid_metrics)})"
+            )
         invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
         uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
         if invalid_rows or uf_mismatch_rows:
