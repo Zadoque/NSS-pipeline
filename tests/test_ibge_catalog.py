@@ -99,6 +99,11 @@ def test_resolve_none_keeps_empty_original_and_format_reason():
     assert result.input_format is None
     assert result.reason == "código não numérico"
 
+    text = catalog().resolve("Bom Jesus")
+    assert text.status is ResolutionStatus.INVALID_FORMAT
+    assert text.input_format is None
+    assert text.reason == "código não numérico"
+
 
 def test_resolve_preserva_contexto_completo_em_cada_status():
     value = catalog()
