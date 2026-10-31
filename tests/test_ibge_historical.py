@@ -72,6 +72,7 @@ def test_parse_administrative_events_requires_explicit_codes(tmp_path):
     [
         "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nSUCCESSION,2025-01-01,5101234,\n",
         "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nBOGUS,2025-01-01,5101234,5101837\n",
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\nCREATION,2025-01-01,,51018\n",
     ],
 )
 def test_parse_administrative_events_rejects_ambiguous_or_unknown_rows(tmp_path, content):

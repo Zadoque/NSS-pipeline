@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
 import json
+import re
 
 import pandas as pd
 
@@ -14,6 +15,7 @@ from .models import Municipality
 ADMINISTRATIVE_EVENT_TYPES = frozenset({
     "CREATION", "EXTINCTION", "SUCCESSION", "MERGER", "SPLIT", "RENAME",
 })
+CODE7_PATTERN = re.compile(r"^\d{7}$")
 
 
 def _event_id(*parts: object) -> str:
@@ -235,6 +237,9 @@ def parse_administrative_events(
             raise ValueError(f"data de vigência inválida, linha {index + 2}")
         source_code = str(row.get("SOURCE_CODE7", "")).strip() or None
         target_code = str(row.get("TARGET_CODE7", "")).strip() or None
+        for field, code in (("SOURCE_CODE7", source_code), ("TARGET_CODE7", target_code)):
+            if code is not None and not CODE7_PATTERN.fullmatch(code):
+                raise ValueError(f"{field} inválido, linha {index + 2}: esperado geocódigo de 7 dígitos")
         if event_type in {"CREATION", "SUCCESSION", "MERGER", "SPLIT"} and not target_code:
             raise ValueError(f"TARGET_CODE7 ausente, linha {index + 2}")
         if event_type in {"EXTINCTION", "SUCCESSION", "MERGER", "SPLIT"} and not source_code:
