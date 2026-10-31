@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import hashlib
 import json
 
 import pandas as pd
@@ -178,6 +179,34 @@ def test_latest_cnes_lookup_retorna_o_batch_mais_recente(tmp_path, monkeypatch):
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
     result = gold._latest_cnes_lookup()
     assert result.attrs["cnes_metadata"]["batch_id"] == "20260201"
+
+
+def test_lote_cnes_v2_reconcilia_checksum_e_cobertura(tmp_path):
+    batch_id = "20261014T120000Z"
+    batch_path = tmp_path / f"batch_id={batch_id}"
+    batch_path.mkdir()
+    parquet = batch_path / "data.parquet"
+    pd.DataFrame({"cd_unidade": ["0000001"], "cd_mun": ["3301009"]}).to_parquet(parquet, index=False)
+    digest = hashlib.sha256(parquet.read_bytes()).hexdigest()
+    (batch_path / "metadata.json").write_text(json.dumps({
+        "manifest_version": 2,
+        "status": "COMPLETED",
+        "batch_id": batch_id,
+        "municipios": ["3301009", "3302403"],
+        "municipios_com_registros": ["3301009"],
+        "municipios_sem_registros": ["3302403"],
+        "rows": 1,
+        "parquet_sha256": digest,
+        "ibge_catalog_id": None,
+        "ibge_catalog_sha256": None,
+    }), encoding="utf-8")
+
+    result = gold._load_cnes_batch(parquet)
+    assert result.attrs["cnes_metadata"]["manifest_version"] == 2
+
+    parquet.write_bytes(parquet.read_bytes() + b"tampered")
+    with pytest.raises(ValueError, match="SHA-256"):
+        gold._load_cnes_batch(parquet)
 
 
 def test_gold_serving_exige_lote_cnes_explicito(source):

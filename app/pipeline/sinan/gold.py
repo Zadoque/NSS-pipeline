@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -338,6 +339,30 @@ def _read_cnes_metadata(path: Path) -> dict:
     rows = metadata.get("rows")
     if not isinstance(rows, int) or isinstance(rows, bool) or rows < 0:
         raise ValueError("metadata CNES sem contagem de linhas válida")
+    manifest_version = metadata.get("manifest_version")
+    if manifest_version is not None and manifest_version >= 2:
+        parquet_sha256 = metadata.get("parquet_sha256")
+        if (
+            not isinstance(parquet_sha256, str)
+            or not re.fullmatch(r"[0-9a-fA-F]{64}", parquet_sha256)
+        ):
+            raise ValueError("manifesto CNES sem SHA-256 do Parquet válido")
+        for field in ("municipios_com_registros", "municipios_sem_registros"):
+            values = metadata.get(field)
+            if (
+                not isinstance(values, list)
+                or any(not isinstance(code, str) or not re.fullmatch(r"\d{7}", code) for code in values)
+                or len(set(values)) != len(values)
+            ):
+                raise ValueError(f"manifesto CNES sem {field} válido")
+        if set(metadata["municipios_com_registros"]) & set(metadata["municipios_sem_registros"]):
+            raise ValueError("manifesto CNES sobrepõe municípios com e sem registros")
+        if not set(metadata["municipios_com_registros"]).issubset(set(municipios)):
+            raise ValueError("manifesto CNES contém município fora da declaração de cobertura")
+        if set(metadata["municipios"]) != (
+            set(metadata["municipios_com_registros"]) | set(metadata["municipios_sem_registros"])
+        ):
+            raise ValueError("manifesto CNES não reconcilia a cobertura declarada")
     return metadata
 
 
@@ -367,11 +392,25 @@ def _load_cnes_batch(path: Path, *, catalog=None, expected_scope=None) -> pd.Dat
     _validate_cnes_metadata(
         metadata, batch_path=path, catalog=catalog, expected_scope=expected_scope,
     )
+    if metadata.get("manifest_version", 0) >= 2:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest != metadata["parquet_sha256"]:
+            raise ValueError("Parquet CNES diverge do SHA-256 declarado no manifesto")
     lookup = pd.read_parquet(path)
     if not isinstance(lookup, pd.DataFrame) or len(lookup) != metadata["rows"]:
         raise ValueError("contagem de linhas do lote CNES diverge do metadata")
     if "cd_unidade" not in lookup.columns:
         raise ValueError("lote CNES sem cd_unidade")
+    if metadata.get("manifest_version", 0) >= 2:
+        if "cd_mun" not in lookup.columns:
+            actual_municipalities: set[str] = set()
+        else:
+            actual_municipalities = set(
+                lookup["cd_mun"].dropna().astype("string").str.strip().str.zfill(7)
+            )
+        declared_municipalities = set(metadata["municipios_com_registros"])
+        if actual_municipalities != declared_municipalities:
+            raise ValueError("cobertura municipal do Parquet CNES diverge do manifesto")
     lookup.attrs["cnes_metadata"] = metadata
     return lookup
 

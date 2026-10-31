@@ -36,6 +36,34 @@ DEFAULT_CNES_REQUEST_TIMEOUT = 60.0
 _SHA256_LENGTH = 64
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _consolidated_municipalities(path: Path) -> list[str]:
+    """Lê a cobertura efetiva do Parquet sem materializar o lote em pandas."""
+    if "cd_mun" not in pq.ParquetFile(path).schema.names:
+        return []
+    connection = duckdb.connect()
+    try:
+        rows = connection.execute(
+            """
+            SELECT DISTINCT lpad(trim(CAST(cd_mun AS VARCHAR)), 7, '0')
+            FROM read_parquet(?)
+            WHERE cd_mun IS NOT NULL AND trim(CAST(cd_mun AS VARCHAR)) <> ''
+            ORDER BY 1
+            """,
+            [str(path)],
+        ).fetchall()
+    finally:
+        connection.close()
+    return [row[0] for row in rows]
+
+
 def _validate_checkpoint_completed(completed: object, municipios: dict[str, str]) -> dict:
     if not isinstance(completed, dict):
         raise ValueError("checkpoint CNES com completed inválido")
@@ -409,6 +437,7 @@ def run_cnes(
         parts_directory_handle.cleanup()
 
     metadata = {
+        "manifest_version": 2,
         "status": "COMPLETED" if not failed else "PARTIAL",
         "batch_id": batch_id,
         "ingested_at": run_at.isoformat(),
@@ -422,7 +451,12 @@ def run_cnes(
         "cnes_workers": workers,
         "failed_municipalities": failed,
         "columns": pq.ParquetFile(parquet).schema.names,
+        "parquet_sha256": _sha256_file(parquet),
+        "municipios_com_registros": _consolidated_municipalities(parquet),
     }
+    metadata["municipios_sem_registros"] = sorted(
+        set(municipios) - set(metadata["municipios_com_registros"])
+    )
     write_json_atomic(metadata, directory / "metadata.json")
     export_stage_metrics(
         pipeline="cnes",
