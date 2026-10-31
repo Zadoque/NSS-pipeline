@@ -446,6 +446,12 @@ def test_release_artifacts_are_sorted_by_canonical_keys(tmp_path):
     municipalities = __import__("pandas").read_parquet(release / "municipalities.parquet")
     ufs = __import__("pandas").read_parquet(release / "ufs.parquet")
     crosswalk = __import__("pandas").read_parquet(release / "code_crosswalk.parquet")
+    assert municipalities.columns.tolist() == [
+        "code7", "code6", "name", "uf_code", "uf_abbr", "uf_name",
+        "reference_year", "source", "administrative_type",
+    ]
+    assert ufs.columns.tolist() == ["uf_code", "uf_abbr", "uf_name"]
+    assert crosswalk.columns.tolist() == ["code6", "code7", "reference_year"]
     assert municipalities["code7"].tolist() == ["3301009", "3550308"]
     assert ufs["uf_code"].tolist() == ["33", "35"]
     assert crosswalk["code6"].tolist() == ["330100", "355030"]
