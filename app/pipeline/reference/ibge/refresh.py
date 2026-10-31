@@ -75,12 +75,13 @@ def refresh_from_dtb_url(
     reference_year: int,
     expected_sha256: str | None = None,
     session: requests.Session | None = None,
+    timeout: float = 120,
     require_national: bool = True,
 ) -> Path:
     """Baixa, valida e promove uma edição DTB em uma única operação controlada."""
     archive = download_dtb_archive(
         root, url=url, reference_year=reference_year,
-        expected_sha256=expected_sha256, session=session,
+        expected_sha256=expected_sha256, session=session, timeout=timeout,
     )
     return refresh_from_dtb_archive(
         root, archive, catalog_id=catalog_id, source_url=url,
@@ -233,6 +234,7 @@ def main() -> None:
     source.add_argument("--localidades", action="store_true", help="Usa a API de Localidades do IBGE")
     parser.add_argument("--source-url", help="URL de proveniência para um arquivo local")
     parser.add_argument("--expected-sha256", help="SHA-256 esperado do ZIP DTB")
+    parser.add_argument("--timeout", type=float, default=120, help="Timeout HTTP em segundos")
     args = parser.parse_args()
     if args.dtb_archive is not None and not args.source_url:
         parser.error("--dtb-archive exige --source-url")
@@ -240,6 +242,7 @@ def main() -> None:
         result = refresh_from_dtb_url(
             args.root, url=args.dtb_url, catalog_id=args.catalog_id,
             reference_year=args.reference_year, expected_sha256=args.expected_sha256,
+            timeout=args.timeout,
         )
     elif args.dtb_archive is not None:
         result = refresh_from_dtb_archive(

@@ -569,6 +569,7 @@ def test_refresh_from_dtb_url_downloads_then_promotes_with_same_contract(tmp_pat
         reference_year=2025,
         expected_sha256="a" * 64,
         session=session,
+        timeout=45,
     )
 
     assert result == promoted.return_value
@@ -577,7 +578,7 @@ def test_refresh_from_dtb_url_downloads_then_promotes_with_same_contract(tmp_pat
         url="https://example.invalid/DTB_2025.zip",
         reference_year=2025,
         expected_sha256="a" * 64,
-        session=session,
+        session=session, timeout=45,
     )
     promoted.assert_called_once_with(
         tmp_path, archive, catalog_id="ibge-dtb-2025",
@@ -695,7 +696,7 @@ def test_refresh_cli_forwards_dtb_url_and_hash(tmp_path, monkeypatch, mocker, ca
         "refresh", "--root", str(tmp_path / "catalog"),
         "--catalog-id", "ibge-dtb-2025", "--reference-year", "2025",
         "--dtb-url", "https://example.invalid/DTB_2025.zip",
-        "--expected-sha256", "b" * 64,
+        "--expected-sha256", "b" * 64, "--timeout", "45",
     ])
 
     refresh_main()
@@ -703,7 +704,7 @@ def test_refresh_cli_forwards_dtb_url_and_hash(tmp_path, monkeypatch, mocker, ca
     refresh.assert_called_once_with(
         tmp_path / "catalog", url="https://example.invalid/DTB_2025.zip",
         catalog_id="ibge-dtb-2025", reference_year=2025,
-        expected_sha256="b" * 64,
+        expected_sha256="b" * 64, timeout=45,
     )
     assert str(expected) in capsys.readouterr().out
 
