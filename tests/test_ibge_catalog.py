@@ -527,6 +527,22 @@ def test_load_active_catalog_rejects_pointer_without_release_id(tmp_path):
         load_active_catalog(tmp_path)
 
 
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (None, r"^ponteiro ativo ausente: .+$"),
+        ("{", r"^ponteiro ativo inválido: .+$"),
+        ('{"catalog_id": 7}', r"^active\.json não informa catalog_id$"),
+    ],
+)
+def test_load_active_catalog_rejeita_ponteiro_inutilizavel(tmp_path, payload, message):
+    if payload is not None:
+        (tmp_path / "active.json").write_text(payload, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        load_active_catalog(tmp_path)
+
+
 @pytest.mark.parametrize("payload", ["null", "[]", '"release"'])
 def test_load_active_catalog_rejects_pointer_with_non_object_root(tmp_path, payload):
     (tmp_path / "active.json").write_text(payload, encoding="utf-8")
