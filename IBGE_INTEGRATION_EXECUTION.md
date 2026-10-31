@@ -1604,3 +1604,43 @@ O commit `7344381` corrigiu um risco de subcontagem: `aggregate()` e
 somente no caminho legado sem catálogo. A regressão multi-UF detecta a queda
 indevida para os quatro municípios históricos, e a suíte integral posterior
 passou em **631 testes**, com **0 skips** e **25 warnings**.
+
+## Atualizações posteriores — branch `work/nss-pipeline`
+
+O commit `d0f951c` sincronizou o catálogo operacional de doenças com os 49
+grupos `SINAN.group_definitions` do PySUS 2.11.7. A cobertura é verificada por
+teste de paridade contra a definição instalada, e a Silver é exercitada para
+cada grupo. O commit `7e130aa` adicionou uma regressão parametrizada para os 49
+grupos; a suíte integral posterior passou em **689 testes**, com **25
+warnings**.
+
+O commit `9cfe12c` passou a registrar explicitamente `UNAVAILABLE` quando um
+grupo/ano não possui Parquet remoto; a execução não publica lote vazio. A
+consulta remota sequencial homologada para 2024 encontrou 47 grupos, `HEPA`
+com disponibilidade histórica em 2023 e `INFL` sem Parquet entre 2020 e 2024.
+Essa ausência temporal é reportada como condição da fonte, não como sucesso
+falso. O commit `d12f3c4` tornou essa condição não-zero por padrão na CLI, com
+`--allow-unavailable` restrito a rodadas explícitas de descoberta.
+
+O commit `49d9dbe` adicionou lock de processo ao manifesto compartilhado do
+cache PySUS, evitando corrupção do DuckDB quando atualizações concorrentes
+compartilham a mesma cache. A dependência foi posteriormente fixada em
+`PySUS==2.11.7` no commit `ac436dc`, tornando reprodutível o catálogo de 49
+grupos homologado.
+
+O commit `e46eaa3` atualizou a documentação operacional para listar os 49 grupos
+e declarar a política de paridade com PySUS. A suíte integral posterior a esse
+conjunto de alterações passou em **668 testes**, com **21 testes condicionais
+pulados** e **25 warnings**; `nix flake check --no-build` passou.
+
+O commit `51474b8` substituiu o temporário fixo do manifesto SINAN por escrita
+atômica com nome exclusivo e adicionou regressão para limpeza dos temporários.
+Após auditoria independente, a suíte passou em **669 testes**, com **21 testes
+condicionais pulados** e **25 warnings**. O CI da branch executou unitários e
+integração PostgreSQL no commit `ac436dc`, ambos com sucesso.
+
+Os gates de produção permanecem: a medição global de mutação ainda está abaixo
+de 95%; a genealogia oficial 1872--2010 continua preservada como `RAW_ONLY`
+sem tabela codificada segura de sucessões; e ainda falta uma carga SINAN
+nacional autorizada para reconciliar Silver, Gold e PostgreSQL. Nenhuma dessas
+lacunas é preenchida por inferência territorial ou por fonte PySUS ausente.
