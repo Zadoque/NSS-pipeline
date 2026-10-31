@@ -53,8 +53,8 @@ class InMemoryMunicipalityCatalog:
         reference_year: int | None = None,
     ) -> ResolutionResult:
         original = "" if value is None else str(value).strip()
-        raw = re.sub(r"\D", "", original)
-        if not raw or raw != original:
+        raw = original
+        if not raw or re.fullmatch(r"[0-9]+", raw) is None:
             return ResolutionResult(original, None, ResolutionStatus.INVALID_FORMAT, reason="código não numérico")
 
         candidate: Municipality | None = None
