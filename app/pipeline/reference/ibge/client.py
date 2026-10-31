@@ -34,7 +34,14 @@ class IbgeLocalidadesClient:
         if not isinstance(item, dict):
             raise ValueError("registro IBGE inválido")
         try:
-            uf = item["microrregiao"]["mesorregiao"]["UF"]
+            microregion = item.get("microrregiao")
+            if microregion is not None:
+                uf = microregion["mesorregiao"]["UF"]
+            else:
+                # Municípios recém-criados podem ainda não possuir
+                # microrregião na API; a mesma UF está disponível na
+                # hierarquia de região imediata/intermediária.
+                uf = item["regiao-imediata"]["regiao-intermediaria"]["UF"]
             return Municipality(
                 code7=str(item["id"]),
                 code6=str(item["id"])[:6],

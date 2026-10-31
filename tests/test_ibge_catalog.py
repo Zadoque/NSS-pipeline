@@ -363,6 +363,25 @@ def test_localidades_client_validates_and_parses_response(mocker):
     )
 
 
+def test_localidades_client_faz_fallback_para_hierarquia_de_regiao_imediata(mocker):
+    session = mocker.Mock()
+    session.get.return_value.json.return_value = [{
+        "id": 5101837,
+        "nome": "Boa Esperança do Norte",
+        "microrregiao": None,
+        "regiao-imediata": {
+            "regiao-intermediaria": {
+                "UF": {"id": 51, "sigla": "MT", "nome": "Mato Grosso"},
+            },
+        },
+    }]
+
+    result = IbgeLocalidadesClient(session=session).fetch_municipalities()
+
+    assert result[0].code7 == "5101837"
+    assert result[0].uf_abbr == "MT"
+
+
 @pytest.mark.parametrize("payload", [{}, [None]])
 def test_localidades_client_rejects_invalid_payload_or_record(mocker, payload):
     session = mocker.Mock()
