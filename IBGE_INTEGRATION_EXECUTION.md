@@ -1425,3 +1425,9 @@ Uma nova rodada global completa do mutmut, após as regressões CNES, processou
 **7.958 mutantes**: **6.237 mortos**, **1.720 sobreviventes** e **1 timeout**.
 Entre os 7.957 mutantes classificáveis, a taxa foi **78,38%**. A melhora em
 relação à baseline anterior foi registrada, mas a meta de 95% continua aberta.
+
+O commit `cb25975` (`test(sinan): verify source fetch contract`) adicionou a
+assertiva de que o orquestrador chama `fetch_sinan` com doença e ano canônicos.
+Os 4 mutantes dirigidos de argumentos desse caminho morreram. A baseline global
+acima permanece a última rodada completa; esta correção foi medida apenas de
+forma dirigida.

@@ -413,6 +413,9 @@ IBGE-012 ──> IBGE-013
   - A rodada global posterior processou novamente 7.958 mutantes: 6.237
     mortos, 1.720 sobreviventes e 1 timeout, com **78,38%** entre os
     classificáveis. A meta de 95% permanece pendente.
+  - O commit `cb25975` cobriu o contrato de chamada da fonte SINAN no
+    `run_load`; os 4 mutantes dirigidos de argumentos morreram. A baseline
+    global não foi recalculada após essa alteração.
 
 ### IBGE-013 — Rollout nacional de produção
 
