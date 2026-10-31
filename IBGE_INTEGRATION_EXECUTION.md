@@ -769,13 +769,14 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **485 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **486 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
 incompatibilidade de sistema.
 
-O último commit funcional desta rodada foi `4a91f47`
+O último commit funcional desta rodada foi `81dc7b1`
+(`test(load): cover pending catalog rejection`), precedido por `4a91f47`
 (`fix(ibge): reject truncated national catalogs`), precedido por `95b99b0`
 (`fix(ibge): reject non-ascii municipality codes`), precedido por `4cf6523`
 (`fix(cnes): enforce ascii municipality codes`) e seguido do registro da
@@ -804,6 +805,10 @@ em 485 testes.
 O commit `4a91f47` também passou na suíte integral: uma candidata nacional
 truncada, mesmo contendo todas as UFs, agora é rejeitada quando possui menos de
 5.500 municípios.
+
+O commit `81dc7b1` adicionou a defesa de publicação: releases IBGE com
+`validation_status` diferente de `VALIDATED` são rejeitadas antes do registro
+na transação PostgreSQL. A suíte completa posterior passou em 486 testes.
 
 ## Conclusão
 
