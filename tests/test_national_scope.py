@@ -11,6 +11,7 @@ from app.pipeline.reference.ibge.dtb import parse_dtb_archive
 from app.pipeline.reference.ibge.models import CatalogMetadata
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
 from app.pipeline.scope import select_scope
+from app.pipeline.sinan.gold import aggregate
 
 
 pytestmark = pytest.mark.integration
@@ -64,3 +65,41 @@ def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypat
     assert published["metadata"]["ibge_catalog_id"] == "ibge-dtb-national-test"
     assert published["metadata"]["cnes_page_size"] == 250
     assert published["metadata"]["cnes_request_timeout"] == 60.0
+
+
+def test_national_dtb_catalog_resolves_sinan_gold_across_ufs(monkeypatch):
+    archive_path = os.environ.get("IBGE_DTB_ARCHIVE")
+    if not archive_path:
+        pytest.skip("IBGE_DTB_ARCHIVE não definida — homologação nacional pulada")
+
+    archive = Path(archive_path)
+    records = parse_dtb_archive(archive, reference_year=2025)
+    catalog = InMemoryMunicipalityCatalog(
+        records,
+        CatalogMetadata(
+            "ibge-dtb-national-gold-test", 2025, "IBGE DTB fixture", str(archive),
+            "2026-10-30T00:00:00Z", "a" * 64,
+        ),
+    )
+    selected = [
+        catalog.get_municipality(code)
+        for code in ("3301009", "3550308", "1302603", "2611606", "4305108")
+    ]
+    assert all(selected)
+    selected = tuple(item for item in selected if item is not None)
+    frame = pd.DataFrame({
+        "DT_NOTIFIC": pd.to_datetime(["2026-01-05"] * len(selected)),
+        "ID_MUNICIP": [item.code6 for item in selected],
+        "SG_UF_NOT": [item.uf_code for item in selected],
+        "NM_UF": [item.uf_name for item in selected],
+        "CS_SEXO": ["F"] * len(selected),
+        "ANO_NASC": [1990] * len(selected),
+        "SEM_NOT": [202601] * len(selected),
+    })
+    scope = {item.code7: item.name for item in selected}
+
+    result = aggregate(frame, "DENG", municipios=scope, catalog=catalog)
+
+    assert set(result["cd_mun"]) == set(scope)
+    assert set(result["cd_uf"]) == {item.uf_code for item in selected}
+    assert result["cases_total"].sum() == len(selected)
