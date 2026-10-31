@@ -105,9 +105,15 @@ def _reuse_immutable_release(release: Path, metadata: CatalogMetadata) -> Path |
     if not release.exists():
         return None
     manifest_path = release / "manifest.json"
-    catalog_path = release / "municipalities.parquet"
-    if not manifest_path.exists() or not catalog_path.exists():
+    artifact_paths = {
+        "manifest.json": manifest_path,
+        "municipalities.parquet": release / "municipalities.parquet",
+        "ufs.parquet": release / "ufs.parquet",
+        "code_crosswalk.parquet": release / "code_crosswalk.parquet",
+    }
+    if not all(path.exists() for path in artifact_paths.values()):
         raise ValueError(f"release incompleta não pode ser reutilizada: {release.name}")
+    catalog_path = artifact_paths["municipalities.parquet"]
     try:
         current = CatalogMetadata(**json.loads(manifest_path.read_text(encoding="utf-8")))
     except (json.JSONDecodeError, TypeError) as exc:
