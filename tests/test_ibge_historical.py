@@ -175,6 +175,19 @@ def test_download_historical_source_rejeita_hash_sem_promover(tmp_path, mocker):
 
 
 @pytest.mark.parametrize(
+    ("url", "reference_period", "message"),
+    [("", "1872-2010", "source_url obrigatório"),
+     ("fixture://genealogy", "", "reference_period obrigatório")],
+)
+def test_download_historical_source_exige_proveniencia(tmp_path, url, reference_period, message):
+    with pytest.raises(ValueError, match=message):
+        download_historical_source(
+            tmp_path / "catalog", url=url, source_id="genealogy.pdf",
+            reference_period=reference_period,
+        )
+
+
+@pytest.mark.parametrize(
     "source_id", ["", "../genealogia.pdf", "historical/genealogia.pdf"]
 )
 def test_promote_historical_source_rejeita_identificador_invalido(tmp_path, source_id):
@@ -186,6 +199,22 @@ def test_promote_historical_source_rejeita_identificador_invalido(tmp_path, sour
             source_url="fixture://genealogia", reference_period="1872-2010",
         )
     assert str(error.value) == "source_id inválido para uma fonte histórica local"
+
+
+@pytest.mark.parametrize(
+    ("source_url", "reference_period", "message"),
+    [("", "1872-2010", "source_url obrigatório"),
+     ("fixture://genealogia", "", "reference_period obrigatório")],
+)
+def test_promote_historical_source_exige_proveniencia(tmp_path, source_url, reference_period, message):
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"source")
+
+    with pytest.raises(ValueError, match=message):
+        promote_historical_source(
+            tmp_path / "catalog", source, source_id="genealogia.pdf",
+            source_url=source_url, reference_period=reference_period,
+        )
 
 
 def test_promote_historical_source_rejeita_fonte_ausente_e_vazia(tmp_path):

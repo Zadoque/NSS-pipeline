@@ -42,6 +42,10 @@ def promote_historical_source(
     """
     if not source_id or Path(source_id).name != source_id:
         raise ValueError("source_id inválido para uma fonte histórica local")
+    if not isinstance(source_url, str) or not source_url.strip():
+        raise ValueError("source_url obrigatório para uma fonte histórica")
+    if not isinstance(reference_period, str) or not reference_period.strip():
+        raise ValueError("reference_period obrigatório para uma fonte histórica")
     if not source_path.is_file():
         raise ValueError(f"fonte histórica ausente: {source_path}")
     content = source_path.read_bytes()
@@ -116,6 +120,10 @@ def download_historical_source(
     """
     if not source_id or Path(source_id).name != source_id:
         raise ValueError("source_id inválido para uma fonte histórica local")
+    if not isinstance(url, str) or not url.strip():
+        raise ValueError("source_url obrigatório para uma fonte histórica")
+    if not isinstance(reference_period, str) or not reference_period.strip():
+        raise ValueError("reference_period obrigatório para uma fonte histórica")
 
     sources_dir = root / "historical" / "sources"
     sources_dir.mkdir(parents=True, exist_ok=True)
