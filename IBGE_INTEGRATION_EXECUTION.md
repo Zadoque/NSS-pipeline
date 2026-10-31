@@ -92,6 +92,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `11bcf8e` | Parâmetros e sessão HTTP respeitados no escopo RJ legado |
 | `90dbd9b` | Validação explícita do schema de respostas CNES |
 | `186561e` | Validação estrutural das entradas de checkpoint CNES |
+| `6e18209` | Vinculação do escopo geográfico à release IBGE |
+| `5a01782` | Teste do vínculo catálogo–escopo no executor SINAN |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -109,6 +111,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   após validação.
 - Cliente da API de Localidades do IBGE com validação estrutural da resposta.
 - Seleção por município, UF ou Brasil inteiro, mantendo o RJ como default.
+- Entry points que recebem `catalog` e `GeographicScope` validam que ambos
+  representam a mesma identidade municipal antes de iniciar ingestão ou carga.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
   executores SINAN e CNES, com `--page-size` no CNES.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
@@ -214,9 +218,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 361 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 380 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 381 passed, 25 warnings
+pytest -q                  → 365 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 384 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 385 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
