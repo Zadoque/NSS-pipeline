@@ -138,6 +138,22 @@ def test_resolve_catalog_municipality_codes_preserves_index_and_contract():
     assert resolve_catalog_municipality_codes(pd.Series(["330100"]), catalog).tolist() == ["3301009"]
 
 
+def test_resolve_catalog_municipality_codes_normalizes_missing_declared_uf():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+
+    result = resolve_catalog_municipality_codes(
+        pd.Series(["330100"]), catalog, pd.Series([pd.NA], dtype="string")
+    )
+
+    assert result.tolist() == ["3301009"]
+
+
 def test_resolution_metrics_separa_escopo_e_codigo_invalido():
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
