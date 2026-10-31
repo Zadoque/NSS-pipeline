@@ -977,7 +977,14 @@ regressões para ponteiro ausente, JSON inválido e `catalog_id` não textual. A
 rodada dirigida correspondente matou **4 de 5 mutantes** selecionados; o
 sobrevivente restante é equivalente no ambiente Linux por usar o encoding UTF-8
 implícito de `Path.read_text(encoding=None)`. A suíte integral posterior passou
-em **533 testes**, com **3 testes pulados** e **25 warnings**.
+em **534 testes**, com **3 testes pulados** e **25 warnings**.
+
+O commit `b0bef0a` (`test(ibge): cover fresh release directory creation`)
+adicionou uma instalação em árvore ainda inexistente e matou os **2 mutantes**
+selecionados de criação de diretórios em `write_manifest()`. As variantes de
+`promote_active()` que removem `parents=True` foram mantidas como equivalentes:
+essa função chama `_load_release()` antes de criar o ponteiro, portanto o pai já
+precisa existir para a release ser válida.
 
 ## Conclusão
 

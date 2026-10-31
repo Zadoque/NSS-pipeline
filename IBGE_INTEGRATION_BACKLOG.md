@@ -306,6 +306,11 @@ IBGE-012 ──> IBGE-013
     `catalog_id` não textual. Na rodada dirigida, **4/5 mutantes selecionados**
     morreram; o quinto foi classificado como equivalente por depender do
     encoding UTF-8 padrão do ambiente.
+  - O commit `b0bef0a` adicionou o cenário de instalação em árvore inexistente;
+    os **2 mutantes** selecionados de `write_manifest()` relativos a
+    `mkdir(parents=True)` morreram. Os mutantes equivalentes de
+    `promote_active()` permanecem documentados porque sua pré-condição
+    `_load_release()` já exige o diretório da release.
 
 ### IBGE-013 — Rollout nacional de produção
 
