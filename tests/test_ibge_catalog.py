@@ -3,7 +3,11 @@ import sys
 
 import pytest
 
-from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog, ParquetMunicipalityCatalog
+from app.pipeline.reference.ibge.catalog import (
+    InMemoryMunicipalityCatalog,
+    ParquetMunicipalityCatalog,
+    _as_municipality,
+)
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
 from app.pipeline.reference.ibge.validation import (
     inspect_municipalities,
@@ -269,6 +273,22 @@ def test_storage_writes_parquet_and_active_pointer(tmp_path):
     assert loaded.get_municipality("3301009").name == "Campos"
     promote_active(tmp_path / "active.json", "test")
     assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
+
+
+def test_catalog_converte_mapping_em_municipio_com_atributos_opcionais():
+    result = _as_municipality({
+        "code7": "3301009",
+        "code6": "330100",
+        "name": "Campos",
+        "uf_code": "33",
+        "uf_abbr": "RJ",
+        "uf_name": "Rio de Janeiro",
+        "reference_year": "2025",
+    })
+
+    assert result == Municipality(
+        "3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025,
+    )
 
 
 def test_catalog_content_hash_is_canonical_and_sensitive_to_attributes():
