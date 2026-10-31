@@ -1197,6 +1197,16 @@ doença e ano. A regressão cobre uma lista JSON inválida e evita falha indiret
 durante a Gold. A suíte integral posterior passou em **578 testes**, com **3
 pulados** e **25 warnings**.
 
+O commit `6fd95ec` (`fix(run-load): validate catalog gold metrics`) fechou a
+reconciliação da publicação catalogada: `run_load.py` agora exige as sete
+métricas de qualidade da Gold, rejeita valores booleanos, não inteiros ou
+negativos e mantém o bloqueio para resoluções municipais inválidas ou UF
+divergente. Foram adicionadas regressões para metadata incompleto e métrica
+com tipo inválido, além da atualização dos cenários catalogados existentes.
+A suíte integral passou em **580 testes**, com **3 pulados** e **25 warnings**;
+`nix flake check --no-build` também passou. A baseline global de mutação não
+foi recalculada nesta etapa.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
