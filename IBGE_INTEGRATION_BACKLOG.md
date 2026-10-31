@@ -207,6 +207,10 @@ IBGE-012 ──> IBGE-013
 - `promote_administrative_events()` pode validar referências contra as duas
   edições participantes antes de promover o histórico; sem esses conjuntos a
   promoção continua explícita, mas não afirma uma correspondência histórica.
+- `promote_historical_source()` preserva artefatos documentais oficiais em
+  `historical/sources/`, com manifesto imutável, SHA-256, URL, período e
+  `extraction_status=RAW_ONLY`. A genealogia IBGE 1872–2010 foi homologada
+  nesse modo; nenhum crosswalk é criado sem extração tabular validada.
 
 ### IBGE-012 — Mutação dos contratos críticos
 

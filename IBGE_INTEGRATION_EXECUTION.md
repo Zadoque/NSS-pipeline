@@ -123,6 +123,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `b4b1930` | Cobertura de limpeza e falhas do refresh IBGE |
 | `f18f733` | Rejeição de ponteiros ativos JSON malformados |
 | `682a468` | Cobertura dos contratos CLI do refresh IBGE |
+| `9102192` | Preservação imutável de fontes históricas brutas |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -493,6 +494,13 @@ inicial confirmou o custo elevado de materializar todos os parâmetros em uma
 única chamada; por isso `insert_fato_casos()` passou a enviar lotes de 10000
 registros dentro da mesma transação (`135c375`).
 
+O PDF oficial de genealogia municipal 1872–2010 também foi preservado em uma
+homologação isolada como fonte `RAW_ONLY`, sem gerar eventos automaticamente:
+SHA-256 `2050fdf18a4346e2c47ced141f2fc65b68633fb5336d29d3616066a5603711e7`,
+1074483 bytes. O manifesto registra URL, período, tamanho e política de
+extração; a promoção de uma tabela de sucessões continua condicionada a uma
+extração estruturada validada.
+
 A suíte completa foi executada com PostgreSQL real em container isolado,
 incluindo os testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
@@ -718,7 +726,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Seleção por município, UF e Brasil | CLI, `GeographicScope` e smoke nacional com 27 UFs | Concluído |
 | CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído |
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
-| Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; genealogia de sucessões ainda não promovida | Parcial; sucessões pendentes |
+| Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; PDF oficial 1872–2010 preservado como `RAW_ONLY` | Parcial; extração tabular/sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
 | Mutação ≥95% | Última medição global: 63,44% entre 6.255 mutantes classificáveis | Pendente de qualidade |
@@ -755,15 +763,15 @@ epidemiológica nacional completa. Permanecem necessários:
 ## Verificação final desta execução
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
-históricos, DTB, refresh, ponteiro ativo e CLI, a suíte completa com PostgreSQL
-de integração passou em **475 testes**, com **3 testes pulados** e **25
-warnings**.
+históricos, DTB, refresh, ponteiro ativo, CLI e fontes históricas, a suíte
+completa com PostgreSQL de integração passou em **480 testes**, com **3 testes
+pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
 incompatibilidade de sistema.
 
-O último commit funcional desta rodada foi `135c375`
-(`perf(load): batch national fact inserts`), seguido do registro da
+O último commit funcional desta rodada foi `9102192`
+(`feat(ibge): preserve historical source artifacts`), seguido do registro da
 homologação nacional pública em `8dc1565`.
 
 A rodada global de mutação reexecutada após as coberturas de refresh, storage,
