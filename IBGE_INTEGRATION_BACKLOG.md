@@ -59,6 +59,8 @@ IBGE-012 ──> IBGE-013
 - Evidência adicional: `72b4774` rejeita algarismos Unicode no hash do escopo e
   cobre exatamente os contratos de seleção por UF, Brasil inteiro e município
   inválido.
+- Evidência adicional: `d7439d4` garante que falhas na troca atômica do ZIP DTB
+  não deixam temporários no cache bruto; a suíte posterior passou em 496 testes.
 
 ### IBGE-004 — SINAN Gold canônica
 

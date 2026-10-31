@@ -769,7 +769,7 @@ epidemiológica nacional completa. Permanecem necessários:
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
 históricos, DTB, refresh, ponteiro ativo, CLI, fontes históricas e CNES, a
-suíte completa com PostgreSQL de integração passou em **495 testes**, com **3 testes
+suíte completa com PostgreSQL de integração passou em **496 testes**, com **3 testes
 pulados** e **25 warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
@@ -847,6 +847,12 @@ mutantes restantes dessa inicialização foram classificados como equivalentes.
 O commit `72b4774` (`fix(scope): enforce ascii municipality scope hashes`)
 adicionou a rejeição de dígitos Unicode no identificador de escopo e testes
 exatos para seleção municipal, por UF e Brasil inteiro.
+
+O commit `d7439d4` (`fix(ibge): clean failed archive promotions`) tornou a
+limpeza do arquivo temporário incondicional quando o download da DTB falha na
+troca atômica, incluindo regressão para erro de `os.replace`. A suíte completa
+posterior passou em **496 testes**. O grafo Alembic permaneceu com head `0009`
+e `nix flake check --no-build` passou novamente.
 
 Os commits mais recentes desta continuação foram `44abf2c`
 (`test(ibge): strengthen historical source contracts`) e `89c5402`
