@@ -1478,3 +1478,7 @@ Na etapa seguinte, o pacote público `reference.ibge` passou a exportar
 necessidade de consumidores dependerem de imports internos. O contrato foi
 coberto por regressão de importação; `tests/test_ibge_historical.py` passou em
 **81 testes** no commit `8528f8e` (`feat(ibge): expose annual history operations`).
+
+Verificação integral após a exposição da API pública: **621 testes passaram**,
+com **3 pulados** e **25 warnings**; `nix flake check --no-build` passou. O
+branch está limpo e sincronizado no commit `0047230`.
