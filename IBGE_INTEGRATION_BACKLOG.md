@@ -140,6 +140,8 @@ IBGE-012 ──> IBGE-013
 - Implementação adicional: `run_cnes(..., continue_on_error=True)` percorre o lote,
   registra falhas por município no checkpoint e publica o snapshot como `PARTIAL`;
   o comportamento estrito continua sendo o padrão.
+- Implementação adicional: `--workers N` usa sessões HTTP independentes em
+  janelas limitadas, fixa o parâmetro no checkpoint e mantém `N=1` como default.
 
 ### IBGE-010 — Fixtures e reconciliação epidemiológica nacional
 
