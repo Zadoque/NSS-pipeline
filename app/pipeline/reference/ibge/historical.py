@@ -367,15 +367,54 @@ def _promote_events(
         existing[event.event_id] = event
     merged = list(existing.values())
     result = write_events(result_path, merged)
+    manifest_path = result.parent / "municipality_events.manifest.json"
+    previous: dict[str, object] = {}
+    if manifest_path.exists():
+        try:
+            loaded = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"manifesto histórico inválido: {manifest_path}") from exc
+        if not isinstance(loaded, dict):
+            raise ValueError(f"manifesto histórico inválido: {manifest_path}")
+        previous = loaded
+
+    sources: list[dict[str, object]] = []
+    old_sources = previous.get("sources", [])
+    if isinstance(old_sources, list):
+        sources.extend(item for item in old_sources if isinstance(item, dict))
+    # Compatibilidade com manifestos criados antes do campo ``sources``.
+    if not sources and previous.get("source_path"):
+        sources.append({
+            "reference_year": previous.get("reference_year"),
+            "source_path": previous.get("source_path"),
+            "source_url": previous.get("source_url"),
+            "sha256": previous.get("sha256"),
+        })
+    source_entry = {
+        "reference_year": reference_year,
+        "source_path": str(source_path),
+        "source_url": source_url,
+        "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
+    }
+    source_key = (source_entry["reference_year"], source_entry["source_path"], source_entry["sha256"])
+    known_keys = {
+        (item.get("reference_year"), item.get("source_path"), item.get("sha256"))
+        for item in sources
+    }
+    if source_key not in known_keys:
+        sources.append(source_entry)
+
     manifest = {
         "reference_year": reference_year,
-        "source_url": source_url,
-        "source_path": str(source_path),
-        "sha256": hashlib.sha256(source_path.read_bytes()).hexdigest(),
         "rows": len(merged),
         "event_types": sorted({event.event_type for event in merged}),
+        "inference_policy": "EXPLICIT_SOURCE_ONLY",
+        "sources": sorted(
+            sources,
+            key=lambda item: (str(item.get("reference_year")), str(item.get("source_path"))),
+        ),
     }
-    write_json_atomic(manifest, result.parent / "municipality_events.manifest.json")
+    write_json_atomic(manifest, manifest_path)
     return result
 
 

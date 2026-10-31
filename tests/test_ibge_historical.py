@@ -243,6 +243,11 @@ def test_promotions_merge_toponymic_and_administrative_events(tmp_path):
     frame = __import__("pandas").read_parquet(result)
     assert set(frame["event_type"]) == {"TOPONYMIC_CHANGE", "CREATION"}
     assert len(frame) == 2
+    manifest = __import__("json").loads(
+        result.with_name("municipality_events.manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["inference_policy"] == "EXPLICIT_SOURCE_ONLY"
+    assert len(manifest["sources"]) == 2
 
 
 def test_derive_annual_events_does_not_infer_succession():
