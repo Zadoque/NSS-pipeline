@@ -50,6 +50,13 @@ class CatalogValidationReport:
 
 
 @dataclass(frozen=True)
+class HistoricalReferenceValidationReport:
+    valid: bool
+    event_count: int
+    errors: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class ResolutionResult:
     original_code: str
     input_format: str | None

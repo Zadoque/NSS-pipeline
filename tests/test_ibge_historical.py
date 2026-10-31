@@ -9,6 +9,7 @@ from app.pipeline.reference.ibge.historical import (
     promote_administrative_events,
     promote_annual_dtb_events,
     promote_toponymic_events,
+    validate_event_references,
     write_events,
 )
 
@@ -100,6 +101,35 @@ def test_parse_administrative_events_requires_explicit_codes(tmp_path):
     assert events[0].event_type == "SUCCESSION"
     assert events[0].source_code7 == "5101234"
     assert events[0].target_code7 == "5101837"
+
+
+def test_validate_event_references_checks_source_and_target_editions():
+    event = MunicipalityEvent("event", "SUCCESSION", "2025-01-01", "3301009", "5101837")
+    valid = validate_event_references(
+        [event], source_codes={"3301009"}, target_codes={"5101837"}
+    )
+    assert valid.valid is True
+    assert valid.event_count == 1
+
+    invalid = validate_event_references(
+        [event], source_codes={"3305000"}, target_codes={"5101837"}
+    )
+    assert invalid.valid is False
+    assert "3301009" in invalid.errors[0]
+
+
+def test_promote_administrative_events_rejects_unresolved_reference(tmp_path):
+    source = tmp_path / "administrative.csv"
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\n"
+        "SUCCESSION,2025-01-01,3301009,5101837\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="referências históricas inválidas"):
+        promote_administrative_events(
+            tmp_path / "catalog", source, reference_year=2025,
+            source_codes={"3305000"}, target_codes={"5101837"},
+        )
 
 
 @pytest.mark.parametrize(

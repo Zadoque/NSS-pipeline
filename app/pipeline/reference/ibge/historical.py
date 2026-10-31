@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -10,7 +10,7 @@ import re
 import pandas as pd
 
 from ...atomic_io import write_json_atomic
-from .models import Municipality
+from .models import HistoricalReferenceValidationReport, Municipality
 
 ADMINISTRATIVE_EVENT_TYPES = frozenset({
     "CREATION", "EXTINCTION", "SUCCESSION", "MERGER", "SPLIT", "RENAME",
@@ -32,6 +32,52 @@ class MunicipalityEvent:
     source_name: str | None = None
     target_name: str | None = None
     source: str = "IBGE"
+
+
+def validate_event_references(
+    events: Sequence[MunicipalityEvent],
+    *,
+    source_codes: Collection[str],
+    target_codes: Collection[str],
+) -> HistoricalReferenceValidationReport:
+    """Verifica referências contra as edições de origem e destino declaradas.
+
+    A função não tenta resolver nomes nem converter códigos. Ela somente prova
+    que cada geocódigo explícito está presente no conjunto da edição adequada;
+    assim, uma sucessão ambígua continua rejeitada em vez de ser aproximada.
+    """
+    source_set = {str(code) for code in source_codes}
+    target_set = {str(code) for code in target_codes}
+    errors: list[str] = []
+    for event in events:
+        if event.source_code7 and event.source_code7 not in source_set:
+            errors.append(
+                f"{event.event_id}: source_code7 ausente na edição de origem: "
+                f"{event.source_code7}"
+            )
+        if event.target_code7 and event.target_code7 not in target_set:
+            errors.append(
+                f"{event.event_id}: target_code7 ausente na edição de destino: "
+                f"{event.target_code7}"
+            )
+    return HistoricalReferenceValidationReport(
+        valid=not errors, event_count=len(events), errors=tuple(errors)
+    )
+
+
+def require_event_references(
+    events: Sequence[MunicipalityEvent],
+    *,
+    source_codes: Collection[str],
+    target_codes: Collection[str],
+) -> None:
+    report = validate_event_references(
+        events, source_codes=source_codes, target_codes=target_codes
+    )
+    if not report.valid:
+        raise ValueError(
+            "referências históricas inválidas: " + "; ".join(report.errors)
+        )
 
 
 def parse_toponymic_events(
@@ -317,11 +363,19 @@ def promote_administrative_events(
     *,
     reference_year: int,
     source_url: str | None = None,
+    source_codes: Collection[str] | None = None,
+    target_codes: Collection[str] | None = None,
 ) -> Path:
     """Promove eventos administrativos declarados, sem inferência territorial."""
     events = parse_administrative_events(
         source_path, reference_year=reference_year, source_url=source_url,
     )
+    if source_codes is not None or target_codes is not None:
+        if source_codes is None or target_codes is None:
+            raise ValueError("source_codes e target_codes devem ser fornecidos juntos")
+        require_event_references(
+            events, source_codes=source_codes, target_codes=target_codes
+        )
     return _promote_events(
         root, events, source_path=source_path, reference_year=reference_year,
         source_url=source_url,
