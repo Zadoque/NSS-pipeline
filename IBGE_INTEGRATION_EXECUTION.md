@@ -1665,3 +1665,14 @@ simultaneamente `DENG/2024` no mesmo cache isolado; ambos retornaram o mesmo
 Parquet e tamanho, sem erro de catálogo. A matriz foi repetida após esse teste
 e reproduziu **49/49 consultas**, com **47 disponíveis** e apenas `HEPA`/`INFL`
 indisponíveis em 2024.
+
+O commit `168f917` adicionou asserções diretas para os contratos UTF-8 da
+escrita JSON atômica e da leitura GeoJSON. A suíte integral passou em **684
+testes**, com **21 testes condicionais pulados** e **25 warnings**; a rodada
+dirigida matou os três mutantes correspondentes.
+
+Foi executada uma rodada global limpa de mutmut após preservar o cache anterior:
+**8.458 mutantes**, **6.431 mortos**, **1.696 sobreviventes** e **331
+timeouts**. A taxa classificável, excluindo timeouts, foi **79,13%**. A
+configuração dos 19 módulos permaneceu integral; a meta de 95% continua
+pendente.

@@ -538,6 +538,12 @@ O teste concorrente posterior confirmou duas consultas simultâneas a
 `DENG/2024` no mesmo cache isolado sem corrupção; a matriz completa foi
 reexecutada com o mesmo resultado 47/49.
 
+O commit `168f917` cobriu explicitamente os contratos UTF-8 da I/O atômica e
+da malha territorial. A suíte passou em 684 testes e os três mutantes dirigidos
+correspondentes morreram. A rodada global limpa subsequente classificou 8.458
+mutantes: 6.431 mortos, 1.696 sobreviventes e 331 timeouts, ou 79,13% sem
+timeouts. A meta de 95% segue pendente sem redução do escopo.
+
 ## Evidência
 
 O estado de execução, commits, comandos e limitações estão registrados em
