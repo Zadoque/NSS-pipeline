@@ -47,6 +47,63 @@ def test_validate_checkpoint_completed_rejeita_entrada_nao_objeto():
         _validate_checkpoint_completed({"3301009": []}, {"3301009": "Campos"})
 
 
+@pytest.mark.parametrize("rows", [True, -1])
+def test_validate_checkpoint_completed_rejeita_rows_nao_validos(rows):
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "a" * 64,
+            "rows": rows,
+        },
+    }
+
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+
+def test_validate_checkpoint_completed_nao_aceita_hash_invalido_com_rows_validos():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "x" * 64,
+            "rows": 0,
+        },
+    }
+
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+@pytest.mark.parametrize(
+    "failed",
+    [
+        [],
+        {"3301009": []},
+        {"3301009": {"error_type": "", "error_message": "falha"}},
+        {"3301009": {"error_type": "API_ERROR", "error_message": ""}},
+        {"3301009": {"error_type": None, "error_message": "falha"}},
+        {"3301009": {"error_type": "API_ERROR", "error_message": None}},
+    ],
+)
+def test_validate_checkpoint_failed_rejeita_entradas_invalidas(failed):
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_failed(failed, {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com failed inválido"
+
+
+def test_validate_checkpoint_failed_rejeita_falha_fora_do_escopo_com_mensagem_exata():
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_failed(
+            {"3302403": {"error_type": "API_ERROR", "error_message": "falha"}},
+            {"3301009": "Campos"},
+        )
+
+    assert str(error.value) == "checkpoint CNES contém falha fora do escopo"
+
+
 def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeypatch):
     calls: list[tuple[str, object]] = []
     fetch_calls: list[tuple[str, dict]] = []
