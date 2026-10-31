@@ -313,8 +313,48 @@ def test_run_cnes_cli_passes_selected_ufs_and_page_size(mocker, monkeypatch, tmp
     select.assert_called_once_with(catalog, municipalities=None, ufs=["SP", "MG"], all_brazil=False)
     runner.assert_called_once_with(
         catalog=catalog, geographic_scope=selected, page_size=250, request_timeout=12.0,
-        continue_on_error=False,
+        continue_on_error=False, workers=1,
     )
+
+
+def test_run_cnes_paralleliza_buscas_em_janelas_limitadas(tmp_path, monkeypatch, mocker):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    sessions = []
+    calls = []
+
+    def make_session():
+        session = mocker.Mock()
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(pipeline, "session_with_retries", make_session)
+    monkeypatch.setattr(
+        pipeline, "fetch_estabelecimentos",
+        lambda code, **kwargs: calls.append((code, kwargs["session"])) or _bronze(code),
+    )
+    monkeypatch.setattr(
+        pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé", "3302205": "Itaperuna"},
+        workers=2,
+    )
+
+    assert result.exists()
+    assert [code for code, _ in calls] == ["3301009", "3302403", "3302205"]
+    assert len(sessions) == 3
+    assert {session.close.call_count for session in sessions} == {1}
+
+
+def test_run_cnes_workers_rejeita_sessao_compartilhada(mocker):
+    with pytest.raises(ValueError, match="sessão compartilhada"):
+        pipeline.run_cnes(
+            {"3301009": "Campos"}, workers=2, session=mocker.Mock(),
+        )
 
 
 def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monkeypatch):

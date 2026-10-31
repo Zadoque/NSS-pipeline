@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import logging
@@ -83,6 +84,39 @@ def _classify_cnes_error(error: Exception) -> str:
     return "PROCESSING_ERROR"
 
 
+def _parallel_fetch_batches(
+    municipalities: list[str],
+    *,
+    page_size: int,
+    catalog: MunicipalityCatalog | None,
+    request_timeout: float,
+    workers: int,
+):
+    """Busca CNES em janelas limitadas, sem manter o lote nacional inteiro em memória."""
+    for start in range(0, len(municipalities), workers):
+        batch = municipalities[start:start + workers]
+
+        def fetch_one(code: str):
+            worker_session = session_with_retries()
+            try:
+                return fetch_estabelecimentos(
+                    code,
+                    limit=page_size,
+                    catalog=catalog,
+                    session=worker_session,
+                    timeout=request_timeout,
+                )
+            except Exception as error:  # classificado pelo chamador
+                return error
+            finally:
+                worker_session.close()
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {code: executor.submit(fetch_one, code) for code in batch}
+            for code in batch:
+                yield code, futures[code].result()
+
+
 def _canonicalize_municipalities(
     requested: dict[str, str],
     catalog: MunicipalityCatalog,
@@ -112,11 +146,16 @@ def run_cnes(
     request_timeout: float = DEFAULT_CNES_REQUEST_TIMEOUT,
     checkpoint_path: Path | None = None,
     continue_on_error: bool = False,
+    workers: int = 1,
 ) -> Path:
     if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
         raise ValueError("page_size CNES deve ser um inteiro maior que zero")
     if not isinstance(request_timeout, (int, float)) or isinstance(request_timeout, bool) or request_timeout <= 0:
         raise ValueError("request_timeout CNES deve ser maior que zero")
+    if not isinstance(workers, int) or isinstance(workers, bool) or workers <= 0:
+        raise ValueError("workers CNES deve ser um inteiro maior que zero")
+    if workers > 1 and session is not None:
+        raise ValueError("workers CNES maior que um não aceita sessão compartilhada")
     if catalog is not None and geographic_scope is not None:
         validate_scope_catalog(catalog, geographic_scope)
     if geographic_scope is not None:
@@ -145,9 +184,16 @@ def run_cnes(
             "cnes_page_size": page_size,
             "cnes_request_timeout": request_timeout,
             "continue_on_error": continue_on_error,
+            "cnes_workers": workers,
         }
         actual = {
-            key: checkpoint.get(key, False) if key == "continue_on_error" else checkpoint.get(key)
+            key: (
+                checkpoint.get(key, False)
+                if key == "continue_on_error"
+                else checkpoint.get(key, 1)
+                if key == "cnes_workers"
+                else checkpoint.get(key)
+            )
             for key in expected
         }
         if actual != expected:
@@ -165,8 +211,20 @@ def run_cnes(
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []
-    request_session = session or session_with_retries()
-    owns_session = session is None
+    request_session = session or (session_with_retries() if workers == 1 else None)
+    owns_session = session is None and request_session is not None
+    pending_codes = [code for code in municipios if code not in completed]
+    parallel_results = (
+        iter(_parallel_fetch_batches(
+            pending_codes,
+            page_size=page_size,
+            catalog=catalog,
+            request_timeout=request_timeout,
+            workers=workers,
+        ))
+        if workers > 1
+        else None
+    )
     try:
         for cod_municipio in municipios:
             logger.info("Processando CNES municipio=%s", cod_municipio)
@@ -185,13 +243,21 @@ def run_cnes(
                         raise ValueError(f"Bronze CNES adulterada ou incompatível: {bronze_path}")
                     bronze_df = pd.read_parquet(bronze_path)
                 else:
-                    bronze_df = fetch_estabelecimentos(
-                        cod_municipio,
-                        limit=page_size,
-                        catalog=catalog,
-                        session=request_session,
-                        timeout=request_timeout,
-                    )
+                    if parallel_results is not None:
+                        fetched_code, fetched = next(parallel_results)
+                        if fetched_code != cod_municipio:
+                            raise RuntimeError("resultado CNES paralelo fora de ordem")
+                        if isinstance(fetched, Exception):
+                            raise fetched
+                        bronze_df = fetched
+                    else:
+                        bronze_df = fetch_estabelecimentos(
+                            cod_municipio,
+                            limit=page_size,
+                            catalog=catalog,
+                            session=request_session,
+                            timeout=request_timeout,
+                        )
                 if bronze_df.empty:
                     raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
 
@@ -245,6 +311,7 @@ def run_cnes(
                         "cnes_page_size": page_size,
                         "cnes_request_timeout": request_timeout,
                         "continue_on_error": continue_on_error,
+                        "cnes_workers": workers,
                         "completed": completed,
                         "failed": failed,
                     },
@@ -276,6 +343,7 @@ def run_cnes(
         "cnes_page_size": page_size,
         "cnes_request_timeout": request_timeout,
         "continue_on_error": continue_on_error,
+        "cnes_workers": workers,
         "failed_municipalities": failed,
         "columns": list(consolidated.columns),
     }
@@ -291,6 +359,7 @@ def run_cnes(
                 "cnes_page_size": page_size,
                 "cnes_request_timeout": request_timeout,
                 "continue_on_error": continue_on_error,
+                "cnes_workers": workers,
                 "completed": completed,
                 "failed": failed,
                 "output_path": str(parquet),
@@ -327,6 +396,10 @@ def main() -> None:
         "--continue-on-error", action="store_true",
         help="Processa o lote inteiro e registra erros por município no checkpoint",
     )
+    parser.add_argument(
+        "--workers", type=int, default=1,
+        help="Requisições CNES simultâneas; padrão 1 para preservar o modo legado",
+    )
     args = parser.parse_args()
     try:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
@@ -346,6 +419,7 @@ def main() -> None:
             page_size=args.page_size,
             request_timeout=args.request_timeout,
             continue_on_error=args.continue_on_error,
+            workers=args.workers,
         )
         if args.checkpoint is not None:
             run_kwargs["checkpoint_path"] = args.checkpoint
