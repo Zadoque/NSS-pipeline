@@ -100,6 +100,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `b46a3d4` | Cobertura mutante das entradas de checkpoint CNES |
 | `3d2ab22` | Asserção do payload canônico de resolução IBGE |
 | `163d705` | Cobertura dos defaults e normalização do executor de carga |
+| `3ae434f` | Canonicalização de recorte explícito no executor CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -119,6 +120,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Seleção por município, UF ou Brasil inteiro, mantendo o RJ como default.
 - Entry points que recebem `catalog` e `GeographicScope` validam que ambos
   representam a mesma identidade municipal antes de iniciar ingestão ou carga.
+- O executor CNES canonicaliza mapas explícitos quando recebe uma release IBGE;
+  não substitui silenciosamente um recorte informado pelo RJ padrão e rejeita
+  nomes municipais divergentes antes de qualquer requisição HTTP.
 - Opções CLI `--catalog-root`, `--municipios`, `--ufs` e `--all-brazil` nos
   executores SINAN e CNES, com `--page-size` no CNES.
 - Derivação canônica de município e UF na Gold quando um catálogo é fornecido.
@@ -231,7 +235,7 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 nix flake check --no-build  → aprovado
 pytest -q                  → 372 passed, 20 skipped, 25 warnings
 pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 393 passed, 25 warnings
+pytest -q nacional + PostgreSQL → 395 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
