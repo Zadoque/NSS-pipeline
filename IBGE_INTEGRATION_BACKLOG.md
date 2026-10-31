@@ -180,6 +180,9 @@ IBGE-012 ──> IBGE-013
   não é convertida automaticamente em sucessão.
 - `promote_annual_dtb_events()` grava o Parquet histórico, manifesto com SHA-256
   de cada edição e a política `OBSERVABLE_ANNUAL_DIFF_ONLY` de forma idempotente.
+- `write_events()` também valida a forma semântica de cada evento: criações,
+  extinções, sucessões e mudanças toponímicas não podem declarar códigos de
+  origem/destino incompatíveis.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
