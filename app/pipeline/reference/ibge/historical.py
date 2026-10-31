@@ -52,6 +52,37 @@ def _validate_manifest_sources(raw_sources: object) -> list[dict[str, object]]:
     return list(raw_sources)
 
 
+def _validate_document_sources(raw_sources: object) -> dict[str, dict[str, object]]:
+    if not isinstance(raw_sources, dict) or any(
+        not isinstance(value, dict) for value in raw_sources.values()
+    ):
+        raise ValueError("manifesto de fontes históricas inválido: sources deve ser um mapa")
+    required = {
+        "source_id", "source_url", "source_path", "reference_period",
+        "sha256", "size_bytes", "extraction_status",
+    }
+    for source_id, entry in raw_sources.items():
+        if not isinstance(source_id, str) or not required <= entry.keys():
+            raise ValueError("manifesto de fontes históricas inválido: fonte incompleta")
+        if (
+            entry["source_id"] != source_id
+            or not isinstance(entry["source_url"], str)
+            or not entry["source_url"].strip()
+            or not isinstance(entry["source_path"], str)
+            or not entry["source_path"].strip()
+            or not isinstance(entry["reference_period"], str)
+            or not entry["reference_period"].strip()
+            or not isinstance(entry["sha256"], str)
+            or not SHA256_PATTERN.fullmatch(entry["sha256"])
+            or not isinstance(entry["size_bytes"], int)
+            or isinstance(entry["size_bytes"], bool)
+            or entry["size_bytes"] <= 0
+            or entry["extraction_status"] != "RAW_ONLY"
+        ):
+            raise ValueError("manifesto de fontes históricas inválido: fonte malformada")
+    return dict(raw_sources)
+
+
 def promote_historical_source(
     root: Path,
     source_path: Path,
@@ -92,11 +123,10 @@ def promote_historical_source(
         if not isinstance(loaded, dict):
             raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}")
         raw_sources = loaded.get("sources", {})
-        if not isinstance(raw_sources, dict) or any(
-            not isinstance(value, dict) for value in raw_sources.values()
-        ):
-            raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}")
-        existing = dict(raw_sources)
+        try:
+            existing = _validate_document_sources(raw_sources)
+        except ValueError as exc:
+            raise ValueError(f"{exc}: {manifest_path}") from exc
 
     entry = {
         "source_id": source_id,

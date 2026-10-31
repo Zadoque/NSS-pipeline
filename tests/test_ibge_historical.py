@@ -235,6 +235,26 @@ def test_promote_historical_source_rejeita_manifesto_sources_invalido(tmp_path):
         )
 
 
+def test_promote_historical_source_rejeita_entrada_documental_incompleta(tmp_path):
+    root = tmp_path / "catalog"
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"source")
+    promote_historical_source(
+        root, source, source_id="genealogia.pdf", source_url="fixture://genealogia",
+        reference_period="1872-2010",
+    )
+    manifest = root / "historical" / "sources.manifest.json"
+    payload = __import__("json").loads(manifest.read_text(encoding="utf-8"))
+    payload["sources"]["genealogia.pdf"].pop("source_url")
+    manifest.write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="fonte incompleta"):
+        promote_historical_source(
+            root, source, source_id="other.pdf", source_url="fixture://other",
+            reference_period="1872-2010",
+        )
+
+
 def test_promote_historical_source_rejeita_fonte_ausente_e_vazia(tmp_path):
     with pytest.raises(ValueError) as missing:
         promote_historical_source(
