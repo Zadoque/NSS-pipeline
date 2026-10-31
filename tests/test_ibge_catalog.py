@@ -997,14 +997,21 @@ def test_refresh_rejeita_release_existente_com_manifesto_invalido(tmp_path, mock
         )
 
 
-def test_refresh_rejeita_release_existente_incompleta(tmp_path, mocker):
+@pytest.mark.parametrize("missing_artifact", [
+    "manifest.json", "municipalities.parquet", "ufs.parquet", "code_crosswalk.parquet",
+])
+def test_refresh_rejeita_release_existente_incompleta(tmp_path, mocker, missing_artifact):
     archive = tmp_path / "DTB_2025.zip"
     archive.write_bytes(b"first")
     mocker.patch(
         "app.pipeline.reference.ibge.refresh.parse_dtb_archive",
         return_value=[municipality("3301009", "Campos")],
     )
-    (tmp_path / "releases" / "incomplete").mkdir(parents=True)
+    release = tmp_path / "releases" / "incomplete"
+    release.mkdir(parents=True)
+    for artifact in ("manifest.json", "municipalities.parquet", "ufs.parquet", "code_crosswalk.parquet"):
+        if artifact != missing_artifact:
+            (release / artifact).write_bytes(b"placeholder")
 
     with pytest.raises(ValueError, match="release incompleta"):
         refresh_from_dtb_archive(
