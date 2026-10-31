@@ -95,6 +95,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `6e18209` | Vinculação do escopo geográfico à release IBGE |
 | `5a01782` | Teste do vínculo catálogo–escopo no executor SINAN |
 | `dd1c300` | Cobertura mutante integral do vínculo catálogo–escopo |
+| `195ec3a` | Interrupção segura de paginação CNES repetida |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -157,6 +158,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   metadata do lote para tornar falhas e homologações reproduzíveis.
 - Respostas CNES com JSON estruturalmente inválido são rejeitadas antes de
   acumular registros, evitando transformar respostas de erro em Bronze válida.
+- Paginação CNES que repete a mesma página não vazia é interrompida com erro
+  explícito, evitando loop infinito quando a API ignora o `offset`.
 - Checkpoint opcional da ingestão CNES registra Bronze concluída e parâmetros
   imutáveis; uma nova execução retoma somente municípios pendentes e rejeita
   checkpoints de escopo ou configuração incompatíveis.
@@ -219,9 +222,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 366 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 385 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 386 passed, 25 warnings
+pytest -q                  → 367 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 386 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 387 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
