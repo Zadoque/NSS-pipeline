@@ -374,6 +374,23 @@ def test_download_dtb_archive_promotes_only_matching_hash(tmp_path, mocker):
     assert not list(result.parent.glob("*.tmp"))
 
 
+def test_download_dtb_archive_fecha_sessao_criada_internamente(tmp_path, mocker):
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"DTB-2025"]
+    session = mocker.Mock()
+    session.get.return_value = response
+    mocker.patch("app.pipeline.reference.ibge.refresh.requests.Session", return_value=session)
+    expected = __import__("hashlib").sha256(b"DTB-2025").hexdigest()
+
+    result = download_dtb_archive(
+        tmp_path, url="https://example.invalid/DTB_2025.zip",
+        reference_year=2025, expected_sha256=expected,
+    )
+
+    assert result.exists()
+    session.close.assert_called_once_with()
+
+
 def test_download_dtb_archive_rejects_hash_without_replacing_previous(tmp_path, mocker):
     destination = tmp_path / "raw" / "dtb_2025" / "DTB_2025.zip"
     destination.parent.mkdir(parents=True)

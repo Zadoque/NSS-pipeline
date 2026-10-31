@@ -33,29 +33,34 @@ def download_dtb_archive(
     destination_dir.mkdir(parents=True, exist_ok=True)
     destination = destination_dir / f"DTB_{reference_year}.zip"
     client = session or requests.Session()
-    response = client.get(url, stream=True, timeout=timeout)
-    response.raise_for_status()
-    digest = hashlib.sha256()
-    with tempfile.NamedTemporaryFile(
-        dir=destination_dir, prefix=f".{destination.name}.", suffix=".tmp", delete=False
-    ) as temporary:
-        temporary_path = Path(temporary.name)
-        try:
-            for chunk in response.iter_content(chunk_size=1024 * 1024):
-                if chunk:
-                    digest.update(chunk)
-                    temporary.write(chunk)
-        except Exception:
+    owns_session = session is None
+    try:
+        response = client.get(url, stream=True, timeout=timeout)
+        response.raise_for_status()
+        digest = hashlib.sha256()
+        with tempfile.NamedTemporaryFile(
+            dir=destination_dir, prefix=f".{destination.name}.", suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            try:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        digest.update(chunk)
+                        temporary.write(chunk)
+            except Exception:
+                temporary_path.unlink(missing_ok=True)
+                raise
+        actual_sha256 = digest.hexdigest()
+        if expected_sha256 and actual_sha256 != expected_sha256:
             temporary_path.unlink(missing_ok=True)
-            raise
-    actual_sha256 = digest.hexdigest()
-    if expected_sha256 and actual_sha256 != expected_sha256:
-        temporary_path.unlink(missing_ok=True)
-        raise ValueError(
-            f"SHA-256 da DTB diverge: esperado {expected_sha256}, obtido {actual_sha256}"
-        )
-    os.replace(temporary_path, destination)
-    return destination
+            raise ValueError(
+                f"SHA-256 da DTB diverge: esperado {expected_sha256}, obtido {actual_sha256}"
+            )
+        os.replace(temporary_path, destination)
+        return destination
+    finally:
+        if owns_session:
+            client.close()
 
 
 def refresh_from_dtb_url(
