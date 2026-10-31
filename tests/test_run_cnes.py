@@ -53,14 +53,38 @@ def test_run_cnes_rejects_empty_scope():
         pipeline.run_cnes({})
 
 
+@pytest.mark.parametrize("page_size", [0, -1, True, 1.0])
+def test_run_cnes_rejects_invalid_page_size(page_size, monkeypatch):
+    def unexpected_network_call(code):
+        raise AssertionError(f"a validação deveria bloquear antes da rede: {code}")
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", unexpected_network_call)
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, page_size=page_size)
+    assert str(error.value) == "page_size CNES deve ser um inteiro maior que zero"
+
+
 @pytest.mark.parametrize("timeout", [0, -1])
 def test_run_cnes_rejects_non_positive_timeout(timeout, monkeypatch):
     def unexpected_network_call(code):
         raise AssertionError(f"a validação deveria bloquear antes da rede: {code}")
 
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", unexpected_network_call)
-    with pytest.raises(ValueError, match="timeout CNES"):
+    with pytest.raises(ValueError) as error:
         pipeline.run_cnes({"3301009": "Campos"}, request_timeout=timeout)
+    assert str(error.value) == "request_timeout CNES deve ser maior que zero"
+
+
+@pytest.mark.parametrize("timeout", [True, "60"])
+def test_run_cnes_rejects_invalid_timeout_type(timeout, monkeypatch):
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code: (_ for _ in ()).throw(AssertionError(f"rede inesperada: {code}")),
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, request_timeout=timeout)
+    assert str(error.value) == "request_timeout CNES deve ser maior que zero"
 
 
 def test_run_cnes_cli_requires_catalog_for_explicit_scope(monkeypatch):
