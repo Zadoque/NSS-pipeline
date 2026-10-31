@@ -127,6 +127,9 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `b5caa06` | Registro da limpeza de recursos HTTP |
 | `788bce9` | Fallback da API para municípios sem microrregião |
 | `7098e16` | Registro da validação real da API de Localidades |
+| `3251a8e` | Smoke test do refresh via API de Localidades |
+| `3c2b06b` | Paridade entre API de Localidades e DTB 2025 |
+| `af1fb56` | Regressão final após integração da API real |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -336,6 +339,11 @@ Diferenças observáveis: 3 TOPONYMIC_CHANGE, 0 CREATION, 0 EXTINCTION
 ```
 
 A comparação não inferiu sucessão, fusão ou desmembramento entre códigos.
+
+A validação nacional recém-adicionada também foi submetida a mutação dirigida:
+os seis mutantes gerados para `validate_national_municipalities` morreram
+(`6/6`). Isso cobre o contrato de presença das 27 UFs, mas não substitui a
+medição global de mutação, que continua abaixo da meta de 95%.
 
 A inspeção dos membros dos ZIPs oficiais confirmou que os arquivos de
 “novos/extintos” publicados na DTB 2024/2025 tratam de distritos e
