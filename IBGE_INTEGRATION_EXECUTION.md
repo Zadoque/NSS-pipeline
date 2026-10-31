@@ -1239,6 +1239,13 @@ a exigir que a Gold catalogada declare a mesma doença, ano de origem e destino
 uma publicação reutilize uma Gold semanticamente incompatível. A suíte integral
 passou em **584 testes**, com **3 pulados** e **25 warnings**.
 
+O commit `f3a0b02` (`fix(ibge): reject malformed annual history manifests`)
+corrigiu uma perda silenciosa de linhagem em `promote_annual_dtb_events()`:
+o campo `sources` agora precisa ser uma lista de objetos, como já ocorria
+nos caminhos administrativo e documental. A regressão cobre manifesto anual
+com estrutura inválida. A suíte integral passou em **585 testes**, com **3
+pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

@@ -304,6 +304,10 @@ IBGE-012 ──> IBGE-013
     `serving` no metadata da Gold antes da carga catalogada; o teste de
     identidade divergente foi adicionado e a suíte chegou a **584 testes**,
     com **3 pulados** e **25 warnings**.
+  - O commit `f3a0b02` corrigiu a promoção anual histórica para rejeitar
+    `sources` malformado em vez de descartá-lo silenciosamente. A regressão
+    foi adicionada e a suíte integral passou em **585 testes**, com **3 pulados**
+    e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.
