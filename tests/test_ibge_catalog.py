@@ -574,9 +574,9 @@ def test_storage_rejeita_metadados_de_release_invalidos(tmp_path, metadata, mess
         write_manifest(tmp_path / "manifest.json", metadata)
 
 
-@pytest.mark.parametrize("promoted_at", ["not-a-timestamp", 42])
+@pytest.mark.parametrize("promoted_at", ["not-a-timestamp", "2026-01-01T00:00:00", 42])
 def test_storage_rejeita_promoted_at_invalido(tmp_path, promoted_at):
-    with pytest.raises(ValueError, match="^manifesto IBGE exige promoted_at ISO-8601$"):
+    with pytest.raises(ValueError, match="^manifesto IBGE exige promoted_at ISO-8601"):
         write_manifest(
             tmp_path / "manifest.json",
             replace(METADATA, promoted_at=promoted_at),

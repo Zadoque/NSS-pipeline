@@ -33,9 +33,11 @@ def _validate_metadata(metadata: CatalogMetadata) -> None:
         if not isinstance(metadata.promoted_at, str):
             raise ValueError("manifesto IBGE exige promoted_at ISO-8601")
         try:
-            datetime.fromisoformat(metadata.promoted_at)
+            promoted_at = datetime.fromisoformat(metadata.promoted_at)
         except ValueError as exc:
             raise ValueError("manifesto IBGE exige promoted_at ISO-8601") from exc
+        if promoted_at.tzinfo is None:
+            raise ValueError("manifesto IBGE exige promoted_at ISO-8601 com timezone")
     if metadata.validation_status != "VALIDATED":
         raise ValueError("release IBGE não está validada")
 
