@@ -400,6 +400,10 @@ IBGE-012 ──> IBGE-013
 - Estado: **Bloqueado por gates externos, não por implementação local**
 - Dependências: IBGE-009, IBGE-010, IBGE-011, IBGE-012
 - Escopo: ativação por UF/lotes, observabilidade, reconciliação e runbook.
+- Runbook operacional criado em
+  [`IBGE_NATIONAL_ROLLOUT_RUNBOOK.md`](IBGE_NATIONAL_ROLLOUT_RUNBOOK.md), com
+  promoção de release, CNES reiniciável, execução SINAN serving, fallback local
+  e critérios de encerramento.
 - Critérios de aceite:
   - Todas as UFs habilitadas passaram pelos critérios anteriores.
   - Release, escopo, lote CNES e métricas são consultáveis após a publicação.
