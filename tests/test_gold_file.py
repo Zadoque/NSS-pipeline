@@ -303,3 +303,49 @@ def test_volume_maior_soma_grupo_entre_lotes(source, monkeypatch):
     assert metadata["discarded_rows"] == 0
     assert metadata["dropped_rows"] == 0
     assert metadata["aggregation_reduction"] == count - 1
+
+
+def test_aggregate_file_catalogo_nacional_classifica_resolucoes(source, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+            Municipality("3550308", "355030", "São Paulo", "35", "São Paulo", "São Paulo", 2025),
+        ],
+        CatalogMetadata(
+            "ibge-test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "a" * 64,
+        ),
+    )
+    raw = pd.DataFrame({
+        "DT_NOTIFIC": pd.to_datetime(["2024-01-10"] * 4),
+        "ID_MUNICIP": pd.Series(["330100", "3301008", "3550308", "330100"], dtype="string"),
+        "SG_UF_NOT": pd.Series(["33", "33", "35", "35"], dtype="string"),
+        "NM_UF": ["Rio de Janeiro", "Rio de Janeiro", "São Paulo", "São Paulo"],
+        "CS_SEXO": pd.Series(["F"] * 4, dtype="string"),
+        "ANO_NASC": pd.Series([1990] * 4, dtype="Int64"),
+        "SEM_NOT": pd.Series([202402] * 4, dtype="Int64"),
+    })
+    raw.to_parquet(source, index=False, row_group_size=2)
+    monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: None)
+
+    result = gold.aggregate_file(
+        source,
+        "DENG",
+        2024,
+        municipios={"3301009": "Campos"},
+        catalog=catalog,
+        batch_size=2,
+    )
+
+    actual = pq.ParquetFile(result).read().to_pandas()
+    metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
+    assert actual["cd_mun"].tolist() == ["3301009"]
+    assert actual["cases_total"].tolist() == [1]
+    assert metadata["scope_matched_rows"] == 1
+    assert metadata["invalid_municipality_rows"] == 1
+    assert metadata["out_of_scope_rows"] == 1
+    assert metadata["uf_mismatch_rows"] == 1
+    assert metadata["discarded_rows"] == 3
+    assert metadata["ibge_catalog_id"] == "ibge-test"
