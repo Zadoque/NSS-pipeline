@@ -335,6 +335,9 @@ suíte após validação semântica dos eventos históricos → 426 passed, 3 sk
 testes dirigidos do histórico após contratos de erro → 23 passed, 1 warning
 suíte completa após contratos de erro do histórico → 430 passed, 3 skipped,
 25 warnings
+mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
+mutantes equivalentes ou de parâmetros de iteração permanecem classificados
+como sobreviventes para investigação.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
