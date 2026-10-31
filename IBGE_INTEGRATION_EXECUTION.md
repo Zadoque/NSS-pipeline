@@ -90,6 +90,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `e6571df` | Contrato exato para escopo CNES vazio |
 | `a9a64cb` | Garantia de timestamps UTC no lote CNES |
 | `11bcf8e` | Parâmetros e sessão HTTP respeitados no escopo RJ legado |
+| `90dbd9b` | Validação explícita do schema de respostas CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -148,6 +149,8 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
   legado, mantendo retries e reduzindo o overhead de múltiplos municípios.
 - Timeout de requisição CNES configurável pela API e CLI, registrado no
   metadata do lote para tornar falhas e homologações reproduzíveis.
+- Respostas CNES com JSON estruturalmente inválido são rejeitadas antes de
+  acumular registros, evitando transformar respostas de erro em Bronze válida.
 - Checkpoint opcional da ingestão CNES registra Bronze concluída e parâmetros
   imutáveis; uma nova execução retoma somente municípios pendentes e rejeita
   checkpoints de escopo ou configuração incompatíveis.
@@ -207,9 +210,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 356 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 375 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 376 passed, 25 warnings
+pytest -q                  → 359 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 378 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 379 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
