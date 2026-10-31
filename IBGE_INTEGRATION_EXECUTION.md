@@ -1300,6 +1300,11 @@ complementados pelas rodadas dirigidas documentadas neste relatório.
 Ao final, `nix flake check --no-build` passou novamente e a árvore de trabalho
 permaneceu limpa.
 
+O commit `5dc9822` (`fix(ibge): require historical event provenance`) reforçou
+o contrato do histórico: eventos sem `event_id` ou sem fonte textual agora são
+rejeitados antes da materialização em Parquet. A regressão correspondente
+passou junto com os **71 testes** de `tests/test_ibge_historical.py`.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

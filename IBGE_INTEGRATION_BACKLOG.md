@@ -252,11 +252,14 @@ IBGE-012 ──> IBGE-013
 - A promoção anual da DTB preserva fontes históricas já existentes e declara
   explicitamente a política mista quando combina eventos explícitos e diferenças
   observáveis.
+- Após `5dc9822`, eventos sem `event_id` ou sem proveniência textual são
+  rejeitados antes da materialização; `tests/test_ibge_historical.py` passou
+  com 71 testes.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
 - Prioridade: **P1**
-  - Estado: **Parcial; 75,85% classificável na última rodada global**
+- Estado: **Parcial; 76,46% classificável na última rodada global**
 - Dependências: IBGE-001 a IBGE-008
 - Escopo: normalização, filtro, cache, promoção, checkpoint, linhagem e
   reprocessamento.
@@ -265,12 +268,10 @@ IBGE-012 ──> IBGE-013
   - Mutantes equivalentes são documentados individualmente.
   - Meta global de 95% é atingida sem reduzir artificialmente o escopo.
   - Integrações PostgreSQL são executadas em rodada separada.
-  - Última rodada global limpa, anterior a `d7439d4`: 5.430 mortos, 1.815 sobreviventes, 92 sem
-    testes e 1 timeout em 7.338 mutantes; 74,94% entre os 7.246 classificáveis.
-  - Rodada global mais recente após a validação de releases completas:
-    **5.608 mortos, 1.773 sobreviventes, 93 sem testes e 1 timeout em 7.475
-    mutantes; 75,98% entre 7.381 classificáveis**. A meta de 95% permanece
-    pendente e o escopo não foi reduzido artificialmente.
+- Última rodada global completa: **5.885 mortos, 1.812 sobreviventes, 93 sem
+  testes e 1 timeout em 7.791 mutantes; 76,46% entre os 7.697
+  classificáveis**. A meta de 95% permanece pendente e o escopo não foi
+  reduzido artificialmente.
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição
     global nem atende à meta de 95%.
