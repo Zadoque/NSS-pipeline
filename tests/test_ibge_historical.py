@@ -2,6 +2,7 @@ import pytest
 
 from app.pipeline.reference.ibge.historical import (
     MunicipalityEvent,
+    _read_events,
     _event_id,
     derive_annual_events,
     derive_annual_event_series,
@@ -24,6 +25,18 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
     assert result.exists()
     frame = __import__("pandas").read_parquet(result)
     assert frame.loc[0, "target_code7"] == "5101837"
+
+
+def test_read_events_preserves_optional_fields_and_empty_missing_file(tmp_path):
+    path = tmp_path / "events.parquet"
+    event = MunicipalityEvent(
+        "event-1", "RENAME", "2025-01-01", "3301009", "3301009",
+        source_name="Nome antigo", target_name="Nome atual", source="fixture://history",
+    )
+    write_events(path, [event])
+
+    assert _read_events(path) == [event]
+    assert _read_events(tmp_path / "missing.parquet") == []
 
 
 def test_write_events_materializes_order_deterministic(tmp_path):
