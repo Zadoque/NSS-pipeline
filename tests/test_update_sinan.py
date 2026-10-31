@@ -325,3 +325,18 @@ def test_main_sai_com_codigo_um_quando_atualizacao_falha(monkeypatch):
         main()
 
     assert error.value.code == 1
+
+
+def test_main_sai_com_codigo_tres_quando_fonte_fica_indisponivel(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda *args, **kwargs: ["INFL:2024: unavailable"],
+    )
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", "INFL", "--years", "2024"])
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 3

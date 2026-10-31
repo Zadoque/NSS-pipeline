@@ -167,6 +167,10 @@ def main() -> None:
     parser.add_argument("--years", help="Anos separados por vírgula; padrão: ano UTC atual")
     parser.add_argument("--manifest", type=Path, default=MANIFEST_PATH)
     parser.add_argument("--catalog-root", type=Path, help="Diretório local da release IBGE ativa")
+    parser.add_argument(
+        "--allow-unavailable", action="store_true",
+        help="Conclui com sucesso mesmo quando algum grupo não possui Parquet no ano",
+    )
     args = parser.parse_args()
     diseases = [value.strip().upper() for value in args.diseases.split(",") if value.strip()]
     unknown = sorted(set(diseases) - set(TRACKED_DISEASES))
@@ -177,7 +181,14 @@ def main() -> None:
     try:
         from .reference.ibge.storage import load_active_catalog
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
-        update(diseases, _parse_years(args.years), args.manifest, catalog=catalog)
+        results = update(diseases, _parse_years(args.years), args.manifest, catalog=catalog) or []
+        unavailable = [result for result in results if result.endswith(": unavailable")]
+        if unavailable and not args.allow_unavailable:
+            logger.error(
+                "Fontes SINAN indisponíveis; manifesto preservado: %s",
+                ", ".join(unavailable),
+            )
+            raise SystemExit(3)
     except Exception:
         logger.exception("Falha no atualizador SINAN (manifesto=%s)", args.manifest)
         raise SystemExit(1) from None

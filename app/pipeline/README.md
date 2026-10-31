@@ -155,6 +155,11 @@ Por padrão são acompanhados todos os grupos SINAN disponíveis no catálogo
 PySUS instalado (49 grupos na versão homologada), incluindo `DENG`, `CHIK`,
 `ZIKA`, `FMAC`, `TOXC` e `TOXG`. É possível restringir o recorte com
 `--diseases`.
+
+Se um grupo não tiver Parquet para o ano consultado, ele é registrado como
+`UNAVAILABLE`, os demais grupos continuam sendo processados e o comando
+termina com código não-zero. Use `--allow-unavailable` somente em uma rodada
+de descoberta explicitamente aceita; isso nunca publica um lote vazio.
 É possível restringir o recorte:
 
 ```bash
