@@ -18,6 +18,8 @@ def test_historical_events_are_explicit_and_versionable(tmp_path):
         MunicipalityEvent("event-1", "CREATION", "2025-01-01", None, "5101837"),
     ])
     assert result.exists()
+    frame = __import__("pandas").read_parquet(result)
+    assert frame.loc[0, "target_code7"] == "5101837"
 
 
 def test_historical_events_reject_duplicates(tmp_path):
