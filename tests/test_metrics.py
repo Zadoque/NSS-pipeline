@@ -26,6 +26,7 @@ def test_export_stage_metrics_eh_best_effort(monkeypatch):
     assert samples["nss_pipeline_rows"] == 10
     assert samples["nss_pipeline_dropped_rows"] == 2
     assert samples["nss_pipeline_stage_status"] == 1
+    assert samples["nss_pipeline_stage_last_execution_timestamp_seconds"] > 0
 
 
 def test_export_stage_metrics_nao_bloqueia_quando_pushgateway_falha(monkeypatch):

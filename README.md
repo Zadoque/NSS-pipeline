@@ -49,6 +49,8 @@ A documentação detalhada da pipeline está em [`app/pipeline/README.md`](app/p
 
 Os contratos e resultados da integração nacional estão documentados em:
 
+- [`IBGE_NATIONAL_ROLLOUT_RUNBOOK.md`](IBGE_NATIONAL_ROLLOUT_RUNBOOK.md):
+  pré-condições, execução, rollback e verificação operacional;
 - [`IBGE_INTEGRATION_EXECUTION.md`](IBGE_INTEGRATION_EXECUTION.md): execuções,
   evidências e resultados de homologação;
 - [`IBGE_INTEGRATION_BACKLOG.md`](IBGE_INTEGRATION_BACKLOG.md): critérios de
@@ -158,6 +160,10 @@ também é provisionado para consultas SQL de auditoria; suas credenciais vêm
 de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do ambiente. O
 dashboard inclui tabelas de reconciliação de execução e de publicações no
 PostgreSQL, sem misturar contagens de camadas com métricas epidemiológicas.
+Também são provisionadas regras Grafana para falha de etapa e descarte de
+linhas. Elas alteram o estado dos alertas, mas o canal de notificação deve ser
+configurado no ambiente produtivo com um contact point e uma notification
+policy aprovados pela operação.
 
 O Compose executa `alembic upgrade head` no serviço `migrate` antes de permitir
 que a pipeline rode. Para aplicar migrations manualmente em um ambiente já

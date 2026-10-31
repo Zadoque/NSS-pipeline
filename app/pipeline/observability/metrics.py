@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Mapping
+from time import time
 
 from prometheus_client import CollectorRegistry, Gauge, pushadd_to_gateway
 
@@ -72,11 +73,18 @@ def export_stage_metrics(
         label_names,
         registry=registry,
     )
+    execution_gauge = Gauge(
+        "nss_pipeline_stage_last_execution_timestamp_seconds",
+        "Instante Unix da última execução observada da etapa",
+        label_names,
+        registry=registry,
+    )
     values = [labels[name] for name in label_names]
     rows_gauge.labels(*values).set(rows)
     dropped_gauge.labels(*values).set(dropped_rows)
     duration_gauge.labels(*values).set(duration_seconds)
     status_gauge.labels(*values).set(_STATUS_VALUES[status])
+    execution_gauge.labels(*values).set(time())
 
     try:
         pushadd_to_gateway(

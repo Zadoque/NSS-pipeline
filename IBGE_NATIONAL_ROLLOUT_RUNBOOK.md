@@ -14,6 +14,8 @@ durante Bronze, Silver, Gold ou publicação.
 - execução de homologação concluída para a mesma release.
 - CI aprovado no commit de rollout, inclusive no push para
   `work/nss-pipeline`.
+- contact point e notification policy do Grafana configurados fora do
+  repositório, usando secrets do ambiente produtivo.
 - Os grupos SINAN do PySUS estão cobertos pelo catálogo operacional. A versão
   PySUS 2.11.7 homologada possui 49 grupos, verificados automaticamente.
   Na consulta remota sequencial de 31/10/2026, 47 grupos retornaram Parquet
@@ -109,5 +111,32 @@ causa, retome com os mesmos argumentos e valide o metadata novamente.
 - o lote CNES está fixado e consultável;
 - rollback ou falha de atualização preservou a release ativa anterior;
 - logs, checkpoints e manifestos foram arquivados junto da execução.
+
+## 6. Verificação operacional e observabilidade
+
+Antes de promover a publicação, confirme que o serviço de migration terminou
+com sucesso e que o banco está na revisão esperada:
+
+```bash
+docker compose run --rm migrate
+docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c 'SELECT version_num FROM alembic_version;'
+```
+
+Com o profile de observabilidade ativo, valide Prometheus, Pushgateway e
+Grafana, além das regras provisionadas:
+
+```bash
+docker compose --profile observability ps
+curl -fsS http://localhost:9090/-/ready
+curl -fsS http://localhost:9091/-/ready
+curl -fsS -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" \
+  http://localhost:3000/api/ruler/grafana/api/v1/rules
+```
+
+As regras `nss-pipeline-stage-failure` e `nss-pipeline-dropped-rows` apenas
+avaliam o estado no Grafana. A entrega para e-mail, Slack ou PagerDuty exige
+contact point e policy configurados pela operação; credenciais não devem ser
+versionadas neste repositório.
 
 Uma execução parcial não deve ser rotulada como rollout nacional concluído.
