@@ -37,6 +37,34 @@
       "title": "Status das etapas",
       "type": "stat",
       "targets": [{"expr": "nss_pipeline_stage_status", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "nss-postgres"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 16},
+      "id": 5,
+      "title": "Reconciliação das últimas execuções",
+      "type": "table",
+      "targets": [{
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT published_at AS time, disease_codigo, ano, batch_id, geographic_scope_type, source_rows, resolved_rows, discarded_rows, aggregation_reduction, invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows FROM analytics.pipeline_execution_metrics ORDER BY published_at DESC LIMIT 20",
+        "refId": "A"
+      }]
+    },
+    {
+      "datasource": {"type": "grafana-postgresql-datasource", "uid": "nss-postgres"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 25},
+      "id": 6,
+      "title": "Publicações PostgreSQL",
+      "type": "table",
+      "targets": [{
+        "format": "table",
+        "rawQuery": true,
+        "rawSql": "SELECT published_at AS time, disease_codigo, ano, batch_id, COUNT(*) AS municipalities_published, SUM(groups_total) AS groups_total, SUM(cases_total) AS cases_total, geographic_scope_type FROM analytics.pipeline_publications GROUP BY published_at, disease_codigo, ano, batch_id, geographic_scope_type ORDER BY published_at DESC LIMIT 20",
+        "refId": "A"
+      }]
     }
   ],
   "schemaVersion": 41,
@@ -45,5 +73,5 @@
   "time": {"from": "now-6h", "to": "now"},
   "title": "NSS Pipeline — Visão operacional",
   "uid": "nss-pipeline-overview",
-  "version": 1
+  "version": 2
 }

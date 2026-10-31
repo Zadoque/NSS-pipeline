@@ -8,12 +8,22 @@ services:
       - ./pytest.ini:/app/pytest.ini
     entrypoint: ["python", "-m", "app.pipeline.run"]
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/${POSTGRES_DB:-situacao_saude}
       TEST_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/situacao_saude_test
       PROMETHEUS_PUSHGATEWAY_URL: ${PROMETHEUS_PUSHGATEWAY_URL:-}
+
+  migrate:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["alembic"]
+    command: ["upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/${POSTGRES_DB:-situacao_saude}
 
   prometheus:
     image: prom/prometheus:v3.7.2

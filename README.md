@@ -155,7 +155,17 @@ Gold e PostgreSQL por quantidade de linhas, descartes, duração e estado. As
 métricas usam somente labels operacionais de baixa cardinalidade; municípios,
 unidades e semanas não são labels Prometheus. O datasource `NSS PostgreSQL`
 também é provisionado para consultas SQL de auditoria; suas credenciais vêm
-de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do ambiente.
+de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do ambiente. O
+dashboard inclui tabelas de reconciliação de execução e de publicações no
+PostgreSQL, sem misturar contagens de camadas com métricas epidemiológicas.
+
+O Compose executa `alembic upgrade head` no serviço `migrate` antes de permitir
+que a pipeline rode. Para aplicar migrations manualmente em um ambiente já
+subido, use:
+
+```bash
+docker compose run --rm migrate
+```
 
 ## Qualidade e CI
 
