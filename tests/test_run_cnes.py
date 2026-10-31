@@ -54,7 +54,11 @@ def test_run_cnes_rejects_empty_scope():
 
 
 @pytest.mark.parametrize("timeout", [0, -1])
-def test_run_cnes_rejects_non_positive_timeout(timeout):
+def test_run_cnes_rejects_non_positive_timeout(timeout, monkeypatch):
+    def unexpected_network_call(code):
+        raise AssertionError(f"a validação deveria bloquear antes da rede: {code}")
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", unexpected_network_call)
     with pytest.raises(ValueError, match="timeout CNES"):
         pipeline.run_cnes({"3301009": "Campos"}, request_timeout=timeout)
 
