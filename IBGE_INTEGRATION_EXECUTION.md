@@ -737,7 +737,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Histórico de sucessões municipais | Série DTB 2011–2025 e planilha oficial 1872–2010 processáveis; 2.149 mudanças toponímicas observáveis | Parcial; sucessões/desmembramentos com código de origem pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | SINAN DENG 2024 público processado e publicado nacionalmente; não é dado autorizado privado | Homologado com fonte pública; reconciliação autorizada ainda pendente |
-| Mutação ≥95% | Medição global mais recente: 78,51% entre 7.865 mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Medição global mais recente: 78,47% entre 7.957 mutantes classificáveis | Pendente de qualidade |
 
 O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
 epidemiológica nacional completa. Permanecem necessários:

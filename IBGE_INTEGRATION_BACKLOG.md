@@ -268,7 +268,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-012 — Mutação dos contratos críticos
 
 - Prioridade: **P1**
-- Estado: **Parcial; 78,51% classificável na última rodada global**
+- Estado: **Parcial; 78,47% classificável na última rodada global**
 - Dependências: IBGE-001 a IBGE-008
 - Escopo: normalização, filtro, cache, promoção, checkpoint, linhagem e
   reprocessamento.
@@ -277,10 +277,10 @@ IBGE-012 ──> IBGE-013
   - Mutantes equivalentes são documentados individualmente.
   - Meta global de 95% é atingida sem reduzir artificialmente o escopo.
   - Integrações PostgreSQL são executadas em rodada separada.
-- Última rodada global completa após o parser histórico e o runbook: **6.175
-  mortos, 1.690 sobreviventes, 92 sem testes e 1 timeout em 7.958 mutantes;
-  78,51% entre os 7.865 classificáveis**. A meta de 95% permanece pendente e
-  o escopo não foi reduzido artificialmente.
+- A última rodada global completa registrada após os contratos de publicação
+  foi de **7.958 mutantes**, com **6.244 mortos, 1.713 sobreviventes e 1
+  timeout**; entre os 7.957 classificáveis, a taxa foi **78,47%**. A meta de
+  95% permanece pendente e o escopo não foi reduzido artificialmente.
 - O commit `58c11f5` cobriu o `main()` de `update_sinan.py`: os 92 mutantes
   anteriormente sem testes passaram a ser exercitados; 44 morreram e 48
   sobreviveram em rodada dirigida. A baseline global continua separada dessa
