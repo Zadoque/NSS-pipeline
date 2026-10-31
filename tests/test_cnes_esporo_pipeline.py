@@ -113,6 +113,26 @@ def test_fetch_estabelecimentos_respeita_teto_da_api_sem_pular_registros(mocker)
     assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 20, 21]
 
 
+@pytest.mark.parametrize(
+    "payload, message",
+    [
+        ([], "JSON deve ser um objeto"),
+        ({}, "estabelecimentos deve ser uma lista"),
+        ({"estabelecimentos": ["não é registro"]}, "cada estabelecimento deve ser um objeto"),
+    ],
+)
+def test_fetch_estabelecimentos_rejeita_schema_de_resposta_invalido(mocker, payload, message):
+    response = mocker.Mock(json=lambda: payload)
+    response.raise_for_status = mocker.Mock()
+    session = mocker.Mock()
+    session.get.return_value = response
+
+    with pytest.raises(ValueError, match=message):
+        cnes_bronze.fetch_estabelecimentos("3301009", session=session)
+
+    response.raise_for_status.assert_called_once_with()
+
+
 def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality

@@ -34,6 +34,17 @@ def session_with_retries() -> requests.Session:
     return _session_with_retries()
 
 
+def _extract_page(payload: object) -> list[dict]:
+    if not isinstance(payload, dict):
+        raise ValueError("resposta CNES inválida: o JSON deve ser um objeto")
+    records = payload.get("estabelecimentos")
+    if not isinstance(records, list):
+        raise ValueError("resposta CNES inválida: estabelecimentos deve ser uma lista")
+    if not all(isinstance(record, dict) for record in records):
+        raise ValueError("resposta CNES inválida: cada estabelecimento deve ser um objeto")
+    return records
+
+
 def fetch_estabelecimentos(
     codigo_municipio_7: str,
     limit: int = 10,
@@ -68,7 +79,7 @@ def fetch_estabelecimentos(
                 timeout=timeout,
             )
             resp.raise_for_status()
-            pagina = resp.json().get("estabelecimentos", [])
+            pagina = _extract_page(resp.json())
             if not pagina:
                 break
             registros.extend(pagina)
