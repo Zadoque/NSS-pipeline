@@ -375,6 +375,8 @@ Calibração CNES real em todas as UFs: um município representativo por UF,
 caso mais lento (81,41 s) e concluiu sob o timeout/retry configurado. Isso é
 uma amostra nacional operacional, não uma execução integral dos 5.571
 municípios.
+`run_cnes` real com o mesmo escopo nacional amostral: Bronze → Silver,
+consolidação de 14.515 linhas e checkpoint `COMPLETED` em 106,21 s.
 Execução real do `run_cnes` completo nessa amostra: Bronze → Silver →
 consolidação concluída para os cinco municípios, 347 estabelecimentos, metadata
 gerada e checkpoint final em estado `COMPLETED`.
