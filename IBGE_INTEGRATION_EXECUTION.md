@@ -1578,6 +1578,14 @@ e `validate_national_municipalities()` aprovou a resposta. O primeiro registro
 foi interpretado como `1100015` / `110001`, Rondônia. A execução normal continua
 sem depender dessa chamada em tempo real, usando releases locais aprovadas.
 
+Foi revisada a nota técnica oficial da publicação de evolução territorial
+
+(`evolucao_da_divisao_territorial_do_brasil_1872_2010/notas_tecnicas.pdf`). Ela
+explicita que as origens dos municípios foram compiladas de fontes históricas e
+que existem divergências sinalizadas no quadro de genealogia. Essa evidência
+reforça a decisão de não transformar a expressão textual “desmembrado de” em
+uma relação codificada sem validação adicional de códigos e vigência.
+
 O commit `93990ec` adicionou validação dos artefatos auxiliares de release:
 quando presentes, `ufs.parquet` e `code_crosswalk.parquet` precisam reproduzir
 exatamente os atributos derivados de `municipalities.parquet`; divergências de

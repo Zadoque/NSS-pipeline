@@ -292,6 +292,11 @@ IBGE-012 ──> IBGE-013
   `55b8b767e21394851eae2ccf0c242e30919b867b36e2f36a67c1a4d95e6324df` e
   regressão offline que reproduz os 2.149 eventos. A fixture prova a
   ingestão toponímica, mas não converte descrições sem código em sucessões.
+- As notas técnicas oficiais da evolução territorial registram que as origens
+  municipais foram compiladas de fontes históricas e podem conter divergências;
+  a descrição textual não é evidência suficiente para fabricar um crosswalk
+  `source_code7 → target_code7`. A política `EXPLICIT_SOURCE_ONLY` permanece
+  correta até existir uma tabela codificada validada.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
