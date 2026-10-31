@@ -687,3 +687,5 @@ os demais continuam pendentes e não são apresentados como aprovação global.
 
 Suíte completa após separação das métricas Gold → 437 passed, 3 skipped,
 25 warnings
+testes de integração PostgreSQL após separação das métricas Gold → 20 passed,
+1 warning
