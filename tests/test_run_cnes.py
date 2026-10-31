@@ -113,6 +113,48 @@ def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monke
     assert calls == ["3301009"]
 
 
+def test_run_cnes_respeita_municipios_explicitos_com_catalogo(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: calls.append(code) or _bronze(code),
+    )
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes({"3302403": "Macaé"}, catalog=catalog)
+
+    assert calls == ["3302403"]
+
+
+def test_run_cnes_rejeita_nome_explicito_divergente_do_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+
+    with pytest.raises(ValueError, match="nome municipal diverge"):
+        pipeline.run_cnes({"3301009": "Nome incorreto"}, catalog=catalog)
+
+
 def test_run_cnes_rejeita_escopo_de_catalogo_diferente():
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality

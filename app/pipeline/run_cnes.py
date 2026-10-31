@@ -14,7 +14,7 @@ from .cnes.bronze import fetch_estabelecimentos, session_with_retries, write_bro
 from .cnes.silver import transform_cnes
 from .territory_mapping import enrich_cnes_territories
 from .territory_assets import asset_directory
-from .reference.ibge.models import MunicipalityCatalog
+from .reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 from .reference.ibge.storage import load_active_catalog
 from .scope import GeographicScope, legacy_rj_mapping, select_scope, validate_scope_catalog
 
@@ -51,6 +51,25 @@ def _validate_checkpoint_completed(completed: object, municipios: dict[str, str]
     return completed
 
 
+def _canonicalize_municipalities(
+    requested: dict[str, str],
+    catalog: MunicipalityCatalog,
+) -> dict[str, str]:
+    """Resolve um mapa legado contra a identidade canônica da release IBGE."""
+    canonical: dict[str, str] = {}
+    for code7, supplied_name in requested.items():
+        result = catalog.resolve(code7)
+        if result.status is not ResolutionStatus.VALID or result.municipality is None:
+            raise ValueError(f"município CNES inválido no catálogo: {code7}")
+        if supplied_name and supplied_name != result.municipality.name:
+            raise ValueError(
+                "nome municipal diverge do catálogo IBGE: "
+                f"{code7} ({supplied_name!r} != {result.municipality.name!r})"
+            )
+        canonical[result.municipality.code7] = result.municipality.name
+    return canonical
+
+
 def run_cnes(
     municipios: dict[str, str] | None = None,
     *,
@@ -70,7 +89,10 @@ def run_cnes(
     if geographic_scope is not None:
         municipios = {item.code7: item.name for item in geographic_scope.municipalities}
     elif catalog is not None:
-        municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
+        if municipios is not None:
+            municipios = _canonicalize_municipalities(municipios, catalog)
+        else:
+            municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
     else:
         municipios = municipios if municipios is not None else legacy_rj_mapping()
     if not municipios:
