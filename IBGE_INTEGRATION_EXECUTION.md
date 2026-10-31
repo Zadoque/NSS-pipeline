@@ -816,7 +816,8 @@ mutantes relevantes de seleção e serialização, mantendo separados os casos
 equivalentes para entradas exclusivamente ASCII.
 
 A rodada global de mutação limpa, executada após as coberturas de catálogo,
-publicação, escopo e resolução, produziu 7.338 mutantes: 5.430 mortos, 1.815
+publicação, escopo e resolução e antes de `d7439d4`, produziu 7.338 mutantes:
+5.430 mortos, 1.815
 sobreviventes, 92 sem testes associados e 1 timeout. Considerando mortos,
 sobreviventes e timeout, a taxa atual é **74,94%** (5.430 / 7.246). A meta de
 95% permanece pendente; a rodada não foi artificialmente restringida nem usada

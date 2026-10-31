@@ -239,7 +239,7 @@ IBGE-012 ──> IBGE-013
   - Mutantes equivalentes são documentados individualmente.
   - Meta global de 95% é atingida sem reduzir artificialmente o escopo.
   - Integrações PostgreSQL são executadas em rodada separada.
-  - Última rodada global limpa: 5.430 mortos, 1.815 sobreviventes, 92 sem
+  - Última rodada global limpa, anterior a `d7439d4`: 5.430 mortos, 1.815 sobreviventes, 92 sem
     testes e 1 timeout em 7.338 mutantes; 74,94% entre os 7.246 classificáveis.
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição
