@@ -183,6 +183,9 @@ IBGE-012 ──> IBGE-013
 - `write_events()` também valida a forma semântica de cada evento: criações,
   extinções, sucessões e mudanças toponímicas não podem declarar códigos de
   origem/destino incompatíveis.
+- `promote_administrative_events()` pode validar referências contra as duas
+  edições participantes antes de promover o histórico; sem esses conjuntos a
+  promoção continua explícita, mas não afirma uma correspondência histórica.
 
 ### IBGE-012 — Mutação dos contratos críticos
 
