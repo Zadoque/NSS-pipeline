@@ -170,10 +170,15 @@ def test_parse_years_normalizes_and_defaults_to_current_year(raw, expected, monk
         assert _parse_years(raw) == expected
 
 
-@pytest.mark.parametrize("raw", ["1999", "10000", "abc"])
+@pytest.mark.parametrize("raw", ["1999", "10000", "abc", "2000,"])
 def test_parse_years_rejects_invalid_values(raw):
     with pytest.raises((ValueError, OverflowError)):
         _parse_years(raw)
+
+
+@pytest.mark.parametrize("raw", ["2000", "9999", "2000, 9999, 2000"])
+def test_parse_years_aceita_limites_e_remove_duplicatas(raw):
+    assert _parse_years(raw) == ([2000, 9999] if "," in raw else [int(raw)])
 
 
 def test_manifest_round_trip_and_invalid_payload(tmp_path):
@@ -184,6 +189,15 @@ def test_manifest_round_trip_and_invalid_payload(tmp_path):
 
     assert _load_manifest(path) == manifest
     path.write_text(json.dumps(["not-an-object"]), encoding="utf-8")
+    with pytest.raises(ValueError, match="objeto por recorte"):
+        _load_manifest(path)
+
+
+@pytest.mark.parametrize("payload", [[], {"DENG:2026": []}, {"DENG:2026": None}])
+def test_load_manifest_rejeita_payload_sem_objetos_por_recorte(tmp_path, payload):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
     with pytest.raises(ValueError, match="objeto por recorte"):
         _load_manifest(path)
 
@@ -350,3 +364,20 @@ def test_main_sai_com_codigo_tres_quando_fonte_fica_indisponivel(monkeypatch):
         main()
 
     assert error.value.code == 3
+
+
+def test_main_permite_descoberta_com_fonte_indisponivel(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda *args, **kwargs: ["INFL:2024: unavailable"],
+    )
+    monkeypatch.setattr(
+        sys, "argv", [
+            "update_sinan", "--diseases", "INFL", "--years", "2024",
+            "--allow-unavailable",
+        ],
+    )
+
+    main()

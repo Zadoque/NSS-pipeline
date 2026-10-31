@@ -47,7 +47,10 @@ def _manifest_lock(path: Path):
 def _parse_years(raw: str | None) -> list[int]:
     if not raw:
         return [datetime.now(UTC).year]
-    years = sorted({int(value.strip()) for value in raw.split(",") if value.strip()})
+    values = [value.strip() for value in raw.split(",")]
+    if any(not value for value in values):
+        raise ValueError("years não pode conter valores vazios")
+    years = sorted({int(value) for value in values})
     if not years or any(year < 2000 or year > 9999 for year in years):
         raise ValueError("years deve conter anos entre 2000 e 9999")
     return years
