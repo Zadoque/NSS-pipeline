@@ -3,6 +3,7 @@ import pytest
 from app.pipeline.reference.ibge.historical import (
     MunicipalityEvent,
     derive_annual_events,
+    derive_annual_event_series,
     parse_administrative_events,
     parse_toponymic_events,
     promote_administrative_events,
@@ -134,3 +135,27 @@ def test_derive_annual_events_does_not_infer_succession():
         ("TOPONYMIC_CHANGE", "3301009", "3301009"),
         ("CREATION", None, "5101837"),
     }
+
+
+def test_derive_annual_event_series_requires_consecutive_editions():
+    from app.pipeline.reference.ibge.models import Municipality
+
+    item = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2024)
+    with pytest.raises(ValueError, match="anos consecutivos"):
+        derive_annual_event_series({2022: [item], 2024: [item]})
+
+
+def test_derive_annual_event_series_keeps_creation_and_extinction_separate():
+    from app.pipeline.reference.ibge.models import Municipality
+
+    previous = Municipality("3301009", "330100", "Origem", "33", "RJ", "Rio", 2024)
+    current = Municipality("5101837", "510183", "Novo", "51", "MT", "Mato Grosso", 2025)
+    events = derive_annual_event_series(
+        {2024: [previous], 2025: [current]},
+        source_urls={2025: "https://example.invalid/DTB_2025.zip"},
+    )
+    assert {(event.event_type, event.source_code7, event.target_code7) for event in events} == {
+        ("EXTINCTION", "3301009", None),
+        ("CREATION", None, "5101837"),
+    }
+    assert all(event.source == "https://example.invalid/DTB_2025.zip" for event in events)

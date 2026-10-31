@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import hashlib
@@ -135,6 +135,38 @@ def derive_annual_events(
     if not events:
         raise ValueError("nenhuma diferença territorial observável entre as edições")
     return events
+
+
+def derive_annual_event_series(
+    editions: Mapping[int, Sequence[Municipality]],
+    *,
+    source_urls: Mapping[int, str] | None = None,
+) -> list[MunicipalityEvent]:
+    """Compara uma série de edições DTB oficiais em anos consecutivos.
+
+    A série só promove diferenças observáveis entre códigos presentes nas
+    edições adjacentes. Um código que desaparece e outro que surge no mesmo
+    intervalo gera eventos independentes de extinção e criação; nenhuma
+    sucessão, fusão ou desmembramento é inferida sem uma fonte explícita.
+    """
+    years = sorted(editions)
+    if len(years) < 2 or years != list(range(years[0], years[-1] + 1)):
+        raise ValueError("série DTB exige pelo menos dois anos consecutivos")
+    events: list[MunicipalityEvent] = []
+    for previous_year, current_year in zip(years, years[1:]):
+        events.extend(derive_annual_events(
+            editions[previous_year], editions[current_year],
+            reference_year=current_year,
+            effective_date=f"{current_year}-01-01",
+            source_url=(source_urls or {}).get(current_year),
+        ))
+    by_id: dict[str, MunicipalityEvent] = {}
+    for event in events:
+        previous = by_id.get(event.event_id)
+        if previous is not None and previous != event:
+            raise ValueError(f"event_id conflitante na série DTB: {event.event_id}")
+        by_id[event.event_id] = event
+    return list(by_id.values())
 
 
 def write_events(path: Path, events: list[MunicipalityEvent] | tuple[MunicipalityEvent, ...]) -> Path:
