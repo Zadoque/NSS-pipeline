@@ -746,6 +746,18 @@ epidemiológica nacional completa. Permanecem necessários:
 
 ## Conclusão
 
+## Verificação final desta execução
+
+Após a otimização da publicação nacional, a suíte completa com PostgreSQL de
+integração passou em **458 testes**, com **3 testes pulados** e **25 warnings**.
+`nix flake check --no-build` também passou; a checagem avaliou o `devShell`
+Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
+incompatibilidade de sistema.
+
+O último commit funcional desta rodada foi `135c375`
+(`perf(load): batch national fact inserts`), seguido do registro da
+homologação nacional pública em `8dc1565`.
+
 A fundação técnica e a integração dos caminhos principais foram implementadas
 com compatibilidade para o RJ e commits semânticos por etapa. A promoção para
 Brasil inteiro deve ocorrer somente após as pendências acima, especialmente a
