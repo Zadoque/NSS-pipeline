@@ -13,6 +13,9 @@ from app.pipeline.scope import scope_sha256
 def _add_catalog_lineage(metadata_path, catalog, municipality_codes, scope_type="MUNICIPALITIES"):
     metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
     metadata.update({
+        "disease": "DENG",
+        "source_year": 2026,
+        "gold_target": "serving",
         "ibge_catalog_id": catalog.metadata.catalog_id,
         "ibge_catalog_sha256": catalog.metadata.sha256,
         "geographic_scope": {
@@ -606,6 +609,45 @@ def test_catalogo_ibge_bloqueia_escopo_gold_diferente(mocker, pipeline, tmp_path
 
     with pytest.raises(ValueError, match="escopo geográfico da Gold diverge"):
         runner.run_load("DENG", 2026, catalog=catalog)
+
+    load.assert_not_called()
+    get_engine.assert_not_called()
+
+
+def test_catalogo_ibge_bloqueia_identidade_gold_diferente(mocker, pipeline, tmp_path):
+    aggregate, _, get_engine, load = pipeline
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = InMemoryMunicipalityCatalog(
+        [municipality],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    scope = GeographicScope((municipality,))
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+    aggregate.return_value = Path("gold.parquet")
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        '{"source_rows": 1, "resolved_rows": 1, "discarded_rows": 0, '
+        '"aggregation_reduction": 0, "invalid_municipality_rows": 0, '
+        '"out_of_scope_rows": 0, "uf_mismatch_rows": 0}', encoding="utf-8",
+    )
+    _add_catalog_lineage(metadata_path, catalog, ["3301009"])
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["disease"] = "CHIK"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    mocker.patch.object(Path, "with_name", return_value=metadata_path)
+
+    with pytest.raises(ValueError, match="identidade da Gold diverge"):
+        runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
 
     load.assert_not_called()
     get_engine.assert_not_called()

@@ -136,6 +136,17 @@ def run_load(
                 f"selecionada ({gold_metadata.get('ibge_catalog_id')!r}/"
                 f"{gold_metadata.get('ibge_catalog_sha256')!r})"
             )
+        if (
+            gold_metadata.get("disease") != disease
+            or gold_metadata.get("source_year") != year
+            or gold_metadata.get("gold_target") != "serving"
+        ):
+            raise ValueError(
+                "Publicação bloqueada: identidade da Gold diverge da execução "
+                f"(disease={gold_metadata.get('disease')!r}, "
+                f"source_year={gold_metadata.get('source_year')!r}, "
+                f"gold_target={gold_metadata.get('gold_target')!r})"
+            )
         expected_scope_type = geographic_scope.kind if geographic_scope else "MUNICIPALITIES"
         expected_scope_sha256 = scope_sha256(municipios)
         gold_scope = gold_metadata.get("geographic_scope")
