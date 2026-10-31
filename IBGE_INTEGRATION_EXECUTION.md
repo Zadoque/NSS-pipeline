@@ -1400,3 +1400,7 @@ conversão do caminho para `Path`, erro de lista vazia e código de saída 1 em
 falha de atualização. O módulo passou em **19 testes**. Na reexecução dirigida
 dos 12 mutantes comportamentais selecionados, **10 morreram**; os dois
 sobreviventes removem apenas texto de ajuda sem alterar o contrato operacional.
+
+Verificação final após essa etapa: a suíte integral passou em **608 testes**,
+com **3 pulados** e **25 warnings**; `nix flake check --no-build` também passou.
+O branch permaneceu limpo e sincronizado com `origin/work/nss-pipeline`.
