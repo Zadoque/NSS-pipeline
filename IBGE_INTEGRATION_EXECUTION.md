@@ -98,6 +98,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `df427b3` | Registro da regressão das DTBs legadas |
 | `b8ac609` | Registro da regressão nacional sintética |
 | `594bdb5` | Promoção idempotente de eventos anuais DTB |
+| `0a908e8` | Timeout do download DTB exposto no wrapper e na CLI |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -326,6 +327,7 @@ suíte completa após workers CNES e série histórica → 420 passed, 2 skipped
 suíte completa após suporte às DTBs legadas → 421 passed, 3 skipped, 25 warnings
 suíte final após a promoção idempotente de eventos DTB → 422 passed, 3 skipped,
 25 warnings
+suíte final após exposição do timeout DTB → 422 passed, 3 skipped, 25 warnings
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
@@ -489,6 +491,12 @@ mortos (`9/9`). A cobertura inclui tanto o aceite de um escopo materializado
 pelo catálogo quanto a rejeição de município ausente, atributos divergentes e
 mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
 uma aprovação da meta global de mutação.
+
+Após a exposição do timeout no wrapper de atualização DTB, os mutantes
+pendentes de `reference/ibge/refresh.py` foram reexecutados com a suíte atual.
+O módulo ficou com 167 mutantes mortos, 167 sobreviventes e 119 sem testes
+associados. Esse resultado é uma reclassificação dirigida do módulo, não uma
+medição global; a meta de 95% continua pendente.
 
 Também foi executada novamente a rodada global configurada no `pyproject.toml`,
 com 6.416 mutantes classificados: 3.340 mortos, 1.887 sobreviventes, 1.187
