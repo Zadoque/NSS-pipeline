@@ -197,12 +197,25 @@ def test_validation_rejects_invalid_canonical_attributes(record, message):
 
 
 def test_storage_writes_parquet_and_active_pointer(tmp_path):
-    destination = write_catalog(tmp_path / "municipalities.parquet", [municipality("3301009", "Campos")])
+    release = tmp_path / "releases" / "test"
+    destination = write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])
+    write_manifest(release / "manifest.json", METADATA)
     assert destination.exists()
     loaded = ParquetMunicipalityCatalog(destination, METADATA)
     assert loaded.get_municipality("3301009").name == "Campos"
     promote_active(tmp_path / "active.json", "test")
     assert '"catalog_id": "test"' in (tmp_path / "active.json").read_text()
+
+
+def test_promote_active_rejeita_release_inexistente_sem_trocar_ponteiro(tmp_path):
+    active = tmp_path / "active.json"
+    active.write_text('{"catalog_id": "old"}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifesto da release ausente"):
+        promote_active(active, "missing")
+
+    assert active.read_text(encoding="utf-8") == '{"catalog_id": "old"}'
+    assert not list(tmp_path.glob(".active.json.tmp"))
 
 
 def test_storage_writes_ufs_and_crosswalk_artifacts(tmp_path):
@@ -275,7 +288,7 @@ def test_active_catalog_rejects_reference_year_mismatch(tmp_path):
         Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2024),
     ])
     write_manifest(release / "manifest.json", METADATA)
-    promote_active(tmp_path / "active.json", "test")
+    (tmp_path / "active.json").write_text('{"catalog_id": "test"}', encoding="utf-8")
 
     with pytest.raises(ValueError, match="reference_year"):
         load_active_catalog(tmp_path)
@@ -305,6 +318,9 @@ def test_load_active_catalog_rejects_pointer_without_release_id(tmp_path):
 
 
 def test_storage_atomic_metadata_cleanup_on_replace_failure(tmp_path, mocker):
+    release = tmp_path / "releases" / "test"
+    write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])
+    write_manifest(release / "manifest.json", METADATA)
     manifest = tmp_path / "manifest.json"
     mocker.patch("app.pipeline.reference.ibge.storage.os.replace", side_effect=OSError("disk full"))
     with pytest.raises(OSError, match="disk full"):

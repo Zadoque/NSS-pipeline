@@ -99,6 +99,7 @@ def write_manifest(path: Path, metadata: CatalogMetadata) -> Path:
 
 
 def promote_active(active_path: Path, catalog_id: str) -> Path:
+    _load_release(active_path.parent, catalog_id)
     active_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = active_path.with_name(f".{active_path.name}.tmp")
     try:
@@ -109,17 +110,9 @@ def promote_active(active_path: Path, catalog_id: str) -> Path:
     return active_path
 
 
-def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
-    active_path = root / "active.json"
-    try:
-        active = json.loads(active_path.read_text(encoding="utf-8"))
-    except FileNotFoundError as exc:
-        raise ValueError(f"ponteiro ativo ausente: {active_path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"ponteiro ativo inválido: {active_path}") from exc
-    catalog_id = active.get("catalog_id")
+def _load_release(root: Path, catalog_id: str) -> ParquetMunicipalityCatalog:
     if not isinstance(catalog_id, str) or not catalog_id or Path(catalog_id).name != catalog_id:
-        raise ValueError("active.json não informa catalog_id")
+        raise ValueError("catalog_id inválido")
     release = root / "releases" / catalog_id
     manifest_path = release / "manifest.json"
     try:
@@ -147,3 +140,17 @@ def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
         if actual_content_sha256 != metadata.content_sha256:
             raise ValueError("hash lógico do catálogo diverge do manifesto")
     return catalog
+
+
+def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:
+    active_path = root / "active.json"
+    try:
+        active = json.loads(active_path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise ValueError(f"ponteiro ativo ausente: {active_path}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"ponteiro ativo inválido: {active_path}") from exc
+    catalog_id = active.get("catalog_id")
+    if not isinstance(catalog_id, str) or not catalog_id or Path(catalog_id).name != catalog_id:
+        raise ValueError("active.json não informa catalog_id")
+    return _load_release(root, catalog_id)
