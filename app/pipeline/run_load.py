@@ -56,10 +56,21 @@ def run_load(
     silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
     if silver_scope.empty:
         raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
-    expected_cases_total = int(
-        normalize_municipality_codes(silver_scope["ID_MUNICIP"], municipios)
-        .isin(municipios).sum()
-    )
+    if catalog is None:
+        expected_cases_total = int(
+            normalize_municipality_codes(silver_scope["ID_MUNICIP"], municipios)
+            .isin(municipios).sum()
+        )
+    else:
+        expected_cases_total = sum(
+            1
+            for value in silver_scope["ID_MUNICIP"]
+            if (
+                (resolution := catalog.resolve(value)).status.value == "VALID"
+                and resolution.municipality is not None
+                and resolution.municipality.code7 in municipios
+            )
+        )
 
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,

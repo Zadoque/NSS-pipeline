@@ -162,6 +162,8 @@ def test_catalogo_ibge_bloqueia_publicacao_com_resolucao_invalida(mocker, pipeli
         ],
         CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
     )
+    from app.pipeline.scope import GeographicScope
+    scope = GeographicScope(catalog.municipalities())
     silver = pd.DataFrame({"ID_MUNICIP": ["330100"]})
     mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, pd.DataFrame({"cases_total": [1]})])
     aggregate.return_value = Path("gold.parquet")
@@ -227,3 +229,28 @@ def test_run_load_transmite_catalogo_e_escopo_ate_publicacao(mocker, pipeline):
     assert aggregate.call_args.kwargs["catalog"] is catalog
     assert aggregate.call_args.kwargs["geographic_scope_type"] == "UFs"
     engine.dispose.assert_called_once()
+
+
+def test_run_load_nao_conta_codigo_ibge_7_invalido_no_total_independente(
+    mocker, pipeline,
+):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope(catalog.municipalities())
+    aggregate, _, _, load = pipeline
+    silver = pd.DataFrame({"ID_MUNICIP": ["3301008", "330100"]})
+    mocker.patch.object(
+        runner.pd, "read_parquet",
+        side_effect=[silver, pd.DataFrame({"cases_total": [1]})],
+    )
+
+    runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
+
+    assert load.call_args.kwargs["expected_cases_total"] == 1
+    assert aggregate.call_args.kwargs["catalog"] is catalog
