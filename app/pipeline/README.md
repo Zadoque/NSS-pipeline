@@ -38,14 +38,40 @@ Este repositório cobre **apenas a pipeline**.
 
 ## Arquitetura
 
+```mermaid
+flowchart LR
+    IBGE["Catálogo IBGE<br/>release versionada"]
+
+    subgraph SINAN["Fluxo epidemiológico — SINAN / PySUS"]
+        PYSUS["PySUS"] --> SB["Bronze<br/>dado bruto"]
+        SB --> SS["Silver<br/>validado e deduplicado"]
+        SS --> SG["Gold<br/>agregada"]
+    end
+
+    subgraph CNES["Dimensão de unidades — CNES"]
+        API["API Dados Abertos"] --> CB["Bronze<br/>por município"]
+        CB --> CS["Silver<br/>lookup de unidades"]
+    end
+
+    IBGE -. "identidade municipal<br/>e escopo" .-> SS
+    IBGE -. "códigos 6↔7<br/>e cobertura" .-> CS
+    CS -. "enriquecimento<br/>da unidade" .-> SG
+    SG --> PG["PostgreSQL"] --> JAVA["Backend Java"]
+
+    classDef reference fill:#fff3cd,stroke:#b58105,color:#4a3b00
+    classDef source fill:#dbeafe,stroke:#2563eb,color:#102a43
+    classDef layer fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef serving fill:#f3e8ff,stroke:#9333ea,color:#581c87
+
+    class IBGE reference
+    class PYSUS,API source
+    class SB,SS,SG,CB,CS layer
+    class PG,JAVA serving
 ```
-PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold ─▶ PostgreSQL ─▶ Backend Java
-                 (cru)     (limpo)     ▲
-                                       │ join (unidade de notificação)
-                                       │
-API Dados Abertos (CNES) ─▶ Bronze ─▶ Silver
-                             (cru)    (lookup de unidades)
-```
+
+As setas pontilhadas representam a referência territorial compartilhada: o
+catálogo IBGE não é uma camada Medallion, mas fornece identidade municipal,
+crosswalk, escopo e release para os fluxos SINAN e CNES.
 
 | Camada | O que contém | Formato | Idempotência |
 |---|---|---|---|
