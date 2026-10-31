@@ -83,6 +83,9 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `56ba752` | Validação estrutural de checkpoints CNES |
 | `97c3955` | Fortalecimento dos contratos de resolução e timeout |
 | `f2c8cb5` | Bloqueio de rede em timeout CNES inválido |
+| `36dfc21` | Fortalecimento dos contratos do cliente de Localidades |
+| `45939c1` | Registro da rodada de mutação do cliente de Localidades |
+| `feb6303` | Registro da suíte de testes do cliente de Localidades |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
 | `8f29811` | Cobertura dos contratos de checkpoint e escopo CNES |
@@ -448,13 +451,13 @@ pelo catálogo quanto a rejeição de município ausente, atributos divergentes 
 mensagens de erro alteradas. Isso é uma evidência dirigida do contrato, não
 uma aprovação da meta global de mutação.
 
-Também foi executada a rodada global configurada no `pyproject.toml`, com 6.257
-mutantes gerados: 4.080 mortos, 1.843 sobreviventes, 332 sem testes associados
-e 2 timeouts. A taxa entre os mutantes classificáveis
-(`mortos / (mortos + sobreviventes)`) foi de aproximadamente 68,7%. O resultado
-é a medição integral mais recente da configuração, mas ainda está abaixo da
-meta de 95%; sobreviventes, casos sem testes e timeouts permanecem pendências
-de qualidade.
+Também foi executada novamente a rodada global configurada no `pyproject.toml`,
+com 6.416 mutantes classificados: 3.340 mortos, 1.887 sobreviventes, 1.187
+sem testes associados e 2 timeouts. A taxa entre os mutantes classificáveis
+(`mortos / (mortos + sobreviventes)`) foi de aproximadamente 63,9%. O resultado
+continua abaixo da meta de 95%; sobreviventes, casos sem testes e timeouts
+permanecem pendências de qualidade. A rodada anterior, de 6.257 mutantes,
+está preservada no histórico acima para comparação.
 
 Os seis mutantes da validação estrutural de `completed` no checkpoint CNES
 foram reexecutados após testes unitários diretos e classificados como mortos
@@ -505,7 +508,7 @@ não alteram o score global declarado acima.
 | Histórico de sucessões municipais | IBGE possui genealogia histórica 1872–2010 em PDF; não há crosswalk tabular 2011–2025 promovido | Pendente externo |
 | CNES real em todas as UFs | Amostra operacional 27/27 UFs, 14.515 estabelecimentos e `run_cnes` concluído | Parcial; 5.571 municípios pendentes |
 | Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
-| Mutação ≥95% | Última medição global: 68,7% entre mutantes classificáveis | Pendente de qualidade |
+| Mutação ≥95% | Última medição global: 63,9% entre mutantes classificáveis | Pendente de qualidade |
 
 Esta execução não deve ser interpretada como homologação de uma carga nacional
 completa. Permanecem necessários:
