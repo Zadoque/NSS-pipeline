@@ -61,6 +61,24 @@ def test_validate_cnes_municipality_resolution_rejeita_status_nao_resolvido(stat
         )
 
 
+def test_validate_cnes_municipality_resolution_nomeia_status_ausente():
+    silver = pd.DataFrame({"municipality_resolution_status": [None]})
+
+    with pytest.raises(ValueError, match=r"\['MISSING'\]"):
+        _validate_cnes_municipality_resolution(
+            silver, catalog=Mock(), municipality_code7="3301009",
+        )
+
+
+def test_validate_cnes_municipality_resolution_rejeita_coluna_ausente_com_codigo():
+    with pytest.raises(ValueError, match="CNES sem status.*3301009"):
+        _validate_cnes_municipality_resolution(
+            pd.DataFrame({"cd_unidade": ["1"]}),
+            catalog=Mock(),
+            municipality_code7="3301009",
+        )
+
+
 def test_canonicalize_municipalities_rejeita_status_invalido_mesmo_com_municipio():
     municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
     catalog = Mock()
@@ -90,8 +108,10 @@ def test_canonicalize_municipalities_devolve_identidade_canonica():
     }
 
 def test_validate_checkpoint_completed_rejeita_entrada_nao_objeto():
-    with pytest.raises(ValueError, match="completed inválido"):
+    with pytest.raises(ValueError) as error:
         _validate_checkpoint_completed({"3301009": []}, {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com completed inválido"
 
 
 @pytest.mark.parametrize("bronze_path", [123, ""])

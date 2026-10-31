@@ -152,9 +152,10 @@ def _validate_cnes_municipality_resolution(
         raise ValueError(
             f"CNES sem status de resolução municipal para {municipality_code7}"
         )
-    invalid = silver[column].astype("string").fillna("MISSING").ne("VALID")
+    statuses_series = silver[column].astype("string").fillna("MISSING")
+    invalid = statuses_series.ne("VALID")
     if invalid.any():
-        statuses = sorted(set(silver.loc[invalid, column].astype("string").fillna("MISSING")))
+        statuses = sorted(set(statuses_series[invalid]))
         if "OUT_OF_SCOPE" in statuses:
             raise ValueError(
                 f"CNES retornou estabelecimento fora do município solicitado: {municipality_code7}"
