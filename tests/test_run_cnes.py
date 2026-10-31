@@ -5,9 +5,14 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import requests
 
 from app.pipeline import run_cnes as pipeline
-from app.pipeline.run_cnes import _validate_checkpoint_completed, _validate_checkpoint_failed
+from app.pipeline.run_cnes import (
+    _classify_cnes_error,
+    _validate_checkpoint_completed,
+    _validate_checkpoint_failed,
+)
 
 
 def _bronze(code: str, municipality_code: str = "3301009") -> pd.DataFrame:
@@ -102,6 +107,21 @@ def test_validate_checkpoint_failed_rejeita_falha_fora_do_escopo_com_mensagem_ex
         )
 
     assert str(error.value) == "checkpoint CNES contém falha fora do escopo"
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (requests.exceptions.Timeout(), "NETWORK_ERROR"),
+        (requests.exceptions.ConnectionError(), "NETWORK_ERROR"),
+        (requests.exceptions.HTTPError(), "HTTP_ERROR"),
+        (ValueError("schema"), "VALIDATION_ERROR"),
+        (RuntimeError("API"), "API_ERROR"),
+        (Exception("inesperado"), "PROCESSING_ERROR"),
+    ],
+)
+def test_classify_cnes_error_preserva_contrato_de_observabilidade(error, expected):
+    assert _classify_cnes_error(error) == expected
 
 
 def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeypatch):
