@@ -77,11 +77,8 @@ def run_cnes(
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []
-    request_session = None
-    owns_session = False
-    if catalog is not None:
-        request_session = session or session_with_retries()
-        owns_session = session is None
+    request_session = session or session_with_retries()
+    owns_session = session is None
     try:
         for cod_municipio in municipios:
             logger.info("Processando CNES municipio=%s", cod_municipio)
@@ -96,13 +93,12 @@ def run_cnes(
                     raise ValueError(f"Bronze CNES adulterada ou incompatível: {bronze_path}")
                 bronze_df = pd.read_parquet(bronze_path)
             else:
-                bronze_df = (
-                    fetch_estabelecimentos(
-                        cod_municipio, limit=page_size, catalog=catalog, session=request_session,
-                        timeout=request_timeout,
-                    )
-                    if catalog is not None
-                    else fetch_estabelecimentos(cod_municipio)
+                bronze_df = fetch_estabelecimentos(
+                    cod_municipio,
+                    limit=page_size,
+                    catalog=catalog,
+                    session=request_session,
+                    timeout=request_timeout,
                 )
             if bronze_df.empty:
                 raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")

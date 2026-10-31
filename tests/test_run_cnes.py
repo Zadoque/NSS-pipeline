@@ -24,8 +24,13 @@ def _silver(code: str) -> pd.DataFrame:
 
 def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeypatch):
     calls: list[tuple[str, object]] = []
+    fetch_calls: list[tuple[str, dict]] = []
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
-    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code: _bronze(code))
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: fetch_calls.append((code, kwargs)) or _bronze(code),
+    )
     monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda df, code, run_at: calls.append(("bronze", code)))
     monkeypatch.setattr(
         pipeline,
@@ -46,6 +51,10 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
 
     assert isinstance(result, Path)
     assert [kind for kind, _ in calls] == ["bronze", "bronze"]
+    assert [code for code, _ in fetch_calls] == ["3301009", "3302403"]
+    assert all(kwargs["limit"] == 1 for _, kwargs in fetch_calls)
+    assert all(kwargs["timeout"] == 1 for _, kwargs in fetch_calls)
+    assert fetch_calls[0][1]["session"] is fetch_calls[1][1]["session"]
     consolidated, parquet = written["parquet"]
     assert len(consolidated) == 2
     assert set(consolidated["notification_territory_status"]) == {"MAPPED", "UNAVAILABLE"}
@@ -67,7 +76,7 @@ def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monke
     ))
     calls: list[str] = []
     monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
-    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code: calls.append(code) or _bronze(code))
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: calls.append(code) or _bronze(code))
     monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
     monkeypatch.setattr(pipeline, "transform_cnes", lambda df: _silver(str(df.iloc[0]["codigo_cnes"])))
     monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
@@ -240,7 +249,7 @@ def test_territory_asset_registry_only_maps_configured_municipalities(tmp_path):
 
 
 def test_run_cnes_rejects_empty_api_response(monkeypatch):
-    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code: pd.DataFrame())
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: pd.DataFrame())
 
     with pytest.raises(RuntimeError, match="retornou vazio"):
         pipeline.run_cnes({"3301009": "Campos"})
@@ -254,7 +263,7 @@ def test_run_cnes_checkpoint_resumes_after_failure(tmp_path, monkeypatch):
     calls: list[str] = []
     fail_second = {"value": True}
 
-    def fetch(code):
+    def fetch(code, **kwargs):
         calls.append(code)
         if code == "3302403" and fail_second["value"]:
             raise TimeoutError("simulated interruption")
@@ -365,7 +374,7 @@ def test_run_cnes_checkpoint_rejects_tampered_bronze(tmp_path, monkeypatch):
     from app.pipeline.cnes import bronze as bronze_module
     monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
     checkpoint = tmp_path / "cnes-checkpoint.json"
-    def fetch(code):
+    def fetch(code, **kwargs):
         if code == "3302403":
             raise RuntimeError("parada")
         return _bronze(code)
