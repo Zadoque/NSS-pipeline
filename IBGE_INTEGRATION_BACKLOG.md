@@ -290,6 +290,9 @@ IBGE-012 ──> IBGE-013
     classificado como equivalente sob a restrição de códigos numéricos.
   - O commit `585450d` adicionou regressão para UF divergente; a Gold mantém o
     recorte vazio e não mascara a inconsistência com a UF canônica.
+  - O commit `fdd967b` adicionou regressão de bloqueio do `run_load` quando
+    `uf_mismatch_rows` é positivo; a rodada dirigida matou **3 mutantes** do
+    caminho de publicação.
   - A suíte integral posterior passou em **500 testes**, com **3 pulados** e
     **25 warnings**, incluindo PostgreSQL de integração local.
   - Após `88f4949`, a suíte integral passou em **501 testes**, com **3 pulados**

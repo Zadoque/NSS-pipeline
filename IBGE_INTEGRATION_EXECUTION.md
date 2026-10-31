@@ -1050,6 +1050,12 @@ fonte diverge. A Gold mantém o resultado vazio e não substitui a divergência
 por uma UF canônica; o mutante que força o fallback para a UF da fonte é
 inalcançável para entradas válidas porque a resolução já rejeita o registro.
 
+O commit `fdd967b` (`test(run-load): block UF mismatch publication`) cobriu o
+segundo bloqueio da publicação com catálogo ativo: `run_load.py` agora possui
+regressão para `uf_mismatch_rows > 0`. A rodada dirigida matou **3 mutantes**
+desse caminho (`_run_load`), garantindo que a carga não abra conexão nem
+publique uma Gold territorialmente inconsistente.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
