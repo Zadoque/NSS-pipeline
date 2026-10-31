@@ -132,6 +132,23 @@ def test_main_delega_download_e_escrita(monkeypatch, capsys):
     assert capsys.readouterr().out.strip() == "bronze.parquet"
 
 
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["bronze", "--year", "2024"],
+        ["bronze", "--disease", "DENG"],
+        ["bronze", "--disease", "DENG", "--year", "not-a-year"],
+    ],
+)
+def test_main_rejeita_argumentos_obrigatorios_ou_invalidos(monkeypatch, argv):
+    monkeypatch.setattr(sys, "argv", argv)
+
+    with pytest.raises(SystemExit) as error:
+        bronze.main()
+
+    assert error.value.code == 2
+
+
 def test_arquivo_invalido_nao_cria_lote(source):
     source.write_bytes(b"download incompleto")
     with pytest.raises(pa.ArrowInvalid):
