@@ -122,6 +122,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `cfca80f` | Cobertura das ramificações do parser de arquivos DTB |
 | `b4b1930` | Cobertura de limpeza e falhas do refresh IBGE |
 | `f18f733` | Rejeição de ponteiros ativos JSON malformados |
+| `682a468` | Cobertura dos contratos CLI do refresh IBGE |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -754,8 +755,9 @@ epidemiológica nacional completa. Permanecem necessários:
 ## Verificação final desta execução
 
 Após a otimização da publicação nacional e o endurecimento dos códigos
-históricos, DTB, refresh e ponteiro ativo, a suíte completa com PostgreSQL de
-integração passou em **473 testes**, com **3 testes pulados** e **25 warnings**.
+históricos, DTB, refresh, ponteiro ativo e CLI, a suíte completa com PostgreSQL
+de integração passou em **475 testes**, com **3 testes pulados** e **25
+warnings**.
 `nix flake check --no-build` também passou; a checagem avaliou o `devShell`
 Linux x86_64 e sinalizou apenas a omissão esperada de `aarch64-linux` por
 incompatibilidade de sistema.
