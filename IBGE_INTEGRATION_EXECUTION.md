@@ -82,6 +82,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `56ba752` | Validação estrutural de checkpoints CNES |
 | `97c3955` | Fortalecimento dos contratos de resolução e timeout |
 | `f2c8cb5` | Bloqueio de rede em timeout CNES inválido |
+| `570939d` | Cobertura das fronteiras de validação CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -199,15 +200,15 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 343 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 362 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 363 passed, 25 warnings
+pytest -q                  → 349 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 368 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 369 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
-Os 362 testes foram executados com PostgreSQL real em container isolado,
+Os 368 testes foram executados com PostgreSQL real em container isolado,
 incluindo 19 testes de integração e as migrations até `0009`. Sem as variáveis
 de conexão, esses 19 testes são pulados explicitamente; isso não altera os
 resultados unitários, mas o comando homologatório deve fornecer o banco.
@@ -295,6 +296,9 @@ Essa confirmação foi obtida posteriormente para os dois mutantes de timeout:
 `app.pipeline.run_cnes.x_run_cnes__mutmut_13` foram classificados como mortos.
 Isso melhora a cobertura dos contratos críticos, mas não altera a pendência da
 meta global de 95%.
+Os testes de `page_size` e dos tipos inválidos de timeout foram adicionados
+depois dessa classificação e ainda precisam ser refletidos em uma nova rodada
+mutante dirigida; a suíte funcional global já os executa.
 
 ## Compatibilidade preservada
 
