@@ -18,6 +18,7 @@ from app.pipeline.reference.ibge.validation import (
 )
 from app.pipeline.reference.ibge.client import DEFAULT_MUNICIPALITIES_URL, IbgeLocalidadesClient
 from app.pipeline.reference.ibge.storage import (
+    _temporary_path,
     catalog_content_sha256,
     load_active_catalog,
     promote_active,
@@ -41,6 +42,18 @@ METADATA = CatalogMetadata("test", 2025, "fixture", "fixture://dtb", "2026-01-01
 
 def municipality(code7, name, uf_code="33", uf_abbr="RJ"):
     return Municipality(code7, code7[:6], name, uf_code, uf_abbr, uf_abbr, 2025)
+
+
+def test_storage_temporary_paths_are_unique_and_local(tmp_path):
+    destination = tmp_path / "release" / "manifest.json"
+    destination.parent.mkdir()
+
+    first = _temporary_path(destination)
+    second = _temporary_path(destination)
+
+    assert first != second
+    assert first.parent == destination.parent
+    assert second.parent == destination.parent
 
 
 def catalog():

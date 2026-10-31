@@ -18,6 +18,14 @@ from .validation import validate_municipalities
 SHA256_PATTERN = re.compile(r"^[0-9a-fA-F]{64}$")
 
 
+def _temporary_path(path: Path) -> Path:
+    """Cria um nome temporário exclusivo no mesmo diretório do destino."""
+    with tempfile.NamedTemporaryFile(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp", delete=False,
+    ) as temporary:
+        return Path(temporary.name)
+
+
 def catalog_content_sha256(records: list[Municipality] | tuple[Municipality, ...]) -> str:
     values = [asdict(item) for item in sorted(records, key=lambda item: item.code7)]
     payload = json.dumps(values, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
@@ -82,7 +90,7 @@ def write_ufs(path: Path, records: list[Municipality] | tuple[Municipality, ...]
         for item in values
     ]).drop_duplicates(subset=["uf_code"]).sort_values("uf_code")
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
+    temporary = _temporary_path(path)
     try:
         frame.to_parquet(temporary, index=False)
         os.replace(temporary, path)
@@ -98,7 +106,7 @@ def write_crosswalk(path: Path, records: list[Municipality] | tuple[Municipality
         for item in values
     ]).sort_values("code6")
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
+    temporary = _temporary_path(path)
     try:
         frame.to_parquet(temporary, index=False)
         os.replace(temporary, path)
@@ -119,7 +127,7 @@ def write_release(path: Path, records: list[Municipality] | tuple[Municipality, 
 def write_manifest(path: Path, metadata: CatalogMetadata) -> Path:
     _validate_metadata(metadata)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.tmp")
+    temporary = _temporary_path(path)
     try:
         temporary.write_text(json.dumps(asdict(metadata), ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         os.replace(temporary, path)
@@ -131,7 +139,7 @@ def write_manifest(path: Path, metadata: CatalogMetadata) -> Path:
 def promote_active(active_path: Path, catalog_id: str) -> Path:
     _load_release(active_path.parent, catalog_id)
     active_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = active_path.with_name(f".{active_path.name}.tmp")
+    temporary = _temporary_path(active_path)
     try:
         temporary.write_text(json.dumps({"catalog_id": catalog_id}, indent=2) + "\n", encoding="utf-8")
         os.replace(temporary, active_path)

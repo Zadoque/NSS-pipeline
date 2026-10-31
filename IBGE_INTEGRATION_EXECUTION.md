@@ -1488,3 +1488,9 @@ mutantes**, com **6.246 mortos, 1.707 sobreviventes e 1 timeout**. Entre os
 **7.953 classificáveis**, a taxa foi **78,54%**, uma melhora em relação aos
 78,47% anteriores. A medição foi registrada como atualização do cache completo;
 a meta de 95% continua pendente.
+
+Também foi corrigida a atomicidade concorrente do armazenamento local: os
+artefatos auxiliares de release e o ponteiro `active.json` agora usam nomes
+temporários exclusivos no mesmo diretório, evitando disputa entre atualizações
+simultâneas. `tests/test_ibge_catalog.py` passou em **111 testes**, incluindo a
+regressão de exclusividade dos temporários.
