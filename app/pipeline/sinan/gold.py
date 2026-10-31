@@ -340,6 +340,10 @@ def _read_cnes_metadata(path: Path) -> dict:
     if not isinstance(rows, int) or isinstance(rows, bool) or rows < 0:
         raise ValueError("metadata CNES sem contagem de linhas válida")
     manifest_version = metadata.get("manifest_version")
+    if manifest_version is not None and (
+        not isinstance(manifest_version, int) or isinstance(manifest_version, bool) or manifest_version < 1
+    ):
+        raise ValueError("manifesto CNES com versão inválida")
     if manifest_version is not None and manifest_version >= 2:
         parquet_sha256 = metadata.get("parquet_sha256")
         if (
