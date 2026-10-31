@@ -76,3 +76,12 @@ def test_all_brazil_can_require_a_nationally_validated_catalog():
         select_scope(catalog, all_brazil=True, require_national=True)
 
     assert select_scope(catalog, all_brazil=True).count == 1
+
+
+def test_select_scope_rejeita_uf_desconhecida_mesmo_com_outra_valida():
+    catalog = InMemoryMunicipalityCatalog(
+        [_municipality("3301009")],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    with pytest.raises(ValueError, match="desconhecida"):
+        select_scope(catalog, ufs=["RJ", "XX"])

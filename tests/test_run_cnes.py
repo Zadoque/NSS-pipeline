@@ -15,6 +15,7 @@ from app.pipeline.run_cnes import (
     _parallel_fetch_batches,
     _validate_checkpoint_completed,
     _validate_checkpoint_failed,
+    _validate_cnes_municipality_resolution,
 )
 from app.pipeline.reference.ibge.models import Municipality, ResolutionResult, ResolutionStatus
 
@@ -28,6 +29,7 @@ def _silver(code: str) -> pd.DataFrame:
         {
             "cd_unidade": [code],
             "nm_unidade": [f"Unidade {code}"],
+            "municipality_resolution_status": ["VALID"],
         }
     )
 
@@ -48,6 +50,15 @@ def test_validate_checkpoint_completed_aceita_entrada_completa():
         },
     }
     assert _validate_checkpoint_completed(completed, {"3301009": "Campos"}) == completed
+
+
+@pytest.mark.parametrize("status", ["UNKNOWN_CODE", "INVALID_FORMAT", "OUT_OF_SCOPE", None])
+def test_validate_cnes_municipality_resolution_rejeita_status_nao_resolvido(status):
+    silver = pd.DataFrame({"municipality_resolution_status": [status]})
+    with pytest.raises(ValueError, match="CNES retornou"):
+        _validate_cnes_municipality_resolution(
+            silver, catalog=Mock(), municipality_code7="3301009",
+        )
 
 
 def test_canonicalize_municipalities_rejeita_status_invalido_mesmo_com_municipio():
@@ -210,6 +221,11 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
         lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
     )
     monkeypatch.setattr(pipeline, "enrich_cnes_territories", lambda df, assets: df.assign(notification_territory_status="MAPPED"))
+    monkeypatch.setattr(
+        pipeline.pd,
+        "concat",
+        lambda *args, **kwargs: pytest.fail("consolidação CNES não deve usar pd.concat"),
+    )
 
     written: dict[str, object] = {}
     monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda df, path: written.update(parquet=(df.copy(), path)))
@@ -227,7 +243,8 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     assert all(kwargs["limit"] == 1 for _, kwargs in fetch_calls)
     assert all(kwargs["timeout"] == 1 for _, kwargs in fetch_calls)
     assert fetch_calls[0][1]["session"] is fetch_calls[1][1]["session"]
-    consolidated, parquet = written["parquet"]
+    consolidated = pd.read_parquet(result)
+    parquet = result
     assert len(consolidated) == 2
     assert set(consolidated["notification_territory_status"]) == {"MAPPED", "UNAVAILABLE"}
     metadata, _ = written["metadata"]

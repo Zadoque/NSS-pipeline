@@ -5,10 +5,14 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import logging
+import os
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+import duckdb
 import pandas as pd
+import pyarrow.parquet as pq
 import requests
 
 from .atomic_io import write_json_atomic, write_parquet_atomic
@@ -137,6 +141,63 @@ def _canonicalize_municipalities(
     return canonical
 
 
+def _validate_cnes_municipality_resolution(
+    silver: pd.DataFrame, *, catalog: MunicipalityCatalog | None, municipality_code7: str,
+) -> None:
+    """Impede que qualquer identidade municipal não resolvida entre no lote."""
+    if catalog is None:
+        return
+    column = "municipality_resolution_status"
+    if column not in silver.columns:
+        raise ValueError(
+            f"CNES sem status de resolução municipal para {municipality_code7}"
+        )
+    invalid = silver[column].astype("string").fillna("MISSING").ne("VALID")
+    if invalid.any():
+        statuses = sorted(set(silver.loc[invalid, column].astype("string").fillna("MISSING")))
+        if "OUT_OF_SCOPE" in statuses:
+            raise ValueError(
+                f"CNES retornou estabelecimento fora do município solicitado: {municipality_code7}"
+            )
+        raise ValueError(
+            f"CNES retornou códigos municipais não resolvidos para {municipality_code7}: {statuses}"
+        )
+
+
+def _write_cnes_consolidated(
+    silver_paths: list[Path], destination: Path,
+) -> int:
+    """Consolida Silver CNES sem materializar o lote nacional em pandas."""
+    if not silver_paths:
+        raise RuntimeError("CNES não produziu nenhum município com dados")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.streaming.tmp")
+    temporary.unlink(missing_ok=True)
+    escaped_paths = [str(path).replace("'", "''") for path in silver_paths]
+    paths_sql = "[" + ", ".join(f"'{path}'" for path in escaped_paths) + "]"
+    query = f"""
+        COPY (
+            SELECT * EXCLUDE (_part_order, _row_number)
+            FROM (
+                SELECT *,
+                    row_number() OVER (
+                        PARTITION BY cd_unidade ORDER BY _part_order DESC
+                    ) AS _row_number
+                FROM read_parquet({paths_sql}, union_by_name = true)
+            )
+            WHERE _row_number = 1
+        ) TO '{str(temporary).replace("'", "''")}' (FORMAT PARQUET)
+    """
+    try:
+        connection = duckdb.connect()
+        try:
+            connection.execute(query)
+        finally:
+            connection.close()
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return int(pq.ParquetFile(destination).metadata.num_rows)
 def run_cnes(
     municipios: dict[str, str] | None = None,
     *,
@@ -211,7 +272,13 @@ def run_cnes(
         raise ValueError("checkpoint CNES classifica município como completed e failed")
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
-    silvers = []
+    batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
+    directory = BASE_DIR / "silver" / "cnes" / f"batch_id={batch_id}"
+    silver_paths: list[Path] = []
+    parts_directory_handle = tempfile.TemporaryDirectory(
+        prefix=f".cnes-parts-{batch_id}-",
+    )
+    parts_directory = Path(parts_directory_handle.name)
     request_session = session or (session_with_retries() if workers == 1 else None)
     owns_session = session is None and request_session is not None
     pending_codes = [code for code in municipios if code not in completed]
@@ -272,13 +339,9 @@ def run_cnes(
                     if catalog is not None
                     else transform_cnes(bronze_df, municipality_code7=cod_municipio)
                 )
-                if (
-                    "municipality_resolution_status" in silver
-                    and silver["municipality_resolution_status"].eq("OUT_OF_SCOPE").any()
-                ):
-                    raise ValueError(
-                        f"CNES retornou estabelecimento fora do município solicitado: {cod_municipio}"
-                    )
+                _validate_cnes_municipality_resolution(
+                    silver, catalog=catalog, municipality_code7=cod_municipio,
+                )
                 territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
                 if territory_assets is not None:
                     silver = enrich_cnes_territories(silver, territory_assets)
@@ -286,7 +349,10 @@ def run_cnes(
                     silver["notification_district_id"] = pd.NA
                     silver["notification_neighborhood_id"] = pd.NA
                     silver["notification_territory_status"] = "UNAVAILABLE"
-                silvers.append(silver)
+                silver["_part_order"] = len(silver_paths)
+                silver_path = parts_directory / f"part-{len(silver_paths):06d}.parquet"
+                silver.to_parquet(silver_path, index=False)
+                silver_paths.append(silver_path)
                 if checkpoint_path is not None and checkpoint_entry is None:
                     completed[cod_municipio] = {
                         "bronze_path": str(bronze_path),
@@ -322,22 +388,17 @@ def run_cnes(
         if owns_session and request_session is not None:
             request_session.close()
 
-    if not silvers:
-        raise RuntimeError("CNES não produziu nenhum município com dados")
-    consolidated = pd.concat(silvers, ignore_index=True).drop_duplicates(
-        subset=["cd_unidade"], keep="last"
-    )
-
-    batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
-    directory = BASE_DIR / "silver" / "cnes" / f"batch_id={batch_id}"
     parquet = directory / "data.parquet"
-    write_parquet_atomic(consolidated, parquet)
+    try:
+        rows = _write_cnes_consolidated(silver_paths, parquet)
+    finally:
+        parts_directory_handle.cleanup()
 
     metadata = {
         "status": "COMPLETED" if not failed else "PARTIAL",
         "batch_id": batch_id,
         "ingested_at": run_at.isoformat(),
-        "rows": len(consolidated),
+        "rows": rows,
         "municipios": list(municipios),
         "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
         "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
@@ -346,7 +407,7 @@ def run_cnes(
         "continue_on_error": continue_on_error,
         "cnes_workers": workers,
         "failed_municipalities": failed,
-        "columns": list(consolidated.columns),
+        "columns": pq.ParquetFile(parquet).schema.names,
     }
     write_json_atomic(metadata, directory / "metadata.json")
     if checkpoint_path is not None:
@@ -367,7 +428,7 @@ def run_cnes(
             },
             checkpoint_path,
         )
-    logger.info("CNES concluído: %s (linhas=%s)", parquet, len(consolidated))
+    logger.info("CNES concluído: %s (linhas=%s)", parquet, rows)
     return parquet
 
 

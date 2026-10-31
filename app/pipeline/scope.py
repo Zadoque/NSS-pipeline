@@ -97,6 +97,16 @@ def select_scope(
         return GeographicScope(catalog.municipalities(), kind="BRAZIL")
     if ufs is not None:
         wanted = {str(value).strip().upper() for value in ufs}
+        catalog_ufs = {
+            item.uf_code.upper() for item in catalog.municipalities()
+        } | {
+            item.uf_abbr.upper() for item in catalog.municipalities()
+        }
+        unknown = sorted(wanted - catalog_ufs)
+        if unknown:
+            if not wanted.intersection(catalog_ufs):
+                raise ValueError("nenhuma UF selecionada existe no catálogo")
+            raise ValueError(f"UF(s) desconhecida(s) no catálogo: {', '.join(unknown)}")
         selected = tuple(
             item for item in catalog.municipalities()
             if item.uf_code in wanted or item.uf_abbr.upper() in wanted

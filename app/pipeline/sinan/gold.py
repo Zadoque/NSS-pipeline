@@ -156,10 +156,17 @@ def aggregate(
     if cnes_lookup is not None and "cd_unidade" in cnes_lookup:
         lookup = cnes_lookup.copy()
         lookup["cd_unidade"] = lookup["cd_unidade"].astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
-        join_cols = ["cd_unidade", *[c for c in territory_cols if c in lookup.columns]]
+        join_cols = [
+            "cd_unidade",
+            *(["cd_mun"] if "cd_mun" in lookup.columns else []),
+            *[c for c in territory_cols if c in lookup.columns],
+        ]
         work["_cd_unidade"] = work.get("ID_UNIDADE", pd.Series(pd.NA, index=work.index)).astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+        lookup_join = lookup[join_cols].rename(
+            columns={column: f"_mapped_{column}" for column in join_cols if column != "cd_unidade"}
+        )
         work = work.merge(
-            lookup[join_cols].rename(columns={column: f"_mapped_{column}" for column in territory_cols if column in lookup}),
+            lookup_join,
             how="left", left_on="_cd_unidade", right_on="cd_unidade",
             validate="many_to_one",
         )
@@ -168,11 +175,15 @@ def aggregate(
             work[column] = work[mapped] if mapped in work else pd.NA
             if mapped in work:
                 work = work.drop(columns=[mapped])
+        work["cd_mun_unidade"] = work.get("_mapped_cd_mun", pd.Series(pd.NA, index=work.index))
+        if "_mapped_cd_mun" in work:
+            work = work.drop(columns=["_mapped_cd_mun"])
         work["notification_territory_status"] = work["notification_territory_status"].fillna("UNMAPPED_NOTIFICATION_UNIT")
         if "ID_UNIDADE" in work:
             work["ID_UNIDADE"] = work["_cd_unidade"]
         work = work.drop(columns=["_cd_unidade", "cd_unidade"])
     else:
+        work["cd_mun_unidade"] = pd.NA
         for column in territory_cols:
             work[column] = "UNMAPPED_NOTIFICATION_UNIT" if column == "notification_territory_status" else pd.NA
 
@@ -201,6 +212,7 @@ def aggregate(
     group_cols = [
         "year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex",
         "age_band", "birth_year", "not_week", *extra_group_cols, *territory_cols,
+        "cd_mun_unidade",
     ]
 
     result = (
@@ -301,6 +313,69 @@ def _validate_source_matches(source_metadata: dict, disease: str, year: int, sou
             "Abortando para evitar misturar anos na mesma agregação."
         )
 
+def _read_cnes_metadata(path: Path) -> dict:
+    metadata_path = path.with_name("metadata.json")
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"metadata.json não encontrado para lote CNES: {path.parent}")
+    try:
+        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"metadata.json CNES inválido: {metadata_path}") from exc
+    if not isinstance(metadata, dict):
+        raise ValueError(f"metadata.json CNES deve conter um objeto: {metadata_path}")
+    if metadata.get("status") != "COMPLETED":
+        raise ValueError("lote CNES não está COMPLETED; lotes parciais não podem enriquecer a Gold")
+    if metadata.get("batch_id") != path.parent.name.removeprefix("batch_id="):
+        raise ValueError("metadata CNES diverge do batch_id do artefato")
+    municipios = metadata.get("municipios")
+    if (
+        not isinstance(municipios, list)
+        or not municipios
+        or any(not isinstance(code, str) or not re.fullmatch(r"\d{7}", code) for code in municipios)
+        or len(set(municipios)) != len(municipios)
+    ):
+        raise ValueError("metadata CNES sem cobertura municipal válida")
+    rows = metadata.get("rows")
+    if not isinstance(rows, int) or isinstance(rows, bool) or rows < 0:
+        raise ValueError("metadata CNES sem contagem de linhas válida")
+    return metadata
+
+
+def _validate_cnes_metadata(
+    metadata: dict,
+    *,
+    batch_path: Path,
+    catalog: MunicipalityCatalog | None = None,
+    expected_scope: set[str] | None = None,
+) -> None:
+    if catalog is not None:
+        expected_id = catalog.metadata.catalog_id
+        expected_sha = catalog.metadata.sha256
+        if metadata.get("ibge_catalog_id") != expected_id or metadata.get("ibge_catalog_sha256") != expected_sha:
+            raise ValueError("lote CNES foi produzido com release IBGE incompatível")
+    elif metadata.get("ibge_catalog_id") is not None or metadata.get("ibge_catalog_sha256") is not None:
+        raise ValueError("lote CNES versionado não pode ser usado sem a release IBGE esperada")
+    available = set(metadata["municipios"])
+    if expected_scope and not expected_scope.issubset(available):
+        missing = sorted(expected_scope - available)
+        raise ValueError(f"lote CNES não cobre todo o escopo solicitado: {missing[:5]}")
+    metadata["_contract_validated"] = True
+
+
+def _load_cnes_batch(path: Path, *, catalog=None, expected_scope=None) -> pd.DataFrame:
+    metadata = _read_cnes_metadata(path)
+    _validate_cnes_metadata(
+        metadata, batch_path=path, catalog=catalog, expected_scope=expected_scope,
+    )
+    lookup = pd.read_parquet(path)
+    if not isinstance(lookup, pd.DataFrame) or len(lookup) != metadata["rows"]:
+        raise ValueError("contagem de linhas do lote CNES diverge do metadata")
+    if "cd_unidade" not in lookup.columns:
+        raise ValueError("lote CNES sem cd_unidade")
+    lookup.attrs["cnes_metadata"] = metadata
+    return lookup
+
+
 def _latest_cnes_lookup() -> pd.DataFrame | None:
     cnes_dir = BASE_DIR / "silver" / "cnes"
     if not cnes_dir.exists():
@@ -308,7 +383,7 @@ def _latest_cnes_lookup() -> pd.DataFrame | None:
     batches = sorted(cnes_dir.glob("batch_id=*/data.parquet"))
     if not batches:
         return None
-    return pd.read_parquet(batches[-1])
+    return _load_cnes_batch(batches[-1])
 
 
 def _cnes_lookup_for_batch(batch_id: str) -> pd.DataFrame:
@@ -317,7 +392,7 @@ def _cnes_lookup_for_batch(batch_id: str) -> pd.DataFrame:
     path = BASE_DIR / "silver" / "cnes" / f"batch_id={batch_id}" / "data.parquet"
     if not path.exists():
         raise FileNotFoundError(f"lote CNES não encontrado: {batch_id}")
-    return pd.read_parquet(path)
+    return _load_cnes_batch(path)
 
 def _gold_input_schema(source_schema: pa.Schema, keys: list[str]) -> pa.Schema:
     needed = GOLD_REQUIRED_COLUMNS | {"ID_UNIDADE", "NU_IDADE_N", "TP_IDADE"}
@@ -381,6 +456,15 @@ def aggregate_file(
         if cnes_batch_id is not None
         else _latest_cnes_lookup()
     )
+    if cnes_lookup is not None:
+        cnes_metadata = cnes_lookup.attrs.get("cnes_metadata")
+        if cnes_metadata is not None:
+            _validate_cnes_metadata(
+                cnes_metadata,
+                batch_path=Path("cnes/data.parquet"),
+                catalog=catalog,
+                expected_scope=set(scope_codes),
+            )
     batches = 0
     resolution_metrics = {
         "scope_matched_rows": 0,

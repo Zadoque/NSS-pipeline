@@ -164,13 +164,17 @@ def test_latest_cnes_lookup_retorna_o_batch_mais_recente(tmp_path, monkeypatch):
     older.parent.mkdir(parents=True)
     middle.parent.mkdir(parents=True)
     newer.parent.mkdir(parents=True)
-    older.write_bytes(b"old")
-    middle.write_bytes(b"middle")
-    newer.write_bytes(b"new")
+    lookup = pd.DataFrame({"cd_unidade": ["0000001"], "cd_mun": ["3301009"]})
+    for path, status in ((older, "COMPLETED"), (middle, "COMPLETED"), (newer, "COMPLETED")):
+        lookup.to_parquet(path, index=False)
+        path.with_name("metadata.json").write_text(json.dumps({
+            "status": status, "batch_id": path.parent.name.removeprefix("batch_id="),
+            "municipios": ["3301009"], "rows": 1,
+            "ibge_catalog_id": None, "ibge_catalog_sha256": None,
+        }), encoding="utf-8")
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path)
-    monkeypatch.setattr(gold.pd, "read_parquet", lambda path: path.read_bytes())
-
-    assert gold._latest_cnes_lookup() == b"new"
+    result = gold._latest_cnes_lookup()
+    assert result.attrs["cnes_metadata"]["batch_id"] == "20260201"
 
 
 def test_gold_fixa_lote_cnes_explicitamente(source, lookup, tmp_path, monkeypatch):
@@ -178,6 +182,11 @@ def test_gold_fixa_lote_cnes_explicitamente(source, lookup, tmp_path, monkeypatc
     batch_path = tmp_path / "data" / "silver" / "cnes" / f"batch_id={batch_id}"
     batch_path.mkdir(parents=True)
     lookup.to_parquet(batch_path / "data.parquet", index=False)
+    (batch_path / "metadata.json").write_text(json.dumps({
+        "status": "COMPLETED", "batch_id": batch_id,
+        "municipios": ["3301009"], "rows": len(lookup),
+        "ibge_catalog_id": None, "ibge_catalog_sha256": None,
+    }), encoding="utf-8")
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
     monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: pytest.fail("lote implícito usado"))
 
@@ -194,6 +203,21 @@ def test_gold_rejeita_lote_cnes_inexistente(source, tmp_path, monkeypatch):
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
     with pytest.raises(FileNotFoundError, match="lote CNES"):
         gold.aggregate_file(source, "DENG", 2024, cnes_batch_id="20261014T120000Z")
+
+
+def test_gold_rejeita_lote_cnes_partial(source, tmp_path, monkeypatch):
+    batch_id = "20261014T120000Z"
+    batch_path = tmp_path / "data" / "silver" / "cnes" / f"batch_id={batch_id}"
+    batch_path.mkdir(parents=True)
+    pd.DataFrame({"cd_unidade": ["0000001"]}).to_parquet(batch_path / "data.parquet", index=False)
+    (batch_path / "metadata.json").write_text(json.dumps({
+        "status": "PARTIAL", "batch_id": batch_id,
+        "municipios": ["3301009"], "rows": 1,
+        "ibge_catalog_id": None, "ibge_catalog_sha256": None,
+    }), encoding="utf-8")
+    monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
+    with pytest.raises(ValueError, match="COMPLETED"):
+        gold.aggregate_file(source, "DENG", 2024, cnes_batch_id=batch_id)
 
 
 def test_latest_cnes_lookup_retorna_none_sem_batches(tmp_path, monkeypatch):

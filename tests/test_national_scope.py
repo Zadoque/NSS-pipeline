@@ -65,11 +65,11 @@ def test_national_cnes_scope_resolves_every_dtb_municipality(tmp_path, monkeypat
 
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fake_fetch)
 
-    pipeline.run_cnes(catalog=catalog, geographic_scope=scope, page_size=250)
+    result = pipeline.run_cnes(catalog=catalog, geographic_scope=scope, page_size=250)
 
     assert len(calls) == 5571
     assert len({session_id for _, session_id in calls}) == 1
-    frame = published["frame"]
+    frame = pd.read_parquet(result)
     assert len(frame) == 5571
     assert frame["cd_mun"].notna().all()
     assert frame["municipality_resolution_status"].eq("VALID").all()
