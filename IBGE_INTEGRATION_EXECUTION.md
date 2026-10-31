@@ -1125,6 +1125,14 @@ apenas retiravam extensões permitidas e continuavam rejeitando o formato de
 teste não suportado. A suíte integral posterior passou em **558 testes**, com
 **3 pulados** e **25 warnings**.
 
+O commit `7b30f34` (`test(ibge): assert annual event lineage`) reforçou a
+derivação observável entre edições DTB: criações, extinções e mudanças
+toponímicas agora têm regressões para `event_id`, `source_name` e
+`target_name`, além da garantia de que nenhuma sucessão é inferida. Os **5
+mutantes** direcionados selecionados morreram. A suíte integral permaneceu em
+**558 testes passantes**, com **3 pulados** e **25 warnings**. Essa medição de
+mutação é dirigida e não altera a baseline global limpa de 7.475 mutantes.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
