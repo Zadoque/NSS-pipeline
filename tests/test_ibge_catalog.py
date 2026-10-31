@@ -1,4 +1,6 @@
 from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
+import json
 import sys
 
 import pytest
@@ -54,6 +56,30 @@ def test_storage_temporary_paths_are_unique_and_local(tmp_path):
     assert first != second
     assert first.parent == destination.parent
     assert second.parent == destination.parent
+
+
+def test_promote_active_concorrente_preserva_ponteiro_valido(tmp_path):
+    for catalog_id in ("release-a", "release-b"):
+        release = tmp_path / "releases" / catalog_id
+        write_catalog(release / "municipalities.parquet", [municipality("3301009", "Campos")])
+        write_manifest(
+            release / "manifest.json",
+            replace(METADATA, catalog_id=catalog_id),
+        )
+
+    active = tmp_path / "active.json"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures = [
+            pool.submit(promote_active, active, catalog_id)
+            for catalog_id in ("release-a", "release-b")
+        ]
+        for future in futures:
+            assert future.result() == active
+
+    assert json.loads(active.read_text(encoding="utf-8"))["catalog_id"] in {
+        "release-a", "release-b",
+    }
+    assert not list(tmp_path.glob(".active.json.*.tmp"))
 
 
 def catalog():

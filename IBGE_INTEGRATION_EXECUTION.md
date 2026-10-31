@@ -1495,6 +1495,10 @@ temporários exclusivos no mesmo diretório, evitando disputa entre atualizaçõ
 simultâneas. `tests/test_ibge_catalog.py` passou em **111 testes**, incluindo a
 regressão de exclusividade dos temporários.
 
+A regressão foi ampliada para duas chamadas concorrentes de `promote_active()`:
+ambas concluem sem deixar temporários e o `active.json` final sempre aponta
+para uma das releases previamente validadas.
+
 Verificação integral posterior à correção de armazenamento: **622 testes
 passaram**, com **3 pulados** e **25 warnings**; `nix flake check --no-build`
 passou e o branch permaneceu limpo no commit `d6ab4e1`.

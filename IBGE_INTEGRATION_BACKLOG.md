@@ -269,7 +269,8 @@ IBGE-012 ──> IBGE-013
   `reference.ibge`, com regressão de importação.
 - A escrita de manifestos, artefatos auxiliares e `active.json` usa temporários
   exclusivos no diretório de destino; atualizações concorrentes não disputam
-  mais um nome `.tmp` fixo.
+  mais um nome `.tmp` fixo. A regressão também executa duas promoções
+  concorrentes e valida o ponteiro final e a limpeza dos temporários.
 - O commit `ca10257` adicionou o parser da planilha oficial
   `pop_mun_TUR_1872_a_2010.xls`, promovendo somente alterações de nome com o
   mesmo código. A execução do artefato oficial produziu 2.149 eventos
