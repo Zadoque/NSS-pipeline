@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -9,10 +10,12 @@ import requests
 
 from app.pipeline import run_cnes as pipeline
 from app.pipeline.run_cnes import (
+    _canonicalize_municipalities,
     _classify_cnes_error,
     _validate_checkpoint_completed,
     _validate_checkpoint_failed,
 )
+from app.pipeline.reference.ibge.models import Municipality, ResolutionResult, ResolutionStatus
 
 
 def _bronze(code: str, municipality_code: str = "3301009") -> pd.DataFrame:
@@ -43,9 +46,36 @@ def test_validate_checkpoint_completed_aceita_entrada_completa():
             "rows": 0,
         },
     }
-
     assert _validate_checkpoint_completed(completed, {"3301009": "Campos"}) == completed
 
+
+def test_canonicalize_municipalities_rejeita_status_invalido_mesmo_com_municipio():
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = Mock()
+    catalog.resolve.return_value = ResolutionResult(
+        original_code="3301009",
+        input_format="CODE7",
+        status=ResolutionStatus.UNKNOWN_CODE,
+        municipality=municipality,
+    )
+
+    with pytest.raises(ValueError, match="município CNES inválido"):
+        _canonicalize_municipalities({"3301009": "Campos"}, catalog)
+
+
+def test_canonicalize_municipalities_devolve_identidade_canonica():
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = Mock()
+    catalog.resolve.return_value = ResolutionResult(
+        original_code="330100",
+        input_format="CODE6",
+        status=ResolutionStatus.VALID,
+        municipality=municipality,
+    )
+
+    assert _canonicalize_municipalities({"330100": "Campos"}, catalog) == {
+        "3301009": "Campos",
+    }
 
 def test_validate_checkpoint_completed_rejeita_entrada_nao_objeto():
     with pytest.raises(ValueError, match="completed inválido"):
