@@ -1133,6 +1133,13 @@ mutantes** direcionados selecionados morreram. A suíte integral permaneceu em
 **558 testes passantes**, com **3 pulados** e **25 warnings**. Essa medição de
 mutação é dirigida e não altera a baseline global limpa de 7.475 mutantes.
 
+O commit `6b163e5` (`test(ibge): verify historical promotion idempotence`)
+adicionou regressões para promover a mesma fonte sem duplicar eventos ou
+linhagem e para rejeitar alteração de um evento já registrado sob o mesmo
+`event_id`. Os **8 mutantes** selecionados do merge histórico morreram. A
+suíte integral posterior passou em **560 testes**, com **3 pulados** e **25
+warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
