@@ -101,6 +101,27 @@ def test_aggregate_usa_uf_canonica_do_catalogo():
     assert result.loc[0, "nm_uf"] == "Rio de Janeiro"
 
 
+def test_aggregate_prefere_uf_canonica_quando_fonte_diverge():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(
+            ID_MUNICIP=["330100"] * 3,
+            SG_UF_NOT=["35"] * 3,
+            NM_UF=["São Paulo"] * 3,
+        ),
+        "DENG", municipios=catalog, catalog=catalog,
+    )
+
+    assert result.empty
+    assert "cd_uf" in result.columns
+
+
 def test_normalize_municipality_codes_aceita_catalogo_imbutavel():
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
