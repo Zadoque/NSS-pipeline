@@ -282,6 +282,10 @@ IBGE-012 ──> IBGE-013
     validação, API e processamento; os **8 mutantes** selecionados morreram.
     A suíte integral posterior passou em **519 testes**, com **3 pulados** e
     **25 warnings**.
+  - O commit `0c2d440` cobriu reprocessamento com divergência isolada de
+    `catalog_id` ou SHA e o caminho idêntico `UNCHANGED`; os **3 mutantes**
+    selecionados do vínculo territorial morreram. A suíte integral posterior
+    passou em **522 testes**, com **3 pulados** e **25 warnings**.
 
 ### IBGE-013 — Rollout nacional de produção
 
