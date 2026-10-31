@@ -131,8 +131,9 @@ def test_run_cnes_checkpoint_binds_ibge_release_identity(tmp_path, monkeypatch, 
 
 
 def test_run_cnes_rejects_empty_scope():
-    with pytest.raises(ValueError, match="ao menos"):
+    with pytest.raises(ValueError) as error:
         pipeline.run_cnes({})
+    assert str(error.value) == "Informe ao menos um município para a carga CNES"
 
 
 @pytest.mark.parametrize("page_size", [0, -1, True, 1.0])
