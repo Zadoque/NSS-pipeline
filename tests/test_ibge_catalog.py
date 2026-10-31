@@ -300,11 +300,11 @@ def test_catalog_preserva_fonte_e_tipo_administrativo_do_mapping():
         "uf_abbr": "DF",
         "uf_name": "Distrito Federal",
         "reference_year": 2025,
-        "source": "IBGE_DTB",
+        "source": "IBGE_API_LOCALIDADES",
         "administrative_type": "FEDERAL_DISTRICT",
     })
 
-    assert result.source == "IBGE_DTB"
+    assert result.source == "IBGE_API_LOCALIDADES"
     assert result.administrative_type == "FEDERAL_DISTRICT"
 
 
