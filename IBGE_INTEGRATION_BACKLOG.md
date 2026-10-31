@@ -25,6 +25,8 @@ e auditados em ciclos independentes:
 Evidência local desta rodada: **638 testes**, **24 testes PostgreSQL**
 e **3 testes nacionais offline** aprovados. A cobertura de grupos SINAN foi
 verificada contra o PySUS 2.11.7 e contém **49 grupos**.
+O push do commit `8df0b8c` também foi validado pelo GitHub Actions no run
+`41226015214`, com resultado **success**.
 
 ## Grafo de dependências
 
