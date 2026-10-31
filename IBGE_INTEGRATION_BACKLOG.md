@@ -315,6 +315,11 @@ IBGE-012 ──> IBGE-013
     municípios, UFs e crosswalk Parquet. Na rodada dirigida, **8 mutantes** de
     nomes de colunas morreram; seis variantes de serialização sem efeito no
     contrato lido foram classificadas como equivalentes.
+  - A análise dirigida de `InMemoryMunicipalityCatalog.resolve()` deixou dois
+    mutantes equivalentes: inicializações de `candidate` e `input_format` que
+    só afetam caminhos já encerrados por formato inválido. Nenhum mutante altera
+    uma resolução `VALID`, `UNKNOWN_CODE`, `UF_MISMATCH` ou
+    `HISTORICAL_UNRESOLVED` observável.
 
 ### IBGE-013 — Rollout nacional de produção
 

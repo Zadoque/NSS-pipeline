@@ -992,6 +992,13 @@ e `code_crosswalk.parquet`. A rodada dirigida matou **8 mutantes** de nomes de
 colunas; seis mutantes restantes alteram somente parâmetros de serialização que
 não mudam o contrato observado ao reler o Parquet.
 
+Na análise dirigida de `InMemoryMunicipalityCatalog.resolve()`, os dois
+mutantes sobreviventes foram classificados como equivalentes: eles alteram
+somente inicializações substituídas antes de qualquer retorno observável nos
+caminhos de formato inválido. Os caminhos de resolução válida, código
+desconhecido, UF divergente e referência histórica continuam cobertos por
+resultados distintos.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
