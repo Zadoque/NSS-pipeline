@@ -1325,9 +1325,12 @@ variantes ainda não distinguidas pela suíte.
 O commit `cf39978` (`test(ibge): distinguish historical manifest errors`)
 adicionou ainda o caso de SHA-256 ausente e tornou mais específico o contrato
 da mensagem de mapa inválido. O conjunto histórico passou em **75 testes**.
-Os dois mutantes de mensagem/estrutura continuam classificados como
-sobreviventes na execução dirigida, portanto não são contabilizados como
-mutantes mortos.
+
+Uma repetição dirigida inicialmente reutilizou resultados antigos do mutmut.
+Após mover o cache gerado para `/tmp` e executar em cache limpo, os dois
+mutantes de mensagem/estrutura foram reexecutados e **ambos morreram**. O
+resultado anterior foi, portanto, classificado como artefato de cache e não
+como falha da cobertura atual.
 
 ## Conclusão
 
