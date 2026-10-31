@@ -92,6 +92,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `44e07b4` | Retentativa de municípios falhos na retomada CNES |
 | `78d3dd9` | Workers limitados para ingestão CNES nacional |
 | `28bf78a` | Janela limitada de requisições CNES |
+| `3d4e019` | Série anual explícita de eventos territoriais |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
