@@ -967,6 +967,11 @@ O commit `18d4063` (`fix(ibge): require timezone in promotion metadata`)
 completou essa validação exigindo timezone explícito, evitando timestamps
 locais ambíguos.
 
+A rodada dirigida de mutação executada com o identificador privado correto do
+`mutmut` matou **34/34 mutantes** de `storage._validate_metadata()`. A evidência
+abrange as validações de hashes, status da release e timestamp de promoção; ela
+é específica do contrato e não é apresentada como a taxa global de mutação.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

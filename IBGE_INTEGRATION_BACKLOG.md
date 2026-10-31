@@ -298,6 +298,10 @@ IBGE-012 ──> IBGE-013
     PostgreSQL e a mensagem exata para tipo inválido; **6 mutantes** selecionados
     morreram. A suíte integral posterior passou em **525 testes**, com **3
     pulados** e **25 warnings**.
+  - A rodada dirigida correta de `storage._validate_metadata()` executou
+    **34/34 mutantes mortos**, incluindo SHA-256, status de validação e
+    `promoted_at` com timezone. O identificador utilizado pelo `mutmut` inclui
+    `x__` para funções privadas; essa medição não substitui a rodada global.
 
 ### IBGE-013 — Rollout nacional de produção
 
