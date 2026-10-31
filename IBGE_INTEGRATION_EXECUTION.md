@@ -1265,6 +1265,13 @@ promovida precisa declarar `reference_year`, `source_path` e um SHA-256
 hexadecimal válido. A regressão cobre uma fonte sem SHA. A suíte integral
 passou em **587 testes**, com **3 pulados** e **25 warnings**.
 
+O commit `41437ad` (`fix(ibge): validate documentary source manifests`)
+estendeu a validação ao manifesto documental da genealogia: cada entrada
+`RAW_ONLY` agora precisa manter identidade, URL, caminho, período, SHA-256,
+tamanho positivo e status de extração compatível. A regressão cobre entrada
+documental sem URL. A suíte integral passou em **588 testes**, com **3 pulados**
+e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

@@ -319,6 +319,10 @@ IBGE-012 ──> IBGE-013
     históricas, exigindo ano, caminho e SHA-256 válido; a regressão de fonte
     sem SHA foi adicionada e a suíte chegou a **587 testes**, com **3 pulados**
     e **25 warnings**.
+  - O commit `41437ad` passou a validar o esquema completo das fontes
+    documentais `RAW_ONLY`, incluindo URL, período, SHA, tamanho e status.
+    A regressão de entrada sem URL foi adicionada; a suíte passou em **588
+    testes**, com **3 pulados** e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.
