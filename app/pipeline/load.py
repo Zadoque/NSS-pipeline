@@ -25,6 +25,45 @@ DISEASE_NAMES: dict[str, str] = {
     "FMAC": "Febre maculosa",
     "TOXC": "Toxoplasmose congênita",
     "TOXG": "Toxoplasmose gestacional",
+    # Grupos SINAN disponíveis no PySUS 2.11.x. Mantemos o código do grupo
+    # como identidade operacional para que novas doenças não caiam no nome
+    # técnico do arquivo nem sejam confundidas no PostgreSQL.
+    "ACBI": "Acidente de trabalho com material biológico",
+    "ACGR": "Acidente de trabalho",
+    "ANIM": "Acidente por animais peçonhentos",
+    "ANTR": "Atendimento antirrábico",
+    "BOTU": "Botulismo",
+    "CANC": "Câncer relacionado ao trabalho",
+    "CHAG": "Doença de Chagas aguda",
+    "ESQU": "Esquistossomose",
+    "COLE": "Cólera",
+    "COQU": "Coqueluche",
+    "DERM": "Dermatoses ocupacionais",
+    "DIFT": "Difteria",
+    "EXAN": "Doenças exantemáticas",
+    "FTIF": "Febre tifoide",
+    "HANT": "Hantavirose",
+    "IEXO": "Intoxicação exógena",
+    "INFL": "Influenza pandêmica",
+    "LEIV": "Leishmaniose visceral",
+    "LTAN": "Leishmaniose tegumentar americana",
+    "LERD": "LER/Dort",
+    "MALA": "Malária",
+    "MENT": "Transtornos mentais relacionados ao trabalho",
+    "NTRA": "Notificação de tracoma",
+    "PAIR": "Perda auditiva por ruído relacionada ao trabalho",
+    "PFAN": "Paralisia flácida aguda",
+    "PNEU": "Pneumoconioses relacionadas ao trabalho",
+    "PEST": "Peste",
+    "RAIV": "Raiva",
+    "SDTA": "Surto de doenças transmitidas por alimentos",
+    "SRC": "Síndrome da rubéola congênita",
+    "SIFG": "Sífilis em gestante",
+    "TETA": "Tétano acidental",
+    "TETN": "Tétano neonatal",
+    "TRAC": "Inquérito de tracoma",
+    "VARC": "Varicela",
+    "VIOL": "Violência doméstica, sexual ou outras violências",
 }
 
 UNIDADE_NAO_IDENTIFICADA = "0000000"
@@ -181,6 +220,15 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     foi seedado com descrição curada pela migration e não deve ser
     sobrescrito com nomes nulos.
     """
+    # O município da notificação e o município cadastrado da unidade são
+    # identidades distintas. Somente o segundo pode alimentar a FK da unidade;
+    # sem ele, a dimensão permanece sem município.
+    if "cd_mun_unidade" in fact_df.columns:
+        fact_df = fact_df.drop(columns=["cd_mun"], errors="ignore").rename(
+            columns={"cd_mun_unidade": "cd_mun"}
+        )
+    else:
+        fact_df = fact_df.drop(columns=["cd_mun"], errors="ignore")
     # Nomes aqui devem bater EXATAMENTE com as colunas de
     # analytics.dim_unidade_saude (migration 0001) — "razao_social",
     # não "razao_social_unidade" (esse é o nome vindo do silver_cnes.py).
@@ -442,7 +490,26 @@ def load_gold_to_postgres(
             "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
             "geographic_scope_type": geographic_scope_type,
             "geographic_scope_sha256": geographic_scope_sha256,
-            **quality,
+            # As métricas globais vivem em pipeline_execution_metrics. As
+            # colunas legadas por município permanecem zeradas para impedir
+            # que uma soma municipal conte a mesma execução repetidamente.
         } for code in scope]
         _upsert(conn, "analytics.pipeline_publications", rows,
                 conflict_cols=["disease_codigo", "ano", "cd_mun", "batch_id"])
+        _upsert(
+            conn,
+            "analytics.pipeline_execution_metrics",
+            [{
+                "disease_codigo": disease_codigo,
+                "ano": year,
+                "batch_id": batch_id,
+                "source_extracted_at": source_extracted_at,
+                "published_at": datetime.now(UTC),
+                "geographic_scope_type": geographic_scope_type,
+                "geographic_scope_sha256": geographic_scope_sha256,
+                "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
+                "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
+                **quality,
+            }],
+            conflict_cols=["disease_codigo", "ano", "batch_id"],
+        )

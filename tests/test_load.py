@@ -9,6 +9,7 @@ import pytest
 
 from app.pipeline.load import (
     CODIGO_NAO_INFORMADO,
+    DISEASE_NAMES,
     UNIDADE_NAO_IDENTIFICADA,
     _clean_code_series,
     _integer_series,
@@ -416,6 +417,7 @@ def test_dimension_upserts_filter_duplicates_and_sentinels(mocker):
     fact = pd.DataFrame(
         {
             "cd_mun": ["3301009", "3301009", None],
+            "cd_mun_unidade": ["3550308", "3550308", None],
             "nm_mun": ["Campos", "Campos", "ignored"],
             "cd_uf": ["33", "33", "33"],
             "nm_uf": ["RJ", "RJ", "RJ"],
@@ -439,6 +441,7 @@ def test_dimension_upserts_filter_duplicates_and_sentinels(mocker):
     assert any("dim_doenca" in str(args[0]) for args in calls)
     unidade_rows = next(args[1] for args in calls if "dim_unidade_saude" in str(args[0]))
     assert [row["cd_unidade"] for row in unidade_rows] == ["0000001"]
+    assert unidade_rows[0]["cd_mun"] == "3550308"
     municipio_rows = next(args[1] for args in calls if "dim_municipio" in str(args[0]))
     assert municipio_rows == [{
         "cd_mun": "3301009", "nm_mun": "Campos", "cd_uf": "33", "nm_uf": "RJ",
@@ -449,6 +452,13 @@ def test_dimension_upserts_filter_duplicates_and_sentinels(mocker):
     assert evolucao_rows == [{"codigo": "1", "descricao": "Código 1 (ver dicionário SINAN)"}]
     doenca_rows = next(args[1] for args in calls if "dim_doenca" in str(args[0]))
     assert doenca_rows == [{"codigo": "DENG", "nome": "Dengue"}]
+
+
+def test_catalogo_de_doencas_cobre_grupos_sinan_disponiveis_no_pysus():
+    from pysus.api.ftp.databases import SINAN
+
+    expected = set(SINAN.model_fields["group_definitions"].default)
+    assert set(DISEASE_NAMES) == expected
 
 
 def test_unidade_rejects_non_smallint_type(mocker):

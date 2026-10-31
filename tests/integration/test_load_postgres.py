@@ -239,7 +239,14 @@ def test_publicacao_registra_metricas_de_reconciliacao(postgres_engine):
             FROM analytics.pipeline_publications
             WHERE batch_id = 'metrics-b1'
         """)).one()
-    assert tuple(row) == (10, 6, 4, 1, 0, 4, 0)
+        execution = conn.execute(text("""
+            SELECT source_rows, resolved_rows, discarded_rows, aggregation_reduction,
+                   invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows
+            FROM analytics.pipeline_execution_metrics
+            WHERE batch_id = 'metrics-b1'
+        """)).one()
+    assert tuple(row) == (0, 0, 0, 0, 0, 0, 0)
+    assert tuple(execution) == (10, 6, 4, 1, 0, 4, 0)
 
 
 def test_snapshot_substitui_contagem_em_vez_de_duplicar(postgres_engine):
