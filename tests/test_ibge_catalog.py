@@ -291,6 +291,23 @@ def test_catalog_converte_mapping_em_municipio_com_atributos_opcionais():
     )
 
 
+def test_catalog_preserva_fonte_e_tipo_administrativo_do_mapping():
+    result = _as_municipality({
+        "code7": "5300108",
+        "code6": "530010",
+        "name": "Brasília",
+        "uf_code": "53",
+        "uf_abbr": "DF",
+        "uf_name": "Distrito Federal",
+        "reference_year": 2025,
+        "source": "IBGE_DTB",
+        "administrative_type": "FEDERAL_DISTRICT",
+    })
+
+    assert result.source == "IBGE_DTB"
+    assert result.administrative_type == "FEDERAL_DISTRICT"
+
+
 def test_catalog_content_hash_is_canonical_and_sensitive_to_attributes():
     records = [
         municipality("3550308", "São Paulo", "35", "SP"),
