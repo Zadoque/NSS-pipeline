@@ -125,6 +125,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `91e14b2` | Fechamento seguro de sessões próprias da API de Localidades |
 | `a2a1496` | Fechamento das respostas HTTP em streaming da DTB |
 | `b5caa06` | Registro da limpeza de recursos HTTP |
+| `788bce9` | Fallback da API para municípios sem microrregião |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -296,6 +297,8 @@ national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 controlled refresh after safe promotion → release recarregada via active.json,
   5571 municípios e SHA do ZIP confirmado
+IBGE Localidades real → 5571 municípios, 27 UFs; Boa Esperança do Norte
+  (`5101837`) resolvida via hierarquia de região imediata/intermediária
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
