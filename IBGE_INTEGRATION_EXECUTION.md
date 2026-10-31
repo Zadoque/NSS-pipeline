@@ -1436,3 +1436,7 @@ O commit `6da713a` (`test(sinan): reject invalid Gold metrics`) ampliou a
 regressão de métricas Gold para tipos textual, booleano e negativo. O módulo
 passou em **38 testes** e o mutante comportamental da validação de métricas
 morreu.
+
+O commit `66329bd` (`test(sinan): cover missing Gold metadata`) adicionou o
+cenário de `metadata.json` ausente quando há catálogo IBGE. O módulo passou em
+**39 testes** e o mutante que trocava o mapa vazio por `None` morreu.

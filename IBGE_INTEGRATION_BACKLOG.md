@@ -419,6 +419,9 @@ IBGE-012 ──> IBGE-013
   - O commit `6da713a` cobriu métricas Gold textuais, booleanas e negativas;
     o mutante comportamental correspondente morreu. A baseline global ainda
     precisa ser recalculada para incorporar a alteração.
+  - O commit `66329bd` cobriu a ausência de `metadata.json` da Gold com catálogo
+    ativo; o mutante comportamental correspondente morreu. A baseline global
+    ainda não foi recalculada após os dois últimos testes.
 
 ### IBGE-013 — Rollout nacional de produção
 
