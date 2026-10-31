@@ -520,7 +520,19 @@ IBGE-012 ──> IBGE-013
   - Todas as UFs habilitadas passaram pelos critérios anteriores.
   - Release, escopo, lote CNES e métricas são consultáveis após a publicação.
   - Falhas de atualização não substituem a release ativa.
-  - A execução nacional é repetível e auditável.
+- A execução nacional é repetível e auditável.
+
+## Auditoria posterior — cache PySUS e matriz nacional
+
+O commit `04c7ae0` adicionou lock de processo ao cache compartilhado do PySUS,
+abrangendo inspeção e download. A regressão do módulo passou em 14 testes e a
+suíte integral passou em 682 testes, com 21 skips condicionais.
+
+Em consulta independente com cache isolado, os 49 grupos homologados foram
+verificados para 2024: 47 tinham Parquet remoto; `HEPA` e `INFL` estavam
+indisponíveis. O resultado não altera o estado de IBGE-010: a pipeline suporta
+os 49 grupos, mas uma carga autorizada nacional e a disponibilidade temporal
+de cada fonte continuam critérios de produção separados.
 
 ## Evidência
 

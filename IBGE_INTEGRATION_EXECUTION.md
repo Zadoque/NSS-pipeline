@@ -1644,3 +1644,18 @@ de 95%; a genealogia oficial 1872--2010 continua preservada como `RAW_ONLY`
 sem tabela codificada segura de sucessões; e ainda falta uma carga SINAN
 nacional autorizada para reconciliar Silver, Gold e PostgreSQL. Nenhuma dessas
 lacunas é preenchida por inferência territorial ou por fonte PySUS ausente.
+
+O commit `04c7ae0` fechou uma lacuna operacional descoberta durante a auditoria
+da matriz nacional: além do lock do manifesto, `source.py` agora serializa as
+chamadas de inspeção e download pelo arquivo de lock no cache do PySUS. Isso
+evita que processos concorrentes deixem o catálogo DuckLake com WAL
+inconsistente. A regressão específica passou em 14 testes e a suíte integral
+posterior passou em **682 testes**, com **21 testes condicionais pulados** e
+**25 warnings**.
+
+Uma execução independente da matriz PySUS 2.11.7 em 2024, usando cache isolado,
+consultou os 49 grupos sem publicar dados: **47 possuem Parquet remoto** e
+`HEPA`/`INFL` não possuem Parquet naquele ano. A execução sem cache isolado
+falhou antes da consulta por WAL inconsistente no cache global; o cache isolado
+concluiu normalmente. A ausência foi mantida como condição explícita da fonte,
+não como sucesso de cobertura.
