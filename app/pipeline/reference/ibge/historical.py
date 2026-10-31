@@ -10,6 +10,7 @@ import re
 import tempfile
 
 import pandas as pd
+import requests
 
 from ...atomic_io import write_json_atomic
 from .models import HistoricalReferenceValidationReport, Municipality
@@ -95,6 +96,69 @@ def promote_historical_source(
         manifest_path,
     )
     return destination
+
+
+def download_historical_source(
+    root: Path,
+    *,
+    url: str,
+    source_id: str,
+    reference_period: str,
+    expected_sha256: str | None = None,
+    session: requests.Session | None = None,
+    timeout: float = 120,
+) -> Path:
+    """Baixa e preserva uma fonte histórica oficial como ``RAW_ONLY``.
+
+    O conteúdo não é interpretado durante a aquisição. A promoção posterior
+    continua responsável por registrar o artefato e sua proveniência, evitando
+    que um PDF editorial seja confundido com uma tabela de sucessões.
+    """
+    if not source_id or Path(source_id).name != source_id:
+        raise ValueError("source_id inválido para uma fonte histórica local")
+
+    sources_dir = root / "historical" / "sources"
+    sources_dir.mkdir(parents=True, exist_ok=True)
+    client = session or requests.Session()
+    owns_session = session is None
+    temporary_path: Path | None = None
+    response = None
+    try:
+        response = client.get(url, stream=True, timeout=timeout)
+        response.raise_for_status()
+        digest = hashlib.sha256()
+        with tempfile.NamedTemporaryFile(
+            dir=sources_dir, prefix=f".{source_id}.", suffix=".tmp", delete=False
+        ) as temporary:
+            temporary_path = Path(temporary.name)
+            try:
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        digest.update(chunk)
+                        temporary.write(chunk)
+            except Exception:
+                temporary_path.unlink(missing_ok=True)
+                raise
+        actual_sha256 = digest.hexdigest()
+        if expected_sha256 and actual_sha256 != expected_sha256:
+            raise ValueError(
+                "SHA-256 da fonte histórica diverge: "
+                f"esperado {expected_sha256}, obtido {actual_sha256}"
+            )
+        return promote_historical_source(
+            root,
+            temporary_path,
+            source_id=source_id,
+            source_url=url,
+            reference_period=reference_period,
+        )
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+        if response is not None:
+            response.close()
+        if owns_session:
+            client.close()
 
 
 @dataclass(frozen=True)

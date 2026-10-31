@@ -5,6 +5,7 @@ from app.pipeline.reference.ibge.historical import (
     _event_id,
     derive_annual_events,
     derive_annual_event_series,
+    download_historical_source,
     parse_administrative_events,
     parse_toponymic_events,
     promote_administrative_events,
@@ -79,6 +80,56 @@ def test_promote_historical_source_is_immutable(tmp_path):
 
     with pytest.raises(ValueError, match="imutável"):
         promote_historical_source(root, source, **kwargs)
+
+
+def test_download_historical_source_promotes_raw_artifact(tmp_path, mocker):
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"official", b"-genealogy"]
+    session = mocker.Mock()
+    session.get.return_value = response
+
+    result = download_historical_source(
+        tmp_path / "catalog",
+        url="https://example.invalid/genealogy.pdf",
+        source_id="genealogy.pdf",
+        reference_period="1872-2010",
+        expected_sha256=__import__("hashlib").sha256(
+            b"official-genealogy"
+        ).hexdigest(),
+        session=session,
+        timeout=45,
+    )
+
+    assert result.read_bytes() == b"official-genealogy"
+    manifest = __import__("json").loads(
+        (tmp_path / "catalog/historical/sources.manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert manifest["sources"]["genealogy.pdf"]["extraction_status"] == "RAW_ONLY"
+    session.get.assert_called_once_with(
+        "https://example.invalid/genealogy.pdf", stream=True, timeout=45
+    )
+    response.close.assert_called_once_with()
+
+
+def test_download_historical_source_rejeita_hash_sem_promover(tmp_path, mocker):
+    response = mocker.Mock()
+    response.iter_content.return_value = [b"official"]
+    session = mocker.Mock()
+    session.get.return_value = response
+
+    with pytest.raises(ValueError, match="SHA-256 da fonte histórica diverge"):
+        download_historical_source(
+            tmp_path / "catalog",
+            url="https://example.invalid/genealogy.pdf",
+            source_id="genealogy.pdf",
+            reference_period="1872-2010",
+            expected_sha256="0" * 64,
+            session=session,
+        )
+
+    assert not (tmp_path / "catalog/historical/sources/genealogy.pdf").exists()
 
 
 @pytest.mark.parametrize(
