@@ -11,6 +11,8 @@ from .historical import (
     parse_toponymic_events,
     promote_administrative_events,
     promote_historical_source,
+    promote_historical_municipality_workbook,
+    parse_historical_municipality_workbook,
     promote_toponymic_events,
 )
 from .models import (
@@ -38,6 +40,8 @@ __all__ = [
     "parse_administrative_events",
     "promote_administrative_events",
     "promote_historical_source",
+    "promote_historical_municipality_workbook",
+    "parse_historical_municipality_workbook",
     "parse_toponymic_events",
     "promote_toponymic_events",
     "require_event_references",

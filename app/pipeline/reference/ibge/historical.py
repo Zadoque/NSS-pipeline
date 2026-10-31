@@ -344,6 +344,90 @@ def parse_toponymic_events(
     return events
 
 
+def _workbook_code7(value: object) -> str | None:
+    if value is None or pd.isna(value):
+        return None
+    text = str(value).strip()
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text if CODE7_PATTERN.fullmatch(text) else None
+
+
+def parse_historical_municipality_workbook(
+    source_path: Path,
+    *,
+    source_url: str | None = None,
+) -> list[MunicipalityEvent]:
+    """Extrai apenas alterações toponímicas explicitamente observáveis.
+
+    A planilha histórica do IBGE contém, para vários anos censitários, o
+    código e o nome do município. Quando o mesmo código aparece em dois anos
+    consecutivos com nomes diferentes, a mudança pode ser promovida sem
+    resolver genealogia por nome. Textos como ``desmembrado de`` não são
+    convertidos em sucessões, pois não trazem um código de origem inequívoco.
+    """
+    suffix = source_path.suffix.lower()
+    if suffix not in {".xls", ".xlsx", ".ods"}:
+        raise ValueError(f"formato de planilha histórica não suportado: {suffix}")
+    frame = pd.read_excel(source_path, dtype=str)
+    code_columns: dict[int, str] = {}
+    name_columns: dict[int, str] = {}
+    for column in frame.columns:
+        text = str(column).strip()
+        code_match = re.fullmatch(r"cod\.(\d{4})", text, flags=re.IGNORECASE)
+        name_match = re.fullmatch(r"Município\s+(\d{4})", text, flags=re.IGNORECASE)
+        if code_match:
+            code_columns[int(code_match.group(1))] = column
+        if name_match:
+            name_columns[int(name_match.group(1))] = column
+    years = sorted(set(code_columns) & set(name_columns))
+    if len(years) < 2:
+        raise ValueError("planilha histórica sem pares de código e nome por ano")
+
+    events: list[MunicipalityEvent] = []
+    for previous_year, current_year in zip(years, years[1:]):
+        for index, row in frame.iterrows():
+            previous_code = _workbook_code7(row[code_columns[previous_year]])
+            current_code = _workbook_code7(row[code_columns[current_year]])
+            if previous_code is None or previous_code != current_code:
+                continue
+            previous_name = str(row[name_columns[previous_year]]).strip()
+            current_name = str(row[name_columns[current_year]]).strip()
+            if not previous_name or previous_name.lower() == "nan":
+                continue
+            if not current_name or current_name.lower() == "nan" or previous_name == current_name:
+                continue
+            events.append(MunicipalityEvent(
+                event_id=_event_id(current_year, index, previous_code, previous_name, current_name),
+                event_type="TOPONYMIC_CHANGE",
+                effective_date=f"{current_year}-01-01",
+                source_code7=previous_code,
+                target_code7=current_code,
+                source_name=previous_name,
+                target_name=current_name,
+                source=source_url or "IBGE_EVOLUCAO_MUNICIPAL_1872_2010",
+            ))
+    if not events:
+        raise ValueError("nenhuma alteração toponímica observável na planilha histórica")
+    return events
+
+
+def promote_historical_municipality_workbook(
+    root: Path,
+    source_path: Path,
+    *,
+    source_url: str | None = None,
+) -> Path:
+    """Promove mudanças de nome observáveis da planilha histórica do IBGE."""
+    events = parse_historical_municipality_workbook(
+        source_path, source_url=source_url,
+    )
+    return _promote_events(
+        root, events, source_path=source_path, reference_year=2010,
+        source_url=source_url,
+    )
+
+
 def derive_annual_events(
     previous: Sequence[Municipality],
     current: Sequence[Municipality],

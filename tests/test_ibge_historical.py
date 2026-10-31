@@ -8,10 +8,12 @@ from app.pipeline.reference.ibge.historical import (
     derive_annual_event_series,
     download_historical_source,
     parse_administrative_events,
+    parse_historical_municipality_workbook,
     parse_toponymic_events,
     promote_administrative_events,
     promote_annual_dtb_events,
     promote_historical_source,
+    promote_historical_municipality_workbook,
     promote_toponymic_events,
     validate_event_references,
     write_events,
@@ -69,6 +71,61 @@ def test_event_id_is_deterministic_delimited_and_fixed_width():
     assert _event_id("2025", "CREATION", "5101837") == "9287a6172fd94922cf52"
     assert _event_id("a", "bc") != _event_id("ab", "c")
     assert len(_event_id("2025", "CREATION", "5101837")) == 20
+
+
+def test_parse_historical_workbook_promove_apenas_mudanca_com_mesmo_codigo(
+    tmp_path, monkeypatch
+):
+    source = tmp_path / "pop_mun_TUR_1872_a_2010.xls"
+    source.write_bytes(b"fixture")
+    frame = __import__("pandas").DataFrame([
+        {
+            "cod.1991": "3301009", "Município 1991": "Campos",
+            "cod.2000": "3301009", "Município 2000": "Campos dos Goytacazes",
+            "cod.2010": "5101837", "Município 2010": "Novo município",
+        },
+        {
+            "cod.1991": "3302008", "Município 1991": "Outro",
+            "cod.2000": "3302008", "Município 2000": "Outro Novo",
+            "cod.2010": "3302008", "Município 2010": "Outro Novo",
+        },
+    ])
+    monkeypatch.setattr(
+        "app.pipeline.reference.ibge.historical.pd.read_excel",
+        lambda *args, **kwargs: frame,
+    )
+
+    events = parse_historical_municipality_workbook(source, source_url="fixture://history")
+
+    assert [(event.event_type, event.source_code7, event.target_code7) for event in events] == [
+        ("TOPONYMIC_CHANGE", "3301009", "3301009"),
+        ("TOPONYMIC_CHANGE", "3302008", "3302008"),
+    ]
+    assert all(event.source == "fixture://history" for event in events)
+
+
+def test_promote_historical_workbook_preserva_eventos_e_manifesto(tmp_path, monkeypatch):
+    source = tmp_path / "history.xlsx"
+    source.write_bytes(b"fixture")
+    frame = __import__("pandas").DataFrame([
+        {"cod.1991": "3301009", "Município 1991": "Campos",
+         "cod.2000": "3301009", "Município 2000": "Campos dos Goytacazes"},
+    ])
+    monkeypatch.setattr(
+        "app.pipeline.reference.ibge.historical.pd.read_excel",
+        lambda *args, **kwargs: frame,
+    )
+
+    result = promote_historical_municipality_workbook(
+        tmp_path / "catalog", source, source_url="fixture://history"
+    )
+
+    assert result.exists()
+    manifest = __import__("json").loads(
+        result.with_name("municipality_events.manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["reference_year"] == 2010
+    assert manifest["sources"][0]["source_url"] == "fixture://history"
 
 
 def test_promote_historical_source_preserves_raw_artifact_and_manifest(tmp_path):
