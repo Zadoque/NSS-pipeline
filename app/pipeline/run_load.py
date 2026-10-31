@@ -9,7 +9,11 @@ from pathlib import Path
 import pandas as pd
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
-from .sinan.gold import aggregate_file, normalize_municipality_codes
+from .sinan.gold import (
+    aggregate_file,
+    normalize_municipality_codes,
+    resolve_catalog_municipality_codes,
+)
 from .load import get_engine, load_gold_to_postgres
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
@@ -62,18 +66,10 @@ def run_load(
             .isin(municipios).sum()
         )
     else:
-        declared_ufs = silver_scope.get(
-            "SG_UF_NOT", pd.Series([None] * len(silver_scope), index=silver_scope.index)
+        resolved_codes = resolve_catalog_municipality_codes(
+            silver_scope["ID_MUNICIP"], catalog, silver_scope.get("SG_UF_NOT")
         )
-        expected_cases_total = sum(
-            1
-            for value, declared_uf in zip(silver_scope["ID_MUNICIP"], declared_ufs)
-            if (
-                (resolution := catalog.resolve(value, declared_uf=declared_uf)).status.value == "VALID"
-                and resolution.municipality is not None
-                and resolution.municipality.code7 in municipios
-            )
-        )
+        expected_cases_total = int(resolved_codes.isin(municipios).sum())
 
     gold_path = aggregate_file(
         silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
