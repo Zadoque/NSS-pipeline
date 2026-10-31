@@ -6,6 +6,7 @@ import os
 import re
 import tempfile
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -28,6 +29,13 @@ def _validate_metadata(metadata: CatalogMetadata) -> None:
         raise ValueError("manifesto IBGE exige SHA-256 hexadecimal de 64 caracteres")
     if metadata.content_sha256 is not None and not SHA256_PATTERN.fullmatch(metadata.content_sha256):
         raise ValueError("manifesto IBGE exige hash lógico hexadecimal de 64 caracteres")
+    if metadata.promoted_at is not None:
+        if not isinstance(metadata.promoted_at, str):
+            raise ValueError("manifesto IBGE exige promoted_at ISO-8601")
+        try:
+            datetime.fromisoformat(metadata.promoted_at)
+        except ValueError as exc:
+            raise ValueError("manifesto IBGE exige promoted_at ISO-8601") from exc
     if metadata.validation_status != "VALIDATED":
         raise ValueError("release IBGE não está validada")
 
