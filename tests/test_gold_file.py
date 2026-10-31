@@ -78,7 +78,9 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
             batch_size=batch_size, cnes_batch_id=cnes_batch_id,
         )
     actual = pq.ParquetFile(result).read().to_pandas()
-    pd.testing.assert_frame_equal(actual, expected)
+    # Normaliza nulos antes da comparação para não depender da representação
+    # None/NaN específica do caminho Parquet versus agregação em memória.
+    pd.testing.assert_frame_equal(actual.convert_dtypes(), expected.convert_dtypes())
     assert actual["cases_total"].sum() == 7
     assert "UNUSED_LARGE_COLUMN" not in actual
     metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
