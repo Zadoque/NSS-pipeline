@@ -564,3 +564,8 @@ testes**, com **21 skips condicionais** e **25 warnings**; o flake check passou.
 A mutação dirigida registrou **6.433 mortos**, **1.689 sobreviventes** e **331
 timeouts** em **8.453 mutantes** (**79,20%** classificáveis). A meta de 95%
 permanece pendente.
+
+Uma regressão adicional verificou que a ausência do cache SINAN preserva o
+caminho esperado no `FileNotFoundError`; o teste passou e matou o mutante
+correspondente. A rodada dirigida atual registra **6.434 mortos**, **1.688
+sobreviventes** e **331 timeouts** em **8.453 mutantes**.

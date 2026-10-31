@@ -181,3 +181,13 @@ def test_read_remote_cache_retorna_parquet_existente(tmp_path, monkeypatch):
     result = source.read_remote_cache(remote)
 
     pd.testing.assert_frame_equal(result, expected)
+
+
+def test_read_remote_cache_informa_o_caminho_ausente(tmp_path, monkeypatch):
+    monkeypatch.setattr(source, "SOURCE_DIR", tmp_path)
+    remote = RemoteSinanFile("DENG", 2026, "DENG.parquet", 1)
+
+    with pytest.raises(FileNotFoundError) as error:
+        source.read_remote_cache(remote)
+
+    assert error.value.args == (remote.local_path,)

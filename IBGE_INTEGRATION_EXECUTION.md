@@ -1695,3 +1695,9 @@ pulados** e **25 warnings**; `nix flake check --no-build` também passou. A
 mutação dirigida pós-teste terminou com **8.453 mutantes**, **6.433 mortos**,
 **1.689 sobreviventes** e **331 timeouts**, ou **79,20%** classificáveis. A
 meta global de 95% continua pendente.
+
+O ciclo seguinte adicionou uma regressão para preservar o caminho exato no
+`FileNotFoundError` do cache SINAN. `tests/test_sinan_source.py` passou com
+**15 testes**, e a mutação dirigida correspondente foi morta; a contagem
+dirigida passou a **6.434 mortos** e **1.688 sobreviventes** em **8.453
+mutantes**, com **331 timeouts**.
