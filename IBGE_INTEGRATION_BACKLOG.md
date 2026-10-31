@@ -312,6 +312,9 @@ IBGE-012 ──> IBGE-013
     páginas, mas a extração local embaralha colunas e caracteres dos códigos.
     O artefato permanece `RAW_ONLY` até existir extração tabular validável;
     nenhuma sucessão é inferida dessa saída.
+  - O commit `3accdea` passou a validar a forma de `inference_policies` no
+    manifesto anual, com regressão para valor serializado como string. A suíte
+    integral passou em **586 testes**, com **3 pulados** e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.

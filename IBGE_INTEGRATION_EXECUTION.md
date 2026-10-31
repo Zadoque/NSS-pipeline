@@ -1253,6 +1253,12 @@ caracteres invertidos, inclusive nos geocódigos. Como essa saída não permite
 provar relações de sucessão linha a linha, a fonte continua corretamente
 preservada como `RAW_ONLY`; nenhuma sucessão foi inferida ou promovida.
 
+O commit `3accdea` (`fix(ibge): validate annual history policies`) também
+passou a rejeitar `inference_policies` que não seja uma lista de textos não
+vazios no manifesto histórico anual. A regressão cobre uma política serializada
+como string. A suíte integral passou em **586 testes**, com **3 pulados** e
+**25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
