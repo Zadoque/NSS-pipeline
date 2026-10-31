@@ -1467,3 +1467,8 @@ do índice da linha. Foram adicionadas regressões que reordenam as fontes e
 confirmam a mesma identidade de evento; o teste de alteração do payload mantém
 o bloqueio por conflito de `event_id`. `tests/test_ibge_historical.py` passou em
 **80 testes**.
+
+Verificação integral posterior ao ajuste histórico: **620 testes passaram**, com
+**3 pulados** e **25 warnings**; `nix flake check --no-build` também passou. O
+branch permaneceu limpo e sincronizado com `origin/work/nss-pipeline` no commit
+`402205a`.
