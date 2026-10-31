@@ -27,6 +27,23 @@ def test_historical_events_reject_duplicates(tmp_path):
 
 
 @pytest.mark.parametrize(
+    ("events", "message"),
+    [
+        ([], "histórico municipal vazio"),
+        ([MunicipalityEvent("duplicate", "CREATION", "2025-01-01", None, "5101837")] * 2,
+         "event_id duplicado no histórico municipal"),
+        ([MunicipalityEvent("unknown", "BOGUS", "2025-01-01", None, "5101837")],
+         "tipo de evento municipal desconhecido: \\['BOGUS'\\]"),
+        ([MunicipalityEvent("date", "CREATION", "not-a-date", None, "5101837")],
+         "data de vigência inválida no histórico municipal"),
+    ],
+)
+def test_write_events_preserves_structural_error_contract(tmp_path, events, message):
+    with pytest.raises(ValueError, match=f"^{message}$"):
+        write_events(tmp_path / "invalid.parquet", events)
+
+
+@pytest.mark.parametrize(
     "event",
     [
         MunicipalityEvent("creation", "CREATION", "2025-01-01", "3301009", "5101837"),
