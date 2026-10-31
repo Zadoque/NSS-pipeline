@@ -152,3 +152,23 @@ def test_catalogo_ibge_bloqueia_publicacao_com_resolucao_invalida(mocker, pipeli
     load.assert_not_called()
     get_engine.assert_not_called()
     engine.dispose.assert_not_called()
+
+
+def test_run_load_rejeita_escopo_de_catalogo_diferente(mocker, pipeline):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    stale_scope = GeographicScope((Municipality(
+        "3301009", "330100", "Nome antigo", "33", "RJ", "Rio", 2024,
+    ),))
+
+    with pytest.raises(ValueError, match="não corresponde"):
+        runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=stale_scope)
+
+    runner.fetch_sinan.assert_not_called()
+    runner.get_engine.assert_not_called()

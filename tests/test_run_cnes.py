@@ -88,6 +88,23 @@ def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monke
     assert calls == ["3301009"]
 
 
+def test_run_cnes_rejeita_escopo_de_catalogo_diferente():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    stale_scope = GeographicScope((Municipality(
+        "3301009", "330100", "Nome antigo", "33", "RJ", "Rio", 2024,
+    ),))
+
+    with pytest.raises(ValueError, match="não corresponde"):
+        pipeline.run_cnes(catalog=catalog, geographic_scope=stale_scope)
+
+
 def test_run_cnes_checkpoint_binds_ibge_release_identity(tmp_path, monkeypatch, mocker):
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality

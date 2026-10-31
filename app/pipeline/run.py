@@ -11,7 +11,7 @@ from .sinan.bronze import fetch_sinan, write_bronze
 from .sinan.silver import transform_file
 from .reference.ibge.models import MunicipalityCatalog
 from .reference.ibge.storage import load_active_catalog
-from .scope import GeographicScope, select_scope
+from .scope import GeographicScope, select_scope, validate_scope_catalog
  
 BASE_DIR = Path("/data")
 logger = logging.getLogger(__name__)
@@ -27,6 +27,8 @@ def run(
     cnes_batch_id: str | None = None,
 ) -> None:
     disease = disease.upper()
+    if catalog is not None and geographic_scope is not None:
+        validate_scope_catalog(catalog, geographic_scope)
     run_at = datetime.now(UTC)          
     logger.info("Iniciando SINAN disease=%s year=%s", disease, year)
 

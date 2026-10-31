@@ -44,6 +44,17 @@ class GeographicScope:
         return scope_sha256(self.codes7)
 
 
+def validate_scope_catalog(catalog: MunicipalityCatalog, scope: GeographicScope) -> None:
+    """Garante que o escopo foi materializado pela mesma identidade do catálogo."""
+    for selected in scope.municipalities:
+        canonical = catalog.get_municipality(selected.code7)
+        if canonical is None or canonical != selected:
+            raise ValueError(
+                "escopo geográfico não corresponde ao catálogo IBGE: "
+                f"{selected.code7}"
+            )
+
+
 def scope_sha256(codes: object) -> str:
     """Calcula um identificador estável para o conjunto municipal selecionado."""
     values = sorted({str(code) for code in codes})

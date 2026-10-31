@@ -1,6 +1,6 @@
 import pytest
 
-from app.pipeline.scope import GeographicScope, scope_sha256, select_scope
+from app.pipeline.scope import GeographicScope, scope_sha256, select_scope, validate_scope_catalog
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 
@@ -33,3 +33,14 @@ def test_select_scope_rejects_duplicate_municipalities():
     )
     with pytest.raises(ValueError, match="duplicado"):
         select_scope(catalog, municipalities=["3301009", "3301009"])
+
+
+def test_validate_scope_catalog_rejects_stale_municipality_attributes():
+    catalog = InMemoryMunicipalityCatalog(
+        [_municipality("3301009")],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    stale = Municipality("3301009", "330100", "Nome antigo", "33", "RJ", "Rio", 2024)
+
+    with pytest.raises(ValueError, match="não corresponde"):
+        validate_scope_catalog(catalog, GeographicScope((stale,)))

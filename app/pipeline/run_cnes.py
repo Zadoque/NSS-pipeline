@@ -16,7 +16,7 @@ from .territory_mapping import enrich_cnes_territories
 from .territory_assets import asset_directory
 from .reference.ibge.models import MunicipalityCatalog
 from .reference.ibge.storage import load_active_catalog
-from .scope import GeographicScope, legacy_rj_mapping, select_scope
+from .scope import GeographicScope, legacy_rj_mapping, select_scope, validate_scope_catalog
 
 BASE_DIR = Path("/data")
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
@@ -65,6 +65,8 @@ def run_cnes(
         raise ValueError("page_size CNES deve ser um inteiro maior que zero")
     if not isinstance(request_timeout, (int, float)) or isinstance(request_timeout, bool) or request_timeout <= 0:
         raise ValueError("request_timeout CNES deve ser maior que zero")
+    if catalog is not None and geographic_scope is not None:
+        validate_scope_catalog(catalog, geographic_scope)
     if geographic_scope is not None:
         municipios = {item.code7: item.name for item in geographic_scope.municipalities}
     elif catalog is not None:
