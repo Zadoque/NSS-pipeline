@@ -270,6 +270,8 @@ pytest -q com PostgreSQL  → 391 passed, 1 skipped, 25 warnings
 pytest -q nacional + PostgreSQL → 403 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
+controlled refresh after safe promotion → release recarregada via active.json,
+  5571 municípios e SHA do ZIP confirmado
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 ```
 
