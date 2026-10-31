@@ -42,5 +42,18 @@ def test_validate_scope_catalog_rejects_stale_municipality_attributes():
     )
     stale = Municipality("3301009", "330100", "Nome antigo", "33", "RJ", "Rio", 2024)
 
-    with pytest.raises(ValueError, match="não corresponde"):
+    with pytest.raises(ValueError) as error:
         validate_scope_catalog(catalog, GeographicScope((stale,)))
+    assert str(error.value) == (
+        "escopo geográfico não corresponde ao catálogo IBGE: 3301009"
+    )
+
+
+def test_validate_scope_catalog_accepts_scope_materialized_by_catalog():
+    municipality = _municipality("3301009")
+    catalog = InMemoryMunicipalityCatalog(
+        [municipality],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+
+    validate_scope_catalog(catalog, GeographicScope((municipality,)))
