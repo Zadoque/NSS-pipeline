@@ -373,6 +373,34 @@ def test_validate_checkpoint_failed_rejeita_falha_fora_do_escopo():
         )
 
 
+def test_run_cnes_rejeita_municipio_em_completed_e_failed(tmp_path):
+    checkpoint = tmp_path / "overlap.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "continue_on_error": True,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {
+                "3301009": {
+                    "bronze_path": "data.parquet",
+                    "bronze_sha256": "a" * 64,
+                    "rows": 1,
+                },
+            },
+            "failed": {
+                "3301009": {"error_type": "API_ERROR", "error_message": "falha"},
+            },
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="completed e failed"):
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint, continue_on_error=True)
+
+
 def test_run_cnes_continue_on_error_classifica_municipio_e_publica_lote_parcial(
     tmp_path, monkeypatch,
 ):

@@ -160,6 +160,8 @@ def run_cnes(
         run_at = datetime.now(UTC)
     completed = _validate_checkpoint_completed((checkpoint or {}).get("completed", {}), municipios)
     failed = _validate_checkpoint_failed((checkpoint or {}).get("failed", {}), municipios)
+    if set(completed).intersection(failed):
+        raise ValueError("checkpoint CNES classifica município como completed e failed")
     logger.info("Iniciando CNES municipios=%s", len(municipios))
 
     silvers = []
