@@ -80,13 +80,13 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
     metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
     assert metadata["source_rows"] == 8
     assert metadata["rows"] == len(expected)
-    assert metadata["dropped_rows"] == 8 - len(expected)
+    assert metadata["dropped_rows"] == 1
     assert metadata["batch_size"] == batch_size
     assert metadata["batches_processed"] == (8 + batch_size - 1) // batch_size
     assert metadata["gold_target"] == target
     assert metadata["resolved_rows"] == 7
     assert metadata["discarded_rows"] == 1
-    assert metadata["aggregation_reduction"] == 0
+    assert metadata["aggregation_reduction"] == 7 - len(expected)
     assert metadata["geographic_scope"]["type"] == "MUNICIPALITIES"
     assert metadata["geographic_scope"]["scope_sha256"] == scope_sha256(MUNICIPIOS)
 
@@ -298,3 +298,8 @@ def test_volume_maior_soma_grupo_entre_lotes(source, monkeypatch):
     assert actual["cases_total"].tolist() == [count]
     metadata = json.loads(result.with_name("metadata.json").read_text(encoding="utf-8"))
     assert metadata["batches_processed"] == 4
+    assert metadata["source_rows"] == count
+    assert metadata["resolved_rows"] == count
+    assert metadata["discarded_rows"] == 0
+    assert metadata["dropped_rows"] == 0
+    assert metadata["aggregation_reduction"] == count - 1

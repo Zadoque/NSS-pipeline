@@ -413,7 +413,7 @@ def aggregate_file(
     len_after = len(result)
     resolved_rows = resolution_metrics["scope_matched_rows"]
     discarded_rows = len_before - resolved_rows
-    aggregation_reduction = resolved_rows - int(result["cases_total"].sum()) if not result.empty else resolved_rows
+    aggregation_reduction = resolved_rows - len_after
 
 
     write_parquet_atomic(result, parquet)
@@ -424,7 +424,7 @@ def aggregate_file(
         "batch_id": batch_id,
         "ingested_at": now.isoformat(),
         "rows": len_after,
-        "dropped_rows": len_before - len_after,
+        "dropped_rows": discarded_rows,
         "columns": list(result.columns),
         "gold_target": target,
         "source_rows": len_before,
