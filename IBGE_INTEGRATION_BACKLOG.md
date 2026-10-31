@@ -315,6 +315,10 @@ IBGE-012 ──> IBGE-013
   - O commit `3accdea` passou a validar a forma de `inference_policies` no
     manifesto anual, com regressão para valor serializado como string. A suíte
     integral passou em **586 testes**, com **3 pulados** e **25 warnings**.
+  - O commit `4e456bf` centralizou a validação de proveniência das fontes
+    históricas, exigindo ano, caminho e SHA-256 válido; a regressão de fonte
+    sem SHA foi adicionada e a suíte chegou a **587 testes**, com **3 pulados**
+    e **25 warnings**.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.

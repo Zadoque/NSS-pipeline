@@ -1259,6 +1259,12 @@ vazios no manifesto histórico anual. A regressão cobre uma política serializa
 como string. A suíte integral passou em **586 testes**, com **3 pulados** e
 **25 warnings**.
 
+O commit `4e456bf` (`fix(ibge): validate historical source lineage`)
+centralizou a validação mínima das entradas `sources`: cada fonte histórica
+promovida precisa declarar `reference_year`, `source_path` e um SHA-256
+hexadecimal válido. A regressão cobre uma fonte sem SHA. A suíte integral
+passou em **587 testes**, com **3 pulados** e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
