@@ -89,6 +89,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `09f048a` | Vinculação do checkpoint à identidade da release IBGE |
 | `e6571df` | Contrato exato para escopo CNES vazio |
 | `a9a64cb` | Garantia de timestamps UTC no lote CNES |
+| `11bcf8e` | Parâmetros e sessão HTTP respeitados no escopo RJ legado |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
@@ -142,9 +143,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 - Promoção histórica idempotente: eventos toponímicos e administrativos são
   mesclados no mesmo Parquet, com conflito de `event_id` rejeitado.
 - Paginação CNES configurável e validada, com `page_size` registrado no
-  metadata do lote; o caminho legado mantém sua chamada compatível.
-- Sessão HTTP CNES reutilizada durante uma execução com catálogo, mantendo
-  retries e reduzindo o overhead de milhares de municípios no escopo nacional.
+  metadata do lote; o caminho legado RJ também respeita o parâmetro.
+- Sessão HTTP CNES reutilizada durante toda a execução, inclusive no escopo
+  legado, mantendo retries e reduzindo o overhead de múltiplos municípios.
 - Timeout de requisição CNES configurável pela API e CLI, registrado no
   metadata do lote para tornar falhas e homologações reproduzíveis.
 - Checkpoint opcional da ingestão CNES registra Bronze concluída e parâmetros
