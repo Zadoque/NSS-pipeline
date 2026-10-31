@@ -19,6 +19,25 @@ def test_cli_run_load_rejeita_selecao_geografica_ambigua(arguments):
         runner._build_parser().parse_args(arguments)
 
 
+def test_cli_run_load_preserva_contrato_dos_argumentos_geograficos():
+    parser = runner._build_parser()
+    args = parser.parse_args([
+        "--disease", "DENG", "--year", "2026", "--allow-empty",
+        "--catalog-root", "/tmp/ibge", "--ufs", "RJ",
+        "--cnes-batch-id", "batch-1",
+    ])
+
+    assert "pipeline SINAN" in parser.description
+    assert args.disease == "DENG"
+    assert args.year == 2026
+    assert args.allow_empty is True
+    assert args.catalog_root == Path("/tmp/ibge")
+    assert args.ufs == "RJ"
+    assert args.municipios is None
+    assert args.all_brazil is False
+    assert args.cnes_batch_id == "batch-1"
+
+
 @pytest.fixture
 def pipeline(mocker):
     mocker.patch.object(runner, "fetch_sinan", return_value=Path("source.parquet"))
