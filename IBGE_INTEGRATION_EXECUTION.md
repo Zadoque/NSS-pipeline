@@ -1553,3 +1553,11 @@ uma fonte oficial codificada de sucessões e desmembramentos sem ambiguidade, e
 a meta global de 95% de mutação (a medição atual permanece em 78,54%). Não foi
 criado fallback por nome ou inferência territorial para mascarar essas
 ausências. O rollout de produção continua condicionado a esses gates.
+
+Uma rodada dirigida de mutação de `reference/ibge/validation.py` após as
+fixtures oficiais reexecutou os mutantes associados ao módulo. O único
+mutante sobrevivente foi a troca de normalização da sigla de UF de `upper()`
+para `lower()`; ele é equivalente no contrato atual porque a comparação só
+verifica consistência entre registros e ambos os lados são normalizados. Ele
+foi mantido documentado como mutante equivalente, sem alterar a semântica do
+catálogo para satisfazer artificialmente a ferramenta.
