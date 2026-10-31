@@ -53,6 +53,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `6486a09` | Materialização de UFs e crosswalk nas releases |
 | `be6188c` | CLI de atualização controlada do catálogo IBGE |
 | `dea9ad4` | Documentação do refresh controlado |
+| `17ca28a` | Cobertura da persistência e imutabilidade das releases IBGE |
 | `5e8e78a` | Alinhamento temporal dos registros da API |
 | `23cbd2e` | Validação de SHA-256 nos manifestos e publicações |
 | `bf2473d` | Derivação segura de diferenças anuais da DTB |
@@ -205,9 +206,9 @@ Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
 ```text
 nix flake check --no-build  → aprovado
-pytest -q                  → 354 passed, 20 skipped, 25 warnings
-pytest -q com PostgreSQL  → 373 passed, 1 skipped, 25 warnings
-pytest -q nacional + PostgreSQL → 374 passed, 25 warnings
+pytest -q                  → 356 passed, 20 skipped, 25 warnings
+pytest -q com PostgreSQL  → 375 passed, 1 skipped, 25 warnings
+pytest -q nacional + PostgreSQL → 376 passed, 25 warnings
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
