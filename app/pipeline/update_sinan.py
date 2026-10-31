@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import json
 import logging
 from datetime import UTC, datetime
@@ -25,6 +27,20 @@ from .sinan.source import (
 TRACKED_DISEASES = tuple(DISEASE_NAMES)
 MANIFEST_PATH = Path("/data/source/sinan/manifest.json")
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _manifest_lock(path: Path):
+    """Serializa atualizações que compartilham o cache DuckDB do PySUS."""
+    lock_path = path.with_name(f".{path.name}.lock")
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    with lock_path.open("a+", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
 
 
 def _parse_years(raw: str | None) -> list[int]:
@@ -98,7 +114,7 @@ def update_one(remote: RemoteSinanFile, manifest: dict, catalog: MunicipalityCat
     return f"{key}: updated ({remote.size_bytes} bytes)"
 
 
-def update(
+def _update_unlocked(
     diseases: list[str], years: list[int], manifest_path: Path = MANIFEST_PATH,
     catalog: MunicipalityCatalog | None = None,
 ) -> list[str]:
@@ -131,6 +147,14 @@ def update(
             results.append(result)
             logger.info("%s", result)
     return results
+
+
+def update(
+    diseases: list[str], years: list[int], manifest_path: Path = MANIFEST_PATH,
+    catalog: MunicipalityCatalog | None = None,
+) -> list[str]:
+    with _manifest_lock(manifest_path):
+        return _update_unlocked(diseases, years, manifest_path, catalog=catalog)
 
 
 def main() -> None:
