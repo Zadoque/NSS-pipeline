@@ -235,6 +235,40 @@ def test_parse_toponymic_events_accepts_official_2025_schema():
     assert events[0].effective_date == "2025-09-10"
 
 
+def test_parse_toponymic_events_rejects_unsupported_format(tmp_path):
+    source = tmp_path / "alteracoes.txt"
+    source.write_text("UF,MUN,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="formato de alterações toponímicas não suportado"):
+        parse_toponymic_events(source, reference_year=2025)
+
+
+@pytest.mark.parametrize(
+    ("content", "message"),
+    [
+        ("UF,MUN\n33,01009\n", "colunas ausentes"),
+        (
+            "UF,MUN,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n33,01009,Antigo,Novo,not-a-date\n",
+            "evento toponímico incompleto, linha 2",
+        ),
+        (
+            "UF,MUN,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n33,01009,,,2025-01-01\n",
+            "evento toponímico incompleto, linha 2",
+        ),
+        (
+            "UF,MUN,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n",
+            "histórico toponímico vazio",
+        ),
+    ],
+)
+def test_parse_toponymic_events_rejects_incomplete_source(tmp_path, content, message):
+    source = tmp_path / "alteracoes.csv"
+    source.write_text(content, encoding="utf-8")
+
+    with pytest.raises(ValueError, match=message):
+        parse_toponymic_events(source, reference_year=2025)
+
+
 def test_historical_codes_accept_only_ascii_digits(tmp_path):
     event = MunicipalityEvent("unicode", "CREATION", "2025-01-01", None, "１２３４５６７")
     with pytest.raises(ValueError, match="target_code7 inválido"):
