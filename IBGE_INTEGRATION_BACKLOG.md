@@ -212,6 +212,9 @@ IBGE-012 ──> IBGE-013
   `extraction_status=RAW_ONLY`. A genealogia IBGE 1872–2010 foi homologada
   nesse modo; nenhum crosswalk é criado sem extração tabular validada.
 
+- A validação nacional também rejeita candidatas com menos de 5.500 municípios,
+  além de exigir as 27 UFs, para impedir a promoção de respostas truncadas.
+
 ### IBGE-012 — Mutação dos contratos críticos
 
 - Prioridade: **P1**
