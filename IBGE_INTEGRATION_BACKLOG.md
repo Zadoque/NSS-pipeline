@@ -229,6 +229,9 @@ IBGE-012 ──> IBGE-013
   - Última rodada dirigida de `reference/ibge/refresh.py`: 167 mortos,
     167 sobreviventes e 119 sem testes associados; não substitui a medição
     global nem atende à meta de 95%.
+  - Após `0d029e6`, os 30 sobreviventes então associados a
+    `reference/ibge/catalog.py` foram reexecutados: 18 mortos e 12
+    sobreviventes; a rodada dirigida não altera a medição global limpa.
 
 ### IBGE-013 — Rollout nacional de produção
 

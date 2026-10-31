@@ -771,7 +771,8 @@ incompatibilidade de sistema.
 
 O último commit funcional desta rodada foi `4cf6523`
 (`fix(cnes): enforce ascii municipality codes`), seguido do registro da
-preservação histórica em `ce08236`.
+preservação histórica em `ce08236` e do teste de conversão de registros
+Parquet em `0d029e6` (`test(ibge): cover mapping catalog records`).
 
 A rodada global de mutação reexecutada após as coberturas de refresh, storage,
 DTB e CLI produziu 7.047 mutantes: 3.855 mortos, 2.250 sobreviventes, 939
@@ -779,6 +780,12 @@ sem testes associados e 3 timeouts. Considerando mortos, sobreviventes e
 timeouts, a taxa atual é **63,11%** (3.855 / 6.108). A meta de 95% permanece
 pendente; a rodada não foi artificialmente restringida nem usada para
 reclassificar sobreviventes como equivalentes.
+
+Como verificação dirigida posterior, os 30 sobreviventes então associados a
+`reference/ibge/catalog.py` foram reexecutados após `0d029e6`: 18 morreram e
+12 continuaram sobrevivendo. A execução dirigida regenerou 115 mutantes ainda
+não verificados em outros módulos; por isso ela não substitui a última rodada
+global limpa acima.
 
 ## Conclusão
 
