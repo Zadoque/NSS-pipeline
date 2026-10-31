@@ -103,3 +103,36 @@ def test_national_dtb_catalog_resolves_sinan_gold_across_ufs(monkeypatch):
     assert set(result["cd_mun"]) == set(scope)
     assert set(result["cd_uf"]) == {item.uf_code for item in selected}
     assert result["cases_total"].sum() == len(selected)
+
+
+def test_national_dtb_catalog_reconciles_one_synthetic_sinan_row_per_municipality(monkeypatch):
+    archive_path = os.environ.get("IBGE_DTB_ARCHIVE")
+    if not archive_path:
+        pytest.skip("IBGE_DTB_ARCHIVE não definida — homologação nacional pulada")
+
+    archive = Path(archive_path)
+    records = parse_dtb_archive(archive, reference_year=2025)
+    catalog = InMemoryMunicipalityCatalog(
+        records,
+        CatalogMetadata(
+            "ibge-dtb-national-gold-all", 2025, "IBGE DTB fixture", str(archive),
+            "2026-10-30T00:00:00Z", "a" * 64,
+        ),
+    )
+    frame = pd.DataFrame({
+        "DT_NOTIFIC": pd.Timestamp("2026-01-05"),
+        "ID_MUNICIP": [item.code6 for item in records],
+        "SG_UF_NOT": [item.uf_code for item in records],
+        "NM_UF": [item.uf_name for item in records],
+        "CS_SEXO": "F",
+        "ANO_NASC": 1990,
+        "SEM_NOT": 202601,
+    })
+    scope = {item.code7: item.name for item in records}
+
+    result = aggregate(frame, "DENG", municipios=scope, catalog=catalog)
+
+    assert len(result) == len(records)
+    assert result["cases_total"].sum() == len(records)
+    assert set(result["cd_mun"]) == {item.code7 for item in records}
+    assert result["cd_uf"].notna().all()
