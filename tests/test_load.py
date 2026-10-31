@@ -255,7 +255,7 @@ def test_register_release_serializa_por_catalog_id(mocker):
     _register_catalog_release(conn, catalog)
 
     first_call = conn.execute.call_args_list[0]
-    assert "pg_advisory_xact_lock" in str(first_call.args[0])
+    assert str(first_call.args[0]).strip() == "SELECT pg_advisory_xact_lock(hashtext(:key))"
     assert first_call.args[1] == {"key": "nss:ibge-release:ibge-dtb-2025"}
     lookup_call = conn.execute.call_args_list[1]
     assert "SELECT sha256, content_sha256" in str(lookup_call.args[0])
