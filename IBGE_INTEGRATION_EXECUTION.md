@@ -95,6 +95,8 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `3d4e019` | Série anual explícita de eventos territoriais |
 | `ea1ca07` | Reconciliação sintética SINAN em todos os municípios |
 | `2daea85` | Compatibilidade do parser com DTBs anuais legadas |
+| `df427b3` | Registro da regressão das DTBs legadas |
+| `b8ac609` | Registro da regressão nacional sintética |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |

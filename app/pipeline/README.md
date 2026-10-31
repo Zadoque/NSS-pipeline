@@ -353,12 +353,16 @@ python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
   --municipios 3550308,3301009
 python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
   --all-brazil
+python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
+  --all-brazil --workers 8 --continue-on-error \
+  --checkpoint /data/reference/cnes-2025.json
 ```
 
 `--municipios`, `--ufs` e `--all-brazil` são mutuamente exclusivos e exigem
 `--catalog-root`; sem eles, o default RJ permanece ativo. O `--page-size`
 controla o tamanho das páginas e `--request-timeout` o limite de cada chamada
-à API CNES; ambos são registrados no metadata do lote.
+à API CNES; ambos são registrados no metadata do lote. `--workers` usa sessões
+HTTP independentes em uma janela limitada e permanece `1` por padrão.
 
 Para uma execução longa ou sujeita a interrupções, informe um checkpoint local:
 
@@ -368,10 +372,12 @@ python -m app.pipeline.run_cnes --catalog-root /data/reference/ibge \
 ```
 
 O checkpoint registra os municípios concluídos, os caminhos das respectivas
-Bronze e os parâmetros imutáveis da execução. Se a API falhar, a mesma chamada
-retoma os municípios pendentes sem consultar novamente os que já foram
-persistidos. A retomada rejeita mudanças no escopo, na release IBGE, no
-`--page-size` ou no timeout; isso evita misturar lotes incompatíveis.
+Bronze, os municípios com falha classificada e os parâmetros imutáveis da
+execução. Com `--continue-on-error`, o lote termina como `PARTIAL` quando há
+falhas e elas são retentadas na chamada seguinte; sem essa opção, o modo estrito
+aborta na primeira falha. Em ambos os modos, municípios já persistidos não são
+consultados novamente. A retomada rejeita mudanças no escopo, na release IBGE,
+no `--page-size`, no timeout ou no número de workers.
 
 ### Executando camadas isoladamente
 
