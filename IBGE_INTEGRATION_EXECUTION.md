@@ -1094,6 +1094,13 @@ foi **75,98%**. A meta de 95% continua pendente; esta medição substitui a
 baseline global anterior para fins de acompanhamento e não reduz o escopo de
 módulos configurado no `pyproject.toml`.
 
+O commit `096b384` (`test(ibge): guard logical release identity`) adicionou a
+regressão para o caso em que o mesmo `catalog_id` e o mesmo SHA do artefato
+bruto reaparecem com conteúdo lógico diferente. A promoção é rejeitada antes
+de substituir a release, e o mutante dirigido que invertia essa comparação
+morreu. A suíte integral posterior passou em **548 testes**, com **3 pulados**
+e **25 warnings**.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
