@@ -63,3 +63,26 @@ jobs:
 
       - name: Construir imagens operacionais
         run: docker compose build pipeline migrate
+
+      - name: Subir stack de observabilidade
+        run: docker compose --profile observability up -d db prometheus pushgateway grafana
+
+      - name: Verificar provisionamento Grafana e Prometheus
+        run: |
+          trap 'docker compose --profile observability down -v' EXIT
+          for url in \
+            http://localhost:9090/-/ready \
+            http://localhost:9091/-/ready \
+            http://localhost:3000/api/health; do
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent "$url" >/dev/null; then break; fi
+              if [ "$attempt" -eq 30 ]; then exit 1; fi
+              sleep 2
+            done
+          done
+          curl --fail --silent -u admin:admin \
+            http://localhost:3000/api/search \
+            | jq -e 'any(.[]; .uid == "nss-pipeline-overview")' >/dev/null
+          curl --fail --silent -u admin:admin \
+            http://localhost:3000/api/ruler/grafana/api/v1/rules \
+            | jq -e '."NSS Pipeline"[0].rules | length == 2' >/dev/null
