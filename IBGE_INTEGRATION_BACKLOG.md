@@ -128,7 +128,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-009 — Homologação CNES nacional real
 
 - Prioridade: **P1**
-- Estado: **Parcial; executor nacional tolerante a falhas implementado; amostra de 27/27 UFs executada**
+- Estado: **Concluído; execução real nacional homologada**
 - Dependências: IBGE-005, IBGE-006
 - Escopo: execução autorizada para todos os municípios ou lotes nacionais,
   medição de taxa de erro, duração, limite da API e retomada.
@@ -142,6 +142,9 @@ IBGE-012 ──> IBGE-013
   o comportamento estrito continua sendo o padrão.
 - Implementação adicional: `--workers N` usa sessões HTTP independentes em
   janelas limitadas, fixa o parâmetro no checkpoint e mantém `N=1` como default.
+- Evidência: execução real com a DTB 2025 cobriu 5.571/5.571 municípios,
+  produziu 5.571 Bronzes e 641.343 estabelecimentos, com zero falhas e todas
+  as linhas resolvidas como `VALID`.
 
 ### IBGE-010 — Fixtures e reconciliação epidemiológica nacional
 

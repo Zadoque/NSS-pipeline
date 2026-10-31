@@ -91,6 +91,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `17cdf1d` | Defaults locais para PostgreSQL de desenvolvimento |
 | `44e07b4` | Retentativa de municípios falhos na retomada CNES |
 | `78d3dd9` | Workers limitados para ingestão CNES nacional |
+| `28bf78a` | Janela limitada de requisições CNES |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -328,6 +329,9 @@ fonte e 0 divergências de nome, UF ou sigla entre os 5571 registros
 comparação DTB 2024 × DTB 2025 → 5571 municípios em cada edição e 3 mudanças
 toponímicas explícitas; nenhuma sucessão foi inferida
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
+CNES real nacional         → `COMPLETED`, 5571/5571 municípios, 5571 Bronzes,
+  641343 estabelecimentos, zero falhas, 100% `municipality_resolution_status=VALID`,
+  catálogo `ibge-dtb-2025-full` (SHA bruto `d077a0e4...dad27`), 8 workers
 ```
 
 A suíte completa foi executada com PostgreSQL real em container isolado,
@@ -400,6 +404,15 @@ consolidação de 14.515 linhas e checkpoint `COMPLETED` em 106,21 s.
 Execução real do `run_cnes` completo nessa amostra: Bronze → Silver →
 consolidação concluída para os cinco municípios, 347 estabelecimentos, metadata
 gerada e checkpoint final em estado `COMPLETED`.
+Homologação CNES real nacional integral: de 2026-10-31T02:25:39Z a
+2026-10-31T03:17:35Z, 8 workers, `page_size=100`, timeout de 60 s,
+`ibge-dtb-2025-full`, SHA bruto
+`d077a0e48c36cf18bcc96268b4a436200c014c6b8522c1a62d894acaf39dad27`;
+5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas e
+zero municípios ausentes no checkpoint. A verificação independente encontrou
+5.571 códigos municipais canônicos distintos, todos pertencentes à DTB e todas
+as 641.343 linhas com resolução `VALID`. Assets territoriais inexistentes
+continuaram explicitamente `UNAVAILABLE`.
 ```
 
 O teto observado da API CNES expôs um risco de salto de registros: o offset
@@ -532,15 +545,15 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Crosswalk 6→7 e validação de UF | Testes de resolução, homônimos, UF divergente e Gold em cinco UFs | Concluído |
 | Recorte RJ compatível | Defaults legados e suíte de regressão verde | Concluído |
 | Seleção por município, UF e Brasil | CLI, `GeographicScope` e smoke nacional com 27 UFs | Concluído |
-| CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído no modo offline |
+| CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído |
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
 | Histórico de sucessões municipais | IBGE possui genealogia histórica 1872–2010 em PDF; não há crosswalk tabular 2011–2025 promovido | Pendente externo |
-| CNES real em todas as UFs | Amostra operacional 27/27 UFs, 14.515 estabelecimentos e `run_cnes` concluído | Parcial; 5.571 municípios pendentes |
+| CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
 | Mutação ≥95% | Última medição global: 63,9% entre mutantes classificáveis | Pendente de qualidade |
 
-Esta execução não deve ser interpretada como homologação de uma carga nacional
-completa. Permanecem necessários:
+O CNES nacional foi homologado, mas esta execução ainda não é uma homologação
+epidemiológica nacional completa. Permanecem necessários:
 
 1. Distribuir o ZIP oficial bruto conforme a política de artefatos do ambiente;
    o código de atualização já mantém cache bruto, SHA-256 e promoção atômica,
@@ -555,10 +568,10 @@ completa. Permanecem necessários:
    proximidade geográfica. A comparação real DTB 2024/2025 foi validada e
    gerou somente três eventos toponímicos, o que não equivale a um crosswalk
    histórico completo.
-3. Observar e calibrar a paginação CNES para todas as UFs; `page_size`, timeout,
-   reutilização de sessão e checkpoint reiniciável já estão disponíveis, mas o
-   limite operacional máximo e a execução de todas as requisições ainda
-   precisam ser confirmados em homologação.
+3. A homologação real CNES nacional confirmou a paginação com `page_size=100`,
+   timeout de 60 segundos, oito workers e checkpoint reiniciável. O snapshot
+   produzido contém 641.343 estabelecimentos e zero falhas; uma nova execução
+   ainda deve reutilizar as Bronzes, sem consultar novamente a API.
 4. Investigação dos mutantes sobreviventes e obtenção de uma taxa de mutação
    de produção; a configuração e as rodadas dirigidas são classificáveis, mas
    a meta de 95% ainda não foi alcançada.
