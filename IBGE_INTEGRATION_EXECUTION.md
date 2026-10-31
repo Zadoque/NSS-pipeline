@@ -766,6 +766,13 @@ O último commit funcional desta rodada foi `135c375`
 (`perf(load): batch national fact inserts`), seguido do registro da
 homologação nacional pública em `8dc1565`.
 
+A rodada global de mutação reexecutada após as coberturas de refresh, storage,
+DTB e CLI produziu 7.047 mutantes: 3.855 mortos, 2.250 sobreviventes, 939
+sem testes associados e 3 timeouts. Considerando mortos, sobreviventes e
+timeouts, a taxa atual é **63,11%** (3.855 / 6.108). A meta de 95% permanece
+pendente; a rodada não foi artificialmente restringida nem usada para
+reclassificar sobreviventes como equivalentes.
+
 A fundação técnica e a integração dos caminhos principais foram implementadas
 com compatibilidade para o RJ e commits semânticos por etapa. A promoção para
 Brasil inteiro deve ocorrer somente após as pendências acima, especialmente a
