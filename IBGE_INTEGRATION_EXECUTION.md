@@ -986,6 +986,12 @@ selecionados de criação de diretórios em `write_manifest()`. As variantes de
 essa função chama `_load_release()` antes de criar o ponteiro, portanto o pai já
 precisa existir para a release ser válida.
 
+O commit `7b894ca` (`test(ibge): assert canonical parquet schemas`) adicionou
+assertions explícitas para as colunas de `municipalities.parquet`, `ufs.parquet`
+e `code_crosswalk.parquet`. A rodada dirigida matou **8 mutantes** de nomes de
+colunas; seis mutantes restantes alteram somente parâmetros de serialização que
+não mudam o contrato observado ao reler o Parquet.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas

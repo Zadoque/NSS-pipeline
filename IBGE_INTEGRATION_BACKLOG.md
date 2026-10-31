@@ -311,6 +311,10 @@ IBGE-012 ──> IBGE-013
     `mkdir(parents=True)` morreram. Os mutantes equivalentes de
     `promote_active()` permanecem documentados porque sua pré-condição
     `_load_release()` já exige o diretório da release.
+  - O commit `7b894ca` passou a afirmar explicitamente os esquemas canônicos de
+    municípios, UFs e crosswalk Parquet. Na rodada dirigida, **8 mutantes** de
+    nomes de colunas morreram; seis variantes de serialização sem efeito no
+    contrato lido foram classificadas como equivalentes.
 
 ### IBGE-013 — Rollout nacional de produção
 
