@@ -130,6 +130,9 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `3251a8e` | Smoke test do refresh via API de Localidades |
 | `3c2b06b` | Paridade entre API de Localidades e DTB 2025 |
 | `af1fb56` | Regressão final após integração da API real |
+| `00a53b3` | Calibração CNES real nas 27 UFs |
+| `db34796` | Execução real do `run_cnes` no escopo amostral nacional |
+| `cd7721a` | Atualização do status de homologação CNES |
 
 Todos os commits foram enviados para `origin/work/nss-pipeline`.
 
