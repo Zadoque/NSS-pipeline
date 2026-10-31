@@ -9,6 +9,11 @@ from .models import CatalogValidationReport
 
 CODE7 = re.compile(r"^[0-9]{7}$")
 CODE6 = re.compile(r"^[0-9]{6}$")
+NATIONAL_UF_CODES = frozenset({
+    "11", "12", "13", "14", "15", "16", "17", "21", "22", "23", "24",
+    "25", "26", "27", "28", "29", "31", "32", "33", "35", "41", "42",
+    "43", "50", "51", "52", "53",
+})
 
 
 def inspect_municipalities(records: Iterable[Municipality]) -> CatalogValidationReport:
@@ -55,4 +60,21 @@ def validate_municipalities(records: Iterable[Municipality]) -> tuple[Municipali
         previous = uf_attributes.setdefault(item.uf_code, attributes)
         if previous != attributes:
             raise ValueError(f"identidade da UF inconsistente para {item.uf_code}")
+    return values
+
+
+def validate_national_municipalities(
+    records: Iterable[Municipality],
+) -> tuple[Municipality, ...]:
+    """Valida uma candidata que será publicada como catálogo nacional.
+
+    A validação estrutural comum aceita fixtures parciais. Os caminhos de
+    atualização nacional precisam adicionalmente provar que a candidata cobre
+    todas as 27 UFs; ausência de municípios específicos continua sendo tratada
+    pela validação da fonte e pela reconciliação da edição oficial.
+    """
+    values = validate_municipalities(records)
+    missing = sorted(NATIONAL_UF_CODES - {item.uf_code for item in values})
+    if missing:
+        raise ValueError(f"catálogo nacional incompleto; UFs ausentes: {missing}")
     return values

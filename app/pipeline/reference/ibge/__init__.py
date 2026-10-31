@@ -17,6 +17,7 @@ from .models import (
     ResolutionResult,
     ResolutionStatus,
 )
+from .validation import validate_national_municipalities
 
 __all__ = [
     "CatalogMetadata",
@@ -33,4 +34,5 @@ __all__ = [
     "promote_toponymic_events",
     "ResolutionResult",
     "ResolutionStatus",
+    "validate_national_municipalities",
 ]

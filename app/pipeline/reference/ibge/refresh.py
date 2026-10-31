@@ -17,6 +17,7 @@ from .client import DEFAULT_MUNICIPALITIES_URL, IbgeLocalidadesClient
 from .dtb import parse_dtb_archive
 from .models import CatalogMetadata
 from .storage import catalog_content_sha256, promote_active, write_manifest, write_release
+from .validation import validate_national_municipalities
 
 
 def download_dtb_archive(
@@ -71,6 +72,7 @@ def refresh_from_dtb_url(
     reference_year: int,
     expected_sha256: str | None = None,
     session: requests.Session | None = None,
+    require_national: bool = True,
 ) -> Path:
     """Baixa, valida e promove uma edição DTB em uma única operação controlada."""
     archive = download_dtb_archive(
@@ -79,7 +81,7 @@ def refresh_from_dtb_url(
     )
     return refresh_from_dtb_archive(
         root, archive, catalog_id=catalog_id, source_url=url,
-        reference_year=reference_year,
+        reference_year=reference_year, require_national=require_national,
     )
 
 
@@ -153,12 +155,15 @@ def refresh_from_localidades(
     source_url: str,
     reference_year: int,
     client: IbgeLocalidadesClient | None = None,
+    require_national: bool = True,
 ) -> Path:
     release = _release_path(root, catalog_id)
     records = tuple(
         replace(record, reference_year=reference_year)
         for record in (client or IbgeLocalidadesClient()).fetch_municipalities()
     )
+    if require_national:
+        records = validate_national_municipalities(records)
     metadata = CatalogMetadata(
         catalog_id=catalog_id,
         reference_year=reference_year,
@@ -184,9 +189,12 @@ def refresh_from_dtb_archive(
     catalog_id: str,
     source_url: str,
     reference_year: int,
+    require_national: bool = True,
 ) -> Path:
     release = _release_path(root, catalog_id)
     records = parse_dtb_archive(archive, reference_year)
+    if require_national:
+        records = validate_national_municipalities(records)
     sha256 = hashlib.sha256(archive.read_bytes()).hexdigest()
     metadata = CatalogMetadata(
         catalog_id=catalog_id,

@@ -5,7 +5,11 @@ import pytest
 
 from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog, ParquetMunicipalityCatalog
 from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality, ResolutionStatus
-from app.pipeline.reference.ibge.validation import inspect_municipalities, validate_municipalities
+from app.pipeline.reference.ibge.validation import (
+    inspect_municipalities,
+    validate_municipalities,
+    validate_national_municipalities,
+)
 from app.pipeline.reference.ibge.client import IbgeLocalidadesClient
 from app.pipeline.reference.ibge.storage import (
     catalog_content_sha256,
@@ -163,6 +167,11 @@ def test_catalog_validation_report_preserves_error_without_throwing():
     assert report.valid is False
     assert report.municipality_count == 1
     assert report.errors
+
+
+def test_national_validation_rejects_missing_uf():
+    with pytest.raises(ValueError, match="UFs ausentes"):
+        validate_national_municipalities([municipality("3301009", "Campos")])
 
 
 def test_validation_rejects_duplicate_code7():
@@ -438,7 +447,7 @@ def test_refresh_from_localidades_promotes_release_and_active_pointer(tmp_path):
         catalog_id="ibge-api-test",
         source_url="https://example.invalid/municipios",
         reference_year=2025,
-        client=Client(),
+        client=Client(), require_national=False,
     )
     assert result.exists()
     assert (result.parent / "ufs.parquet").exists()
@@ -462,7 +471,7 @@ def test_refresh_from_dtb_archive_hashes_raw_artifact(tmp_path, mocker):
         archive,
         catalog_id="ibge-dtb-test",
         source_url="https://example.invalid/DTB_2025.zip",
-        reference_year=2025,
+        reference_year=2025, require_national=False,
     )
     manifest = result.with_name("manifest.json").read_text(encoding="utf-8")
     assert result.exists()
@@ -502,6 +511,7 @@ def test_refresh_from_dtb_url_downloads_then_promotes_with_same_contract(tmp_pat
     promoted.assert_called_once_with(
         tmp_path, archive, catalog_id="ibge-dtb-2025",
         source_url="https://example.invalid/DTB_2025.zip", reference_year=2025,
+        require_national=True,
     )
 
 
@@ -513,12 +523,14 @@ def test_refresh_rejects_catalog_id_reuse_with_different_hash(tmp_path, mocker):
     refresh_from_dtb_archive(
         tmp_path, archive, catalog_id="immutable", source_url="fixture://dtb",
         reference_year=2025,
+        require_national=False,
     )
     archive.write_bytes(b"second")
     with pytest.raises(ValueError, match="imutável"):
         refresh_from_dtb_archive(
             tmp_path, archive, catalog_id="immutable", source_url="fixture://dtb",
             reference_year=2025,
+            require_national=False,
         )
     assert load_active_catalog(tmp_path).metadata.sha256 == __import__("hashlib").sha256(b"first").hexdigest()
 
@@ -533,6 +545,7 @@ def test_refresh_does_not_reuse_unvalidated_existing_release(tmp_path, mocker):
     refresh_from_dtb_archive(
         tmp_path, archive, catalog_id="pending", source_url="fixture://dtb",
         reference_year=2025,
+        require_national=False,
     )
     manifest = tmp_path / "releases" / "pending" / "manifest.json"
     content = __import__("json").loads(manifest.read_text(encoding="utf-8"))
@@ -543,6 +556,7 @@ def test_refresh_does_not_reuse_unvalidated_existing_release(tmp_path, mocker):
         refresh_from_dtb_archive(
             tmp_path, archive, catalog_id="pending", source_url="fixture://dtb",
             reference_year=2025,
+            require_national=False,
         )
 
 
@@ -562,6 +576,7 @@ def test_refresh_promotes_release_as_a_whole_and_cleans_staging_on_failure(tmp_p
         refresh_from_dtb_archive(
             tmp_path, archive, catalog_id="atomic", source_url="fixture://dtb",
             reference_year=2025,
+            require_national=False,
         )
 
     releases = tmp_path / "releases"
@@ -577,6 +592,7 @@ def test_refresh_rejects_catalog_id_path_traversal(tmp_path):
         refresh_from_dtb_archive(
             tmp_path, archive, catalog_id="../outside", source_url="fixture://dtb",
             reference_year=2025,
+            require_national=False,
         )
 
 

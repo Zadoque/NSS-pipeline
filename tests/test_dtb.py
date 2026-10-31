@@ -60,10 +60,26 @@ def test_refresh_dtb_writes_release_and_active_pointer(tmp_path, monkeypatch):
     result = refresh_from_dtb_archive(
         tmp_path / "reference", archive, catalog_id="ibge-dtb-2025",
         source_url="https://example.invalid/DTB_2025.zip", reference_year=2025,
+        require_national=False,
     )
     assert result.exists()
     assert (tmp_path / "reference/active.json").exists()
     assert "ibge-dtb-2025" in (tmp_path / "reference/releases/ibge-dtb-2025/manifest.json").read_text()
+
+
+def test_refresh_dtb_rejeita_candidata_nacional_incompleta(tmp_path, monkeypatch):
+    import pytest
+    import app.pipeline.reference.ibge.refresh as refresh
+
+    monkeypatch.setattr(refresh, "parse_dtb_archive", lambda archive, year: parse_dtb_table(FIXTURE, year))
+    archive = tmp_path / "DTB_2025.zip"
+    archive.write_bytes(b"official-fixture")
+
+    with pytest.raises(ValueError, match="catálogo nacional incompleto"):
+        refresh_from_dtb_archive(
+            tmp_path / "reference", archive, catalog_id="ibge-dtb-2025",
+            source_url="https://example.invalid/DTB_2025.zip", reference_year=2025,
+        )
 
 
 def test_refresh_api_release_has_logical_hash(tmp_path, mocker):
@@ -72,6 +88,7 @@ def test_refresh_api_release_has_logical_hash(tmp_path, mocker):
     refresh_from_localidades(
         tmp_path / "reference", catalog_id="ibge-api-test", source_url="https://example.invalid",
         reference_year=2025, client=client,
+        require_national=False,
     )
     manifest = (tmp_path / "reference/releases/ibge-api-test/manifest.json").read_text()
     assert '"sha256": ""' not in manifest
