@@ -286,6 +286,9 @@ IBGE-012 ──> IBGE-013
     Gold; a rodada dirigida de `run_load` matou mais **13 mutantes relevantes**
     de fonte, ano, colunas, lote CNES, escopo e qualidade. Essa evidência é
     complementar à medição global.
+  - Após `6fd95ec`, os **12 mutantes** novos da validação de métricas obrigatórias
+    e tipos em `run_load.py` foram executados e mortos em rodada dirigida; a
+    baseline global não foi substituída por essa medição parcial.
   - O commit `44cfbdc` cobriu UF declarada ausente no resolvedor municipal; o
     mutante de normalização de `pd.NA` morreu. A variante `None` versus string
     vazia foi classificada como equivalente pelo contrato atual.

@@ -1207,6 +1207,11 @@ A suíte integral passou em **580 testes**, com **3 pulados** e **25 warnings**;
 `nix flake check --no-build` também passou. A baseline global de mutação não
 foi recalculada nesta etapa.
 
+Após `6fd95ec`, a rodada dirigida dos **12 mutantes** novos do caminho de
+validação de métricas em `run_load.py` (`mutmut_249` a `mutmut_260`) matou
+todos. Essa medição é complementar: a rodada global limpa continua sendo a
+baseline registrada no backlog.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
