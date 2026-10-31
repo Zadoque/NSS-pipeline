@@ -1472,3 +1472,9 @@ Verificação integral posterior ao ajuste histórico: **620 testes passaram**, 
 **3 pulados** e **25 warnings**; `nix flake check --no-build` também passou. O
 branch permaneceu limpo e sincronizado com `origin/work/nss-pipeline` no commit
 `402205a`.
+
+Na etapa seguinte, o pacote público `reference.ibge` passou a exportar
+`derive_annual_event_series()` e `promote_annual_dtb_events()`, eliminando a
+necessidade de consumidores dependerem de imports internos. O contrato foi
+coberto por regressão de importação; `tests/test_ibge_historical.py` passou em
+**81 testes** no commit `8528f8e` (`feat(ibge): expose annual history operations`).

@@ -264,6 +264,9 @@ IBGE-012 ──> IBGE-013
   geocódigos), sem depender da posição da linha; reordenação da mesma fonte é
   idempotente e mudança de payload para a mesma identidade continua gerando
   conflito.
+- As operações anuais `derive_annual_event_series()` e
+  `promote_annual_dtb_events()` também integram o contrato público do pacote
+  `reference.ibge`, com regressão de importação.
 - O commit `ca10257` adicionou o parser da planilha oficial
   `pop_mun_TUR_1872_a_2010.xls`, promovendo somente alterações de nome com o
   mesmo código. A execução do artefato oficial produziu 2.149 eventos
