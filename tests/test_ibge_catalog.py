@@ -632,6 +632,7 @@ def test_localidades_client_validates_and_parses_response(mocker):
     result = IbgeLocalidadesClient(session=session).fetch_municipalities()
     assert result[0].code7 == "3301009"
     assert result[0].code6 == "330100"
+    assert result[0].name == "Campos"
     assert result[0].uf_code == "33"
     assert result[0].uf_name == "Rio"
     assert result[0].reference_year == 0
@@ -703,7 +704,10 @@ def test_localidades_client_rejects_non_object_record(mocker):
 def test_localidades_client_rejects_missing_administrative_fields(mocker):
     session = mocker.Mock()
     session.get.return_value.json.return_value = [{"id": 3301009, "nome": "Campos"}]
-    with pytest.raises(ValueError, match="administrativos"):
+    with pytest.raises(
+        ValueError,
+        match="^registro IBGE sem campos administrativos obrigatórios$",
+    ):
         IbgeLocalidadesClient(session=session).fetch_municipalities()
 
 
