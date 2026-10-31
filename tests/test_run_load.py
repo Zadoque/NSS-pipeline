@@ -187,3 +187,33 @@ def test_run_load_rejeita_escopo_de_catalogo_diferente(mocker, pipeline):
 
     runner.fetch_sinan.assert_not_called()
     runner.get_engine.assert_not_called()
+
+
+def test_run_load_transmite_catalogo_e_escopo_ate_publicacao(mocker, pipeline):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    municipalities = (
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+        Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+    )
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata("ibge-dtb-test", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope(municipalities, kind="UFs")
+    aggregate, engine, _, load = pipeline
+    silver = pd.DataFrame({"ID_MUNICIP": ["330100", "3550308"]})
+    mocker.patch.object(runner.pd, "read_parquet", side_effect=[silver, pd.DataFrame({"cases_total": [2]})])
+
+    runner.run_load("DENG", 2026, catalog=catalog, geographic_scope=scope)
+
+    options = load.call_args.kwargs
+    assert options["ibge_catalog"] is catalog
+    assert options["municipios"] == ["3301009", "3550308"]
+    assert options["geographic_scope_type"] == "UFs"
+    assert options["geographic_scope_sha256"] == scope.sha256
+    assert aggregate.call_args.kwargs["catalog"] is catalog
+    assert aggregate.call_args.kwargs["geographic_scope_type"] == "UFs"
+    engine.dispose.assert_called_once()
