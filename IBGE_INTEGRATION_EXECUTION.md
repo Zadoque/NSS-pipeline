@@ -477,3 +477,9 @@ A fundação técnica e a integração dos caminhos principais foram implementad
 com compatibilidade para o RJ e commits semânticos por etapa. A promoção para
 Brasil inteiro deve ocorrer somente após as pendências acima, especialmente a
 DTB oficial versionada, os testes PostgreSQL e a validação nacional de CNES.
+
+O backlog operacional, com dependências, prioridades, estados e critérios de
+aceite, está em [`IBGE_INTEGRATION_BACKLOG.md`](IBGE_INTEGRATION_BACKLOG.md).
+Na etapa final da execução, `run.py` e `run_load.py` também passaram a impor no
+próprio parser da CLI a exclusividade entre município, UF e Brasil inteiro;
+essa regra é coberta por regressão unitária e pelo commit `ea9c0b6`.
