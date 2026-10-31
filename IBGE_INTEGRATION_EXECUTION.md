@@ -108,6 +108,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `a01cc7a` | Reconciliação do total SINAN com UF declarada |
 | `d0c512c` | Gold resolve códigos diretamente pelo catálogo IBGE |
 | `56aad3e` | Cobertura direta do contrato do resolvedor Gold |
+| `879d637` | Cobertura do contrato CLI do executor SINAN |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
@@ -353,6 +354,8 @@ suíte completa após resolução canônica na Gold → 435 passed, 3 skipped,
 25 warnings
 suíte completa após cobertura direta do resolvedor Gold → 436 passed, 3 skipped,
 25 warnings
+suíte completa após cobertura do contrato CLI de `run_load` → 437 passed,
+3 skipped, 25 warnings
 mutação dirigida de `write_events()` → 10/13 mutantes pendentes mortos; três
 mutantes equivalentes ou de parâmetros de iteração permanecem classificados
 como sobreviventes para investigação.
@@ -677,3 +680,6 @@ aceite, está em [`IBGE_INTEGRATION_BACKLOG.md`](IBGE_INTEGRATION_BACKLOG.md).
 Na etapa final da execução, `run.py` e `run_load.py` também passaram a impor no
 próprio parser da CLI a exclusividade entre município, UF e Brasil inteiro;
 essa regra é coberta por regressão unitária e pelo commit `ea9c0b6`.
+Mutações dirigidas de `run_load._build_parser()` → 22 de 64 mutantes
+previamente sobreviventes morreram após o teste de contrato dos argumentos;
+os demais continuam pendentes e não são apresentados como aprovação global.
