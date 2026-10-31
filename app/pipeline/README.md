@@ -80,9 +80,6 @@ código da doença é passado como está definido pelo próprio SINAN/PySUS:
 | `DENG` | Dengue |
 | `CHIK` | Chikungunya |
 | `ZIKA` | Zika |
-| `FMAC` | Febre maculosa |
-| `TOXC` | Toxoplasmose congênita |
-| `TOXG` | Toxoplasmose gestacional |
 | `TUBE` | Tuberculose |
 | `HANS` | Hanseníase |
 | `HEPA` | Hepatites virais |
@@ -90,11 +87,52 @@ código da doença é passado como está definido pelo próprio SINAN/PySUS:
 | `SIFC` | Sífilis congênita |
 | `LEPT` | Leptospirose |
 | `MENI` | Meningite |
+| `FMAC` | Febre maculosa |
+| `TOXC` | Toxoplasmose congênita |
+| `TOXG` | Toxoplasmose gestacional |
+| `ACBI` | Acidente de trabalho com material biológico |
+| `ACGR` | Acidente de trabalho |
+| `ANIM` | Acidente por animais peçonhentos |
+| `ANTR` | Atendimento antirrábico |
+| `BOTU` | Botulismo |
+| `CANC` | Câncer relacionado ao trabalho |
+| `CHAG` | Doença de Chagas aguda |
+| `ESQU` | Esquistossomose |
+| `COLE` | Cólera |
+| `COQU` | Coqueluche |
+| `DERM` | Dermatoses ocupacionais |
+| `DIFT` | Difteria |
+| `EXAN` | Doenças exantemáticas |
+| `FTIF` | Febre tifoide |
+| `HANT` | Hantavirose |
+| `IEXO` | Intoxicação exógena |
+| `INFL` | Influenza pandêmica |
+| `LEIV` | Leishmaniose visceral |
+| `LTAN` | Leishmaniose tegumentar americana |
+| `LERD` | LER/Dort |
+| `MALA` | Malária |
+| `MENT` | Transtornos mentais relacionados ao trabalho |
+| `NTRA` | Notificação de tracoma |
+| `PAIR` | Perda auditiva por ruído relacionada ao trabalho |
+| `PFAN` | Paralisia flácida aguda |
+| `PNEU` | Pneumoconioses relacionadas ao trabalho |
+| `PEST` | Peste |
+| `RAIV` | Raiva |
+| `SDTA` | Surto de doenças transmitidas por alimentos |
+| `SRC` | Síndrome da rubéola congênita |
+| `SIFG` | Sífilis em gestante |
+| `TETA` | Tétano acidental |
+| `TETN` | Tétano neonatal |
+| `TRAC` | Inquérito de tracoma |
+| `VARC` | Varicela |
+| `VIOL` | Violência doméstica, sexual ou outras violências |
 
-> Esta lista não é exaustiva — qualquer código de doença aceito pelo PySUS
-> pode ser usado. Nem todas as doenças compartilham o mesmo schema de campos
-> (ex.: campos de sintomas de arboviroses não existem na ficha de
-> tuberculose); veja [Limitações conhecidas](#limitações-conhecidas-e-roadmap).
+> Esta é a lista operacional homologada contra `SINAN.group_definitions` do
+> PySUS 2.11.7. O PySUS pode adicionar ou renomear grupos em versões futuras;
+> a atualização da dependência deve atualizar também este catálogo e seu teste
+> de paridade. Os campos específicos de cada ficha não são descartados pela
+> Silver: somente o subconjunto canônico comum é usado na Gold; veja
+> [Limitações conhecidas](#limitações-conhecidas-e-roadmap).
 
 ---
 
