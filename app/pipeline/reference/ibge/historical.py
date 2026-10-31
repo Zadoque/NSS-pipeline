@@ -64,7 +64,12 @@ def promote_historical_source(
             raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}") from exc
         if not isinstance(loaded, dict):
             raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}")
-        existing = dict(loaded.get("sources", {}))
+        raw_sources = loaded.get("sources", {})
+        if not isinstance(raw_sources, dict) or any(
+            not isinstance(value, dict) for value in raw_sources.values()
+        ):
+            raise ValueError(f"manifesto de fontes históricas inválido: {manifest_path}")
+        existing = dict(raw_sources)
 
     entry = {
         "source_id": source_id,
@@ -456,8 +461,11 @@ def _promote_events(
 
     sources: list[dict[str, object]] = []
     old_sources = previous.get("sources", [])
-    if isinstance(old_sources, list):
-        sources.extend(item for item in old_sources if isinstance(item, dict))
+    if not isinstance(old_sources, list) or any(
+        not isinstance(item, dict) for item in old_sources
+    ):
+        raise ValueError("manifesto histórico inválido: sources deve ser uma lista de objetos")
+    sources.extend(old_sources)
     # Compatibilidade com manifestos criados antes do campo ``sources``.
     if not sources and previous.get("source_path"):
         sources.append({

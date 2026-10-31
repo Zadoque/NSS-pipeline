@@ -217,6 +217,24 @@ def test_promote_historical_source_exige_proveniencia(tmp_path, source_url, refe
         )
 
 
+def test_promote_historical_source_rejeita_manifesto_sources_invalido(tmp_path):
+    root = tmp_path / "catalog"
+    source = tmp_path / "genealogia.pdf"
+    source.write_bytes(b"source")
+    promote_historical_source(
+        root, source, source_id="genealogia.pdf", source_url="fixture://genealogia",
+        reference_period="1872-2010",
+    )
+    manifest = root / "historical" / "sources.manifest.json"
+    manifest.write_text('{"sources": []}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="manifesto de fontes históricas inválido"):
+        promote_historical_source(
+            root, source, source_id="other.pdf", source_url="fixture://other",
+            reference_period="1872-2010",
+        )
+
+
 def test_promote_historical_source_rejeita_fonte_ausente_e_vazia(tmp_path):
     with pytest.raises(ValueError) as missing:
         promote_historical_source(
@@ -542,6 +560,23 @@ def test_promote_administrative_events_is_idempotent(tmp_path):
 
     assert len(first_frame) == len(second_frame) == 1
     assert first_manifest["sources"] == second_manifest["sources"]
+
+
+def test_promote_administrative_events_rejeita_manifesto_sources_invalido(tmp_path):
+    source = tmp_path / "administrative.csv"
+    source.write_text(
+        "EVENT_TYPE,EFFECTIVE_DATE,SOURCE_CODE7,TARGET_CODE7\n"
+        "CREATION,2025-01-01,,5101837\n", encoding="utf-8",
+    )
+    root = tmp_path / "catalog"
+    promote_administrative_events(root, source, reference_year=2025)
+    manifest = root / "historical" / "municipality_events.manifest.json"
+    payload = __import__("json").loads(manifest.read_text(encoding="utf-8"))
+    payload["sources"] = {"invalid": True}
+    manifest.write_text(__import__("json").dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="sources deve ser uma lista"):
+        promote_administrative_events(root, source, reference_year=2025)
 
 
 def test_promote_administrative_events_rejects_conflicting_event_identity(tmp_path):
