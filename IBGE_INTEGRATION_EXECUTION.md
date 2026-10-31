@@ -501,6 +501,12 @@ O módulo ficou com 167 mutantes mortos, 167 sobreviventes e 119 sem testes
 associados. Esse resultado é uma reclassificação dirigida do módulo, não uma
 medição global; a meta de 95% continua pendente.
 
+Depois da validação semântica dos eventos, a rodada dirigida de `historical.py`
+foi repetida sobre 388 mutantes pendentes. O estado observado do módulo ficou
+em 335 mortos, 274 sobreviventes, 84 sem testes associados e 112 ainda não
+classificados; a ferramenta mantém alguns resultados anteriores no cache, por
+isso esses números não são comparáveis a uma rodada global limpa.
+
 Também foi executada novamente a rodada global configurada no `pyproject.toml`,
 com 6.416 mutantes classificados: 3.340 mortos, 1.887 sobreviventes, 1.187
 sem testes associados e 2 timeouts. A taxa entre os mutantes classificáveis
