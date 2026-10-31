@@ -112,6 +112,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `be0c06c` | Reuso do resolvedor IBGE da Gold no executor SINAN |
 | `4113812` | Endurecimento do contrato CLI de `run_load` |
 | `e604894` | Cobertura Gold em lotes com métricas nacionais de resolução |
+| `36eeaa7` | Asserção do contexto completo do resolvedor IBGE |
 | `92e4f40` | Separação das métricas de descarte e agregação Gold |
 | `29e7653` | Registro da resolução canônica na Gold |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
@@ -418,6 +419,14 @@ O novo helper `resolve_catalog_municipality_codes()` também recebeu uma rodada
 dirigida própria: 14 de 16 mutantes pendentes morreram. Os dois sobreviventes
 alteram apenas a representação de UF ausente (`None` versus string vazia), sem
 mudar a resolução observável, e permanecem documentados como equivalentes.
+
+O contrato de `InMemoryMunicipalityCatalog.resolve()` foi ampliado para
+verificar o contexto completo dos resultados. Na rodada dirigida dos 22
+mutantes sobreviventes desse método, 18 morreram e quatro continuam
+classificados como sobreviventes por alterações de inicialização que não
+mudam nenhum resultado observável nos caminhos cobertos. A atualização do
+cache dirigido passou a registrar 3.987 mortos e 2.268 sobreviventes; esse
+valor não substitui a última rodada global completa de 7.000 mutantes.
 fixture SINAN sintética nacional → 3 passed; uma linha por município em 5.571 municípios
 national catalog smoke    → 5571 municípios, 27 UFs
 controlled refresh smoke  → release DTB 2025 promovida e recarregada
