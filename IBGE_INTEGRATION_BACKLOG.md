@@ -165,7 +165,7 @@ IBGE-012 ──> IBGE-013
 ### IBGE-011 — Histórico territorial explícito
 
 - Prioridade: **P2**
-- Estado: **Parcial; crosswalk 2011–2025 pendente**
+- Estado: **Parcial; série DTB 2011–2025 processável, sucessões pendentes**
 - Dependências: IBGE-002
 - Escopo: eventos de criação, extinção, sucessão, desmembramento, fusão e
   alterações toponímicas provenientes de fonte explícita.
@@ -175,6 +175,9 @@ IBGE-012 ──> IBGE-013
   - A genealogia oficial 1872–2010 é preservada como fonte, mas não é tratada
     como crosswalk completo sem extração validada.
   - Uma fonte tabular oficial 2011–2025 pode ser promovida idempotentemente.
+- Implementação atual: o parser lê formatos legados e recentes das edições
+  anuais e deriva apenas eventos observáveis; criação/extinção entre códigos
+  não é convertida automaticamente em sucessão.
 
 ### IBGE-012 — Mutação dos contratos críticos
 

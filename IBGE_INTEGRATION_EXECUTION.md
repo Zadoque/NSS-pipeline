@@ -94,6 +94,7 @@ identidade municipal canônica aos executores SINAN e CNES.
 | `28bf78a` | Janela limitada de requisições CNES |
 | `3d4e019` | Série anual explícita de eventos territoriais |
 | `ea1ca07` | Reconciliação sintética SINAN em todos os municípios |
+| `2daea85` | Compatibilidade do parser com DTBs anuais legadas |
 | `a4d26a3` | Defaults de PostgreSQL diretamente no Compose |
 | `570939d` | Cobertura das fronteiras de validação CNES |
 | `59a8b1f` | Cobertura dos limites mínimos válidos do CNES |
@@ -332,6 +333,9 @@ Comparação API de Localidades × DTB 2025 → 0 códigos exclusivos em qualque
 fonte e 0 divergências de nome, UF ou sigla entre os 5571 registros
 comparação DTB 2024 × DTB 2025 → 5571 municípios em cada edição e 3 mudanças
 toponímicas explícitas; nenhuma sucessão foi inferida
+Série DTB oficial 2011–2025 → edições legíveis com 5565 municípios em 2011/2012,
+5570 em 2013–2023 e 5571 em 2024/2025; 53 eventos observáveis (47 mudanças
+toponímicas e 6 criações), sem sucessões inferidas
 national CNES smoke        → 5571 municípios resolvidos, 1 sessão reutilizada
 CNES real nacional         → `COMPLETED`, 5571/5571 municípios, 5571 Bronzes,
   641343 estabelecimentos, zero falhas, 100% `municipality_resolution_status=VALID`,
@@ -551,7 +555,7 @@ e banco `situacao_saude`; nenhuma credencial de produção é versionada.
 | Seleção por município, UF e Brasil | CLI, `GeographicScope` e smoke nacional com 27 UFs | Concluído |
 | CNES nacional offline/reiniciável | 5.571 municípios simulados, sessão reutilizada e checkpoint validado | Concluído |
 | Publicação PostgreSQL multi-UF | Migrations reais, fatos, dimensões, FKs e linhagem RJ/SP | Concluído no modo sintético |
-| Histórico de sucessões municipais | IBGE possui genealogia histórica 1872–2010 em PDF; não há crosswalk tabular 2011–2025 promovido | Pendente externo |
+| Histórico de sucessões municipais | Série DTB 2011–2025 processável, 53 eventos observáveis; genealogia de sucessões ainda não promovida | Parcial; sucessões pendentes |
 | CNES real em todas as UFs | 5.571/5.571 municípios, 5.571 Bronzes, 641.343 estabelecimentos, zero falhas | Concluído |
 | Reconciliação epidemiológica nacional | Não há dados autorizados nacionais no ambiente | Pendente externo |
 | Mutação ≥95% | Última medição global: 63,9% entre mutantes classificáveis | Pendente de qualidade |
