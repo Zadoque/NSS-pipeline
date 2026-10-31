@@ -1035,6 +1035,12 @@ execução não excluiu módulos nem tratou sobreviventes equivalentes como mort
 A suíte integral posterior passou em **535 testes**, com **3 testes pulados** e
 **25 warnings**. `nix flake check --no-build` também passou após essa mudança.
 
+O commit `213c94c` (`test(sinan): cover catalog normalization contract`)
+adicionou uma regressão direta para o caminho que recebe um
+`InMemoryMunicipalityCatalog` em `normalize_municipality_codes()`. A rodada
+dirigida matou **4 de 5 mutantes** previamente sobreviventes; o restante é
+equivalente porque as entradas válidas já são exclusivamente numéricas.
+
 ## Conclusão
 
 A fundação técnica e a integração dos caminhos principais foram implementadas
