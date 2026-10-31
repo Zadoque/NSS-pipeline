@@ -173,11 +173,48 @@ def _load_release(root: Path, catalog_id: str) -> ParquetMunicipalityCatalog:
             "reference_year dos municípios diverge do manifesto: "
             f"manifesto={metadata.reference_year}, registros={mismatched_years}"
         )
+    _validate_auxiliary_artifacts(release, catalog.municipalities())
     if metadata.content_sha256 is not None:
         actual_content_sha256 = catalog_content_sha256(catalog.municipalities())
         if actual_content_sha256 != metadata.content_sha256:
             raise ValueError("hash lógico do catálogo diverge do manifesto")
     return catalog
+
+
+def _validate_auxiliary_artifacts(
+    release: Path,
+    records: tuple[Municipality, ...],
+) -> None:
+    """Confere artefatos derivados quando presentes na release.
+
+    Releases antigas podem conter apenas ``municipalities.parquet`` e continuam
+    legíveis. Releases novas, porém, não podem carregar um catálogo e publicar
+    UFs/crosswalk divergentes dos mesmos registros canônicos.
+    """
+    expected_ufs = pd.DataFrame([
+        {"uf_code": item.uf_code, "uf_abbr": item.uf_abbr, "uf_name": item.uf_name}
+        for item in records
+    ]).drop_duplicates(subset=["uf_code"]).sort_values("uf_code").reset_index(drop=True)
+    expected_crosswalk = pd.DataFrame([
+        {"code6": item.code6, "code7": item.code7, "reference_year": item.reference_year}
+        for item in records
+    ]).sort_values("code6").reset_index(drop=True)
+    expected = {
+        "ufs.parquet": expected_ufs,
+        "code_crosswalk.parquet": expected_crosswalk,
+    }
+    for filename, expected_frame in expected.items():
+        path = release / filename
+        if not path.exists():
+            continue
+        try:
+            actual = pd.read_parquet(path).reset_index(drop=True)
+        except Exception as exc:
+            raise ValueError(f"artefato auxiliar IBGE inválido: {path}") from exc
+        if list(actual.columns) != list(expected_frame.columns):
+            raise ValueError(f"esquema divergente no artefato auxiliar IBGE: {path}")
+        if not actual.equals(expected_frame):
+            raise ValueError(f"conteúdo divergente no artefato auxiliar IBGE: {path}")
 
 
 def load_active_catalog(root: Path) -> ParquetMunicipalityCatalog:

@@ -518,6 +518,25 @@ def test_storage_round_trip_loads_active_catalog(tmp_path):
     assert loaded.get_municipality("3301009").name == "Campos"
 
 
+@pytest.mark.parametrize("artifact", ["ufs.parquet", "code_crosswalk.parquet"])
+def test_active_catalog_rejects_auxiliary_artifact_divergence(tmp_path, artifact):
+    records = [
+        municipality("3301009", "Campos"),
+        municipality("3550308", "São Paulo", "35", "SP"),
+    ]
+    release = tmp_path / "releases" / "test"
+    write_release(release, records)
+    write_manifest(release / "manifest.json", replace(METADATA, content_sha256=catalog_content_sha256(records)))
+    promote_active(tmp_path / "active.json", "test")
+
+    frame = __import__("pandas").read_parquet(release / artifact)
+    frame.iloc[0, 0] = "99"
+    frame.to_parquet(release / artifact, index=False)
+
+    with pytest.raises(ValueError, match="conteúdo divergente no artefato auxiliar"):
+        load_active_catalog(tmp_path)
+
+
 def test_storage_cria_arvore_de_release_em_instalacao_nova(tmp_path):
     root = tmp_path / "catalog" / "nested"
     write_manifest(root / "fresh" / "manifest.json", METADATA)
