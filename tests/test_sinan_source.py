@@ -4,7 +4,12 @@ from types import SimpleNamespace
 import pandas as pd
 import pytest
 
-from app.pipeline.sinan.source import RemoteSinanFile, SinanSourceUnavailable, is_changed
+from app.pipeline.sinan.source import (
+    RemoteSinanFile,
+    SinanSourceUnavailable,
+    _pysus_cache_lock,
+    is_changed,
+)
 from app.pipeline.sinan import source
 
 
@@ -23,6 +28,13 @@ def test_remote_file_detects_missing_or_different_local_size(tmp_path, monkeypat
 def test_remote_file_path_is_stable():
     remote = RemoteSinanFile("TOXC", 2026, "remote", 1)
     assert remote.local_path == Path("/data/source/sinan/disease=toxc/source_year=2026/data.parquet")
+
+
+def test_pysus_cache_lock_cria_lock_exclusivo(tmp_path, monkeypatch):
+    monkeypatch.setattr(source.pysus, "CACHEPATH", tmp_path)
+
+    with _pysus_cache_lock():
+        assert (tmp_path / ".nss-sinan-cache.lock").exists()
 
 
 def test_inspect_remote_file_normaliza_doenca_e_ignora_nao_parquet(mocker):
