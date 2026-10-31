@@ -570,3 +570,8 @@ Uma regressão adicional verificou que a ausência do cache SINAN preserva o
 caminho esperado no `FileNotFoundError`; o teste passou e matou o mutante
 correspondente. A rodada dirigida atual registra **6.434 mortos**, **1.688
 sobreviventes** e **331 timeouts** em **8.453 mutantes**.
+
+Uma nova matriz independente em cache isolado consultou os **49 grupos** PySUS
+para 2024: **47 disponíveis**, `HEPA`/`INFL` indisponíveis e nenhuma falha
+técnica. A matriz foi somente de descoberta de fonte e não altera o gate de
+carga SINAN autorizada nacional.

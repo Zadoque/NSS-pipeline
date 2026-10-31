@@ -1701,3 +1701,9 @@ O ciclo seguinte adicionou uma regressão para preservar o caminho exato no
 **15 testes**, e a mutação dirigida correspondente foi morta; a contagem
 dirigida passou a **6.434 mortos** e **1.688 sobreviventes** em **8.453
 mutantes**, com **331 timeouts**.
+
+Em nova execução independente com `PYSUS_CACHEPATH` isolado, a matriz de 2024
+consultou **49/49 grupos** do PySUS 2.11.7: **47 Parquets disponíveis**, apenas
+`HEPA` e `INFL` sem fonte para o ano, e **zero falhas técnicas**. A consulta
+não baixou nem publicou dados; confirma somente a descoberta nacional e a
+política explícita para fontes temporariamente indisponíveis.
