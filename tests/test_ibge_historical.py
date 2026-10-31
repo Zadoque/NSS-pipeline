@@ -326,3 +326,32 @@ def test_promote_annual_dtb_events_writes_hashes_and_policy(tmp_path, monkeypatc
     assert manifest["rows"] == 2
     assert manifest["inference_policy"] == "OBSERVABLE_ANNUAL_DIFF_ONLY"
     assert len(manifest["sources"]) == 2
+
+
+def test_promote_annual_dtb_events_preserves_previous_source_lineage(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge import dtb
+    from app.pipeline.reference.ibge.models import Municipality
+
+    previous = Municipality("3301009", "330100", "Origem", "33", "RJ", "Rio", 2024)
+    current = Municipality("5101837", "510183", "Novo", "51", "MT", "Mato Grosso", 2025)
+    toponymic = tmp_path / "alteracoes.csv"
+    toponymic.write_text(
+        "UF,MUN,ALT,NOME_ANTERIOR,NOME_ATUAL,DATA_OCORRÊNCIA\n"
+        "33,01009,2,Origem,Origem Nova,2024-01-01\n", encoding="utf-8",
+    )
+    root = tmp_path / "catalog"
+    promote_toponymic_events(root, toponymic, reference_year=2024, source_url="fixture://toponymic")
+    archives = {2024: tmp_path / "DTB_2024.zip", 2025: tmp_path / "DTB_2025.zip"}
+    for path in archives.values():
+        path.write_bytes(b"official-fixture")
+    monkeypatch.setattr(
+        dtb, "parse_dtb_archive",
+        lambda path, reference_year: [previous] if reference_year == 2024 else [current],
+    )
+
+    result = promote_annual_dtb_events(root, archives)
+    manifest = __import__("json").loads(
+        result.with_name("municipality_events.manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["inference_policy"] == "MIXED_EXPLICIT_AND_OBSERVABLE"
+    assert len(manifest["sources"]) == 3
