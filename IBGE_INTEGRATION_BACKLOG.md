@@ -600,3 +600,17 @@ notification policy produtivos, secrets do ambiente, fixture SINAN autorizada
 para a execução nacional e a linha de base completa de mutação. Portanto,
 `IBGE-013` continua bloqueado por dependências de operação/dados, e não deve
 ser marcado como rollout concluído apenas por CI verde.
+
+### Correção de observabilidade — 01/11/2026
+
+O commit `0ab0921` passou a publicar `status=failure` no Pushgateway quando
+uma falha fatal interrompe o download ou as etapas Bronze, Silver, Gold e
+PostgreSQL. Antes, o último valor bem-sucedido podia permanecer ativo e
+impedir o alerta `nss-pipeline-stage-failure` de detectar a interrupção. A
+exceção original continua sendo propagada e uma falha do próprio Pushgateway
+não invalida a execução.
+
+Foram adicionados testes para falha de download e de escrita da Bronze. A
+suíte local passou em **696 testes**, com **26 testes de integração
+deselecionados** e um warning externo do `dateutil`. O CI do commit foi
+aprovado nos três jobs: [41255814320](https://github.com/Zadoque/NSS-pipeline/actions/runs/41255814320).
