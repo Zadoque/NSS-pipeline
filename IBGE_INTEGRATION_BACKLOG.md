@@ -636,10 +636,13 @@ aprovado nos três jobs: [41255814320](https://github.com/Zadoque/NSS-pipeline/a
 ### Baseline global de mutação — 01/11/2026
 
 Foi concluída uma rodada global limpa com `mutmut run --max-children 4`, sem
-alteração do worktree durante a execução. A rodada processou **9.294
+alteração do worktree durante a execução, antes de o preflight entrar no
+escopo de mutação. Essa rodada processou **9.294
 mutantes**: **7.143 mortos**, **2.124 sobreviventes** e **27 timeouts**.
 Considerando somente os mutantes classificáveis (mortos + sobreviventes), o
-resultado atual é **77,08%**, ainda distante da meta global de 95%.
+resultado daquela baseline foi **77,08%**, ainda distante da meta global de
+95%. A inclusão posterior de `app/pipeline/preflight.py` acrescentou 79
+mutantes ao escopo; a próxima rodada global deverá recalcular o denominador.
 
 Os sobreviventes estão distribuídos principalmente em `pipeline.reference`
 (582), `pipeline.sinan` (433), `pipeline.load` (333), `pipeline.run_cnes`

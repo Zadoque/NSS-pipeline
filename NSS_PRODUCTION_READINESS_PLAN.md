@@ -34,9 +34,11 @@ Uma suíte verde, isoladamente, não autoriza o rollout nacional.
 Estado atual: concluída parcialmente. O acesso `gh` está confirmado e o CI do
 commit `c8a9c6d` foi aprovado no run
 [41261232809](https://github.com/Zadoque/NSS-pipeline/actions/runs/41261232809).
-A baseline global atual é 7.143/9.294 mutantes mortos, 2.124 sobreviventes e
-27 timeouts; a meta global de 95% continua pendente e não deve ser confundida
-com a validação funcional dos gates P0/P1.
+A baseline global anterior à inclusão do preflight é 7.143/9.294 mutantes
+mortos, 2.124 sobreviventes e 27 timeouts; a meta global de 95% continua
+pendente e não deve ser confundida com a validação funcional dos gates P0/P1.
+O preflight foi posteriormente incluído no escopo com 57/57 mutantes mortos;
+é necessária uma nova rodada global para atualizar o denominador consolidado.
 
 ### Fase 1 — Integridade de dados e publicação
 
