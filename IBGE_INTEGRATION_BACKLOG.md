@@ -711,4 +711,8 @@ O commit `83ec4a2` adicionou ao mesmo smoke a criação de dump PostgreSQL em
 formato custom, validação com `pg_restore --list` e checksum. O CI
 [41267032401](https://github.com/Zadoque/NSS-pipeline/actions/runs/41267032401)
 passou nos três jobs. Isso comprova a geração e a integridade estrutural do
-backup; o restore completo em pré-produção continua sendo gate externo.
+backup; o commit `fb33b77` também restaurou o dump em um banco PostgreSQL
+separado, consultou `alembic_version` e uma dimensão restaurada. O CI
+[41267266806](https://github.com/Zadoque/NSS-pipeline/actions/runs/41267266806)
+passou nos três jobs. O restore completo com dados e procedimento de cutover
+em pré-produção continua sendo gate externo.
