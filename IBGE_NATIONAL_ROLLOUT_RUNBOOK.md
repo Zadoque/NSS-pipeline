@@ -125,8 +125,8 @@ docker compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
   -c 'SELECT version_num FROM alembic_version;'
 ```
 
-Com o profile de observabilidade ativo, valide Prometheus, Pushgateway e
-Grafana, além das regras provisionadas:
+Com o profile local de observabilidade ativo, valide Prometheus, Pushgateway e
+Grafana pelos endpoints publicados:
 
 ```bash
 docker compose --profile observability ps
@@ -134,6 +134,22 @@ curl -fsS http://localhost:9090/-/ready
 curl -fsS http://localhost:9091/-/ready
 curl -fsS -u "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" \
   http://localhost:3000/api/ruler/grafana/api/v1/rules
+```
+
+No overlay de produção, as portas não são publicadas. Execute os healthchecks
+dentro da rede Compose e consulte a API autenticada por um bastion ou proxy
+interno autorizado:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability exec -T prometheus \
+  wget -qO- http://localhost:9090/-/ready
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability exec -T pushgateway \
+  wget -qO- http://localhost:9091/-/ready
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability exec -T grafana \
+  wget -qO- http://localhost:3000/api/health
 ```
 
 As regras `nss-pipeline-stage-failure` e `nss-pipeline-dropped-rows` apenas
