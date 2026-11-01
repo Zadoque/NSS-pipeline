@@ -70,6 +70,13 @@ jobs:
       - name: Aplicar migrations no banco do smoke test
         run: docker compose run --rm migrate
 
+      - name: Validar consultas SQL do dashboard
+        run: |
+          docker compose exec -T db psql -U nss -d situacao_saude \
+            -v ON_ERROR_STOP=1 \
+            -c 'SELECT published_at AS time, disease_codigo, ano, batch_id, geographic_scope_type, source_rows, resolved_rows, discarded_rows, aggregation_reduction, invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows FROM analytics.pipeline_execution_metrics ORDER BY published_at DESC LIMIT 0;' \
+            -c 'SELECT published_at AS time, disease_codigo, ano, batch_id, COUNT(*) AS municipalities_published, SUM(groups_total) AS groups_total, SUM(cases_total) AS cases_total, geographic_scope_type FROM analytics.pipeline_publications GROUP BY published_at, disease_codigo, ano, batch_id, geographic_scope_type ORDER BY published_at DESC LIMIT 0;'
+
       - name: Verificar provisionamento Grafana e Prometheus
         run: |
           trap 'docker compose --profile observability down -v' EXIT
