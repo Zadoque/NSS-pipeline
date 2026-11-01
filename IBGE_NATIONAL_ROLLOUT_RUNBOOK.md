@@ -21,8 +21,8 @@ durante Bronze, Silver, Gold ou publicação.
 - PostgreSQL disponível e migrations aplicadas;
 - overlay `docker-compose.production.yml` validado com secrets injetados pelo
   ambiente, sem expor portas internas publicamente;
-- `NSS_PIPELINE_IMAGE` apontando para uma imagem promovida por digest imutável
-  ou por tag de commit de 40 caracteres hexadecimais;
+- `NSS_PIPELINE_IMAGE` apontando para uma imagem promovida por digest OCI
+  SHA-256; tags de commit não são aceitas como referência produtiva;
 - diretório de referência com espaço para o ZIP bruto, releases e checkpoints;
 - SHA-256 confirmado por uma fonte oficial antes da promoção;
 - execução de homologação concluída para a mesma release.
@@ -115,8 +115,9 @@ ambiente, não no volume efêmero do container:
 backup_dir="/var/backups/nss/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$backup_dir"
 pg_dump --format=custom --no-owner --no-acl \
-  --file="$backup_dir/situacao_saude.dump" \
-  --dbname="$DATABASE_URL"
+  --host="${PGHOST:-db}" --port="${PGPORT:-5432}" --username="$POSTGRES_USER" \
+  --dbname="$POSTGRES_DB" \
+  --file="$backup_dir/situacao_saude.dump"
 pg_restore --list "$backup_dir/situacao_saude.dump" >/dev/null
 sha256sum "$backup_dir/situacao_saude.dump" > "$backup_dir/SHA256SUMS"
 ```

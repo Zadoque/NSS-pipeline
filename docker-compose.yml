@@ -24,6 +24,8 @@ services:
     command: ["upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/${POSTGRES_DB:-situacao_saude}
+      GRAFANA_DB_USER: ${GRAFANA_DB_USER:-grafana_ro}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_ro}
 
   prometheus:
     image: prom/prometheus:v3.7.2
@@ -71,12 +73,14 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
-      POSTGRES_USER: ${POSTGRES_USER:-nss}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nss}
+      GRAFANA_DB_USER: ${GRAFANA_DB_USER:-grafana_ro}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_ro}
       POSTGRES_DB: ${POSTGRES_DB:-situacao_saude}
     depends_on:
       prometheus:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
       interval: 10s

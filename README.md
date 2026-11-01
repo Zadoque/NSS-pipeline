@@ -183,7 +183,7 @@ Para um ambiente compartilhado, use também o overlay
 `docker-compose.production.yml`. Ele exige as credenciais por ambiente e
 remove as portas públicas de PostgreSQL, Prometheus, Pushgateway e Grafana.
 Também exige `NSS_PIPELINE_IMAGE`, que deve apontar para a imagem promovida por
-digest SHA-256 ou por tag de commit de 40 caracteres hexadecimais:
+digest OCI SHA-256:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.production.yml \

@@ -14,12 +14,12 @@ datasources:
     type: postgres
     access: proxy
     url: db:5432
-    user: $__env{POSTGRES_USER}
+    user: $__env{GRAFANA_DB_USER}
     jsonData:
       database: $__env{POSTGRES_DB}
       sslmode: disable
       postgresVersion: 1600
       timescaledb: false
     secureJsonData:
-      password: $__env{POSTGRES_PASSWORD}
+      password: $__env{GRAFANA_DB_PASSWORD}
     editable: false

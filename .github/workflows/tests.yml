@@ -61,6 +61,8 @@ jobs:
       POSTGRES_DB: situacao_saude
       GRAFANA_ADMIN_USER: ci_admin
       GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
+      GRAFANA_DB_USER: ci_grafana_ro
+      GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
       PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
       DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
       NSS_PIPELINE_IMAGE: nss-pipeline:${{ github.sha }}
@@ -77,6 +79,8 @@ jobs:
           POSTGRES_DB: situacao_saude
           GRAFANA_ADMIN_USER: ci_admin
           GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
+          GRAFANA_DB_USER: ci_grafana_ro
+          GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
           PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
         run: |
           compose_config="$RUNNER_TEMP/production-compose.json"
@@ -102,8 +106,11 @@ jobs:
           POSTGRES_DB: situacao_saude
           GRAFANA_ADMIN_USER: ci_admin
           GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
+          GRAFANA_DB_USER: ci_grafana_ro
+          GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
           DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
           PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
+          NSS_PIPELINE_IMAGE: nss-pipeline@sha256:0000000000000000000000000000000000000000000000000000000000000000
         run: python -m app.pipeline.preflight
 
       - name: Construir imagens operacionais
@@ -114,6 +121,17 @@ jobs:
 
       - name: Aplicar migrations no banco do smoke test
         run: docker compose -f docker-compose.yml -f docker-compose.production.yml run --rm migrate
+
+      - name: Validar role somente leitura do Grafana
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT (NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole) AS least_privilege FROM pg_roles WHERE rolname = '$GRAFANA_DB_USER';" \
+            | grep -q t
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT (has_schema_privilege('$GRAFANA_DB_USER', 'analytics', 'USAGE') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT')) AS readonly;" \
+            | grep -q t
 
       - name: Validar backup do banco do smoke test
         run: |

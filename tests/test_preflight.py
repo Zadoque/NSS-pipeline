@@ -10,6 +10,8 @@ def _environment(**overrides):
         "POSTGRES_DB": "nss",
         "GRAFANA_ADMIN_USER": "grafana_ops",
         "GRAFANA_ADMIN_PASSWORD": "strong-grafana-secret",
+        "GRAFANA_DB_USER": "grafana_ro",
+        "GRAFANA_DB_PASSWORD": "strong-grafana-db-secret",
         "DATABASE_URL": "postgresql+psycopg2://nss_prod:secret@db:5432/nss",
         "PROMETHEUS_PUSHGATEWAY_URL": "http://pushgateway:9091",
         "NSS_PIPELINE_IMAGE": "registry.example/nss-pipeline@sha256:" + "a" * 64,
@@ -67,9 +69,19 @@ def test_preflight_rejeita_cada_credencial_local(monkeypatch, name):
         validate_production_environment(values)
 
 
+@pytest.mark.parametrize("name", ["GRAFANA_DB_USER", "GRAFANA_DB_PASSWORD"])
+def test_preflight_rejeita_reuso_de_credencial_administrativa(name):
+    source = "POSTGRES_USER" if name.endswith("USER") else "POSTGRES_PASSWORD"
+    values = _environment(**{name: _environment()[source]})
+
+    with pytest.raises(ValueError, match=f"{name} não pode"):
+        validate_production_environment(values)
+
+
 @pytest.mark.parametrize("name", [
     "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB",
-    "GRAFANA_ADMIN_USER", "GRAFANA_ADMIN_PASSWORD", "DATABASE_URL",
+    "GRAFANA_ADMIN_USER", "GRAFANA_ADMIN_PASSWORD", "GRAFANA_DB_USER",
+    "GRAFANA_DB_PASSWORD", "DATABASE_URL",
     "PROMETHEUS_PUSHGATEWAY_URL",
     "NSS_PIPELINE_IMAGE",
 ])
@@ -110,9 +122,11 @@ def test_preflight_rejeita_url_do_pushgateway_invalida(pushgateway_url):
     )
 
 
-@pytest.mark.parametrize("pipeline_image", ["nss pipeline:ci", "nss-pipeline:latest"])
+@pytest.mark.parametrize("pipeline_image", [
+    "nss pipeline:ci", "nss-pipeline:latest", "nss-pipeline:" + "a" * 40,
+])
 def test_preflight_rejeita_imagem_mutavel_ou_invalida(pipeline_image):
-    with pytest.raises(ValueError, match="NSS_PIPELINE_IMAGE deve usar digest SHA-256 ou tag de commit"):
+    with pytest.raises(ValueError, match="NSS_PIPELINE_IMAGE deve usar digest OCI SHA-256"):
         validate_production_environment(_environment(NSS_PIPELINE_IMAGE=pipeline_image))
 
 

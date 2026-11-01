@@ -20,6 +20,8 @@ REQUIRED_VARIABLES = (
     "POSTGRES_DB",
     "GRAFANA_ADMIN_USER",
     "GRAFANA_ADMIN_PASSWORD",
+    "GRAFANA_DB_USER",
+    "GRAFANA_DB_PASSWORD",
     "DATABASE_URL",
     "PROMETHEUS_PUSHGATEWAY_URL",
     "NSS_PIPELINE_IMAGE",
@@ -33,7 +35,7 @@ _KNOWN_LOCAL_PASSWORDS = frozenset({
     "ci_grafana_password",
 })
 _IMMUTABLE_IMAGE_REFERENCE = re.compile(
-    r"(?:@sha256:[0-9a-fA-F]{64}|:[0-9a-fA-F]{40})$"
+    r"@sha256:[0-9a-fA-F]{64}$"
 )
 
 
@@ -48,7 +50,7 @@ def validate_production_environment(
         if not values.get(name, "").strip():
             errors.append(f"{name} ausente")
 
-    for name in ("POSTGRES_PASSWORD", "GRAFANA_ADMIN_PASSWORD"):
+    for name in ("POSTGRES_PASSWORD", "GRAFANA_ADMIN_PASSWORD", "GRAFANA_DB_PASSWORD"):
         if name in values and values[name].strip() in _KNOWN_LOCAL_PASSWORDS:
             errors.append(f"{name} usa credencial local conhecida")
 
@@ -56,6 +58,11 @@ def validate_production_environment(
     parsed = urlparse(database_url)
     if database_url and (parsed.scheme != "postgresql+psycopg2" or not parsed.hostname):
         errors.append("DATABASE_URL deve usar postgresql+psycopg2 com host")
+
+    if values.get("GRAFANA_DB_USER", "").strip() == values.get("POSTGRES_USER", "").strip():
+        errors.append("GRAFANA_DB_USER não pode ser o usuário administrativo do PostgreSQL")
+    if values.get("GRAFANA_DB_PASSWORD", "").strip() == values.get("POSTGRES_PASSWORD", "").strip():
+        errors.append("GRAFANA_DB_PASSWORD não pode reutilizar a senha administrativa do PostgreSQL")
 
     pushgateway_url = values.get("PROMETHEUS_PUSHGATEWAY_URL", "").strip()
     parsed_pushgateway = urlparse(pushgateway_url)
@@ -73,7 +80,7 @@ def validate_production_environment(
         or not _IMMUTABLE_IMAGE_REFERENCE.search(pipeline_image)
     ):
         errors.append(
-            "NSS_PIPELINE_IMAGE deve usar digest SHA-256 ou tag de commit"
+            "NSS_PIPELINE_IMAGE deve usar digest OCI SHA-256"
         )
 
     if errors:
