@@ -53,6 +53,29 @@ def _metric_metadata(path: Path) -> dict:
         return {}
     return value if isinstance(value, dict) else {}
 
+
+def _export_stage_failure(*, layer: str, disease: str, year: int, started: float, extra=None) -> None:
+    """Registra falhas fatais sem substituir a exceção original.
+
+    O Pushgateway é observabilidade best effort, mas o estado de falha precisa
+    ser publicado antes de propagar o erro. Caso contrário, o último valor
+    persistido pode continuar indicando sucesso e o alerta do Grafana não
+    detectar uma interrupção real da etapa.
+    """
+    try:
+        export_stage_metrics(
+            pipeline="sinan",
+            layer=layer,
+            disease=disease,
+            year=year,
+            rows=0,
+            duration_seconds=monotonic() - started,
+            status="failure",
+            extra=extra,
+        )
+    except Exception:  # noqa: BLE001 - nunca mascarar a falha operacional original
+        logger.warning("Falha ao registrar erro da etapa %s", layer, exc_info=True)
+
 def run_load(
     disease: str,
     year: int,
@@ -69,9 +92,13 @@ def run_load(
     run_at = datetime.now(UTC)
     logger.info("Iniciando carga SINAN disease=%s year=%s", disease, year)
 
-    source = source_path if source_path is not None else fetch_sinan(disease, year)
     stage_started = monotonic()
-    bronze = write_bronze(source, disease, year, run_at=run_at)
+    try:
+        source = source_path if source_path is not None else fetch_sinan(disease, year)
+        bronze = write_bronze(source, disease, year, run_at=run_at)
+    except Exception:
+        _export_stage_failure(layer="bronze", disease=disease, year=year, started=stage_started)
+        raise
     export_stage_metrics(
         pipeline="sinan", layer="bronze", disease=disease, year=year,
         rows=_metric_parquet_rows(bronze),
@@ -79,7 +106,11 @@ def run_load(
     )
     logger.info("Bronze concluída: %s", bronze)
     stage_started = monotonic()
-    silver = transform_file(bronze, disease, year, run_at=run_at)
+    try:
+        silver = transform_file(bronze, disease, year, run_at=run_at)
+    except Exception:
+        _export_stage_failure(layer="silver", disease=disease, year=year, started=stage_started)
+        raise
     silver_metadata = _metric_metadata(silver)
     export_stage_metrics(
         pipeline="sinan", layer="silver", disease=disease, year=year,
@@ -110,98 +141,105 @@ def run_load(
         expected_cases_total = int(resolved_codes.isin(municipios).sum())
 
     stage_started = monotonic()
-    gold_path = aggregate_file(
-        silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
-        municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
-        cnes_batch_id=cnes_batch_id,
-        geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
-    )
+    try:
+        gold_path = aggregate_file(
+            silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
+            municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
+            cnes_batch_id=cnes_batch_id,
+            geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
+        )
 
-    gold_df = pd.read_parquet(gold_path)
-    gold_metadata = {}
-    quality_metrics = {}
-    metadata_path = gold_path.with_name("metadata.json")
-    if metadata_path.exists():
-        gold_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-        quality_metrics = {
-            key: int(gold_metadata[key])
-            for key in (
-                "source_rows", "resolved_rows", "discarded_rows", "aggregation_reduction",
-                "invalid_municipality_rows", "out_of_scope_rows", "uf_mismatch_rows",
-            )
-            if key in gold_metadata
-        }
-    else:
+        gold_df = pd.read_parquet(gold_path)
         gold_metadata = {}
-    if catalog is not None:
-        missing_metrics = [key for key in _GOLD_QUALITY_METRICS if key not in gold_metadata]
-        if missing_metrics:
-            raise ValueError(
-                "Publicação bloqueada: metadata.json da Gold não contém métricas obrigatórias "
-                f"({', '.join(missing_metrics)})"
-            )
-        invalid_metrics = [
-            key for key in _GOLD_QUALITY_METRICS
-            if not isinstance(gold_metadata[key], int)
-            or isinstance(gold_metadata[key], bool)
-            or gold_metadata[key] < 0
-        ]
-        if invalid_metrics:
-            raise ValueError(
-                "Publicação bloqueada: métricas Gold inválidas "
-                f"({', '.join(invalid_metrics)})"
-            )
-        if (
-            gold_metadata["resolved_rows"] + gold_metadata["discarded_rows"]
-            != gold_metadata["source_rows"]
-            or gold_metadata["aggregation_reduction"] > gold_metadata["resolved_rows"]
-        ):
-            raise ValueError(
-                "Publicação bloqueada: métricas Gold não reconciliam "
-                "(source_rows, resolved_rows, discarded_rows, aggregation_reduction)"
-            )
-        expected_catalog_id = catalog.metadata.catalog_id
-        expected_catalog_sha256 = catalog.metadata.sha256
-        if (
-            gold_metadata.get("ibge_catalog_id") != expected_catalog_id
-            or gold_metadata.get("ibge_catalog_sha256") != expected_catalog_sha256
-        ):
-            raise ValueError(
-                "Publicação bloqueada: release IBGE da Gold diverge da release "
-                f"selecionada ({gold_metadata.get('ibge_catalog_id')!r}/"
-                f"{gold_metadata.get('ibge_catalog_sha256')!r})"
-            )
-        if (
-            gold_metadata.get("disease") != disease
-            or gold_metadata.get("source_year") != year
-            or gold_metadata.get("gold_target") != "serving"
-        ):
-            raise ValueError(
-                "Publicação bloqueada: identidade da Gold diverge da execução "
-                f"(disease={gold_metadata.get('disease')!r}, "
-                f"source_year={gold_metadata.get('source_year')!r}, "
-                f"gold_target={gold_metadata.get('gold_target')!r})"
-            )
-        expected_scope_type = geographic_scope.kind if geographic_scope else "MUNICIPALITIES"
-        expected_scope_sha256 = scope_sha256(municipios)
-        gold_scope = gold_metadata.get("geographic_scope")
-        if (
-            not isinstance(gold_scope, dict)
-            or gold_scope.get("type") != expected_scope_type
-            or gold_scope.get("municipality_count") != len(municipios)
-            or gold_scope.get("scope_sha256") != expected_scope_sha256
-        ):
-            raise ValueError(
-                "Publicação bloqueada: escopo geográfico da Gold diverge do escopo "
-                "selecionado"
-            )
-        invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
-        uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
-        if invalid_rows or uf_mismatch_rows:
-            raise ValueError(
-                "Publicação bloqueada: Gold contém resoluções municipais inválidas "
-                f"(invalid={invalid_rows}, uf_mismatch={uf_mismatch_rows})"
-            )
+        quality_metrics = {}
+        metadata_path = gold_path.with_name("metadata.json")
+        if metadata_path.exists():
+            gold_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            quality_metrics = {
+                key: int(gold_metadata[key])
+                for key in (
+                    "source_rows", "resolved_rows", "discarded_rows", "aggregation_reduction",
+                    "invalid_municipality_rows", "out_of_scope_rows", "uf_mismatch_rows",
+                )
+                if key in gold_metadata
+            }
+        else:
+            gold_metadata = {}
+        if catalog is not None:
+            missing_metrics = [key for key in _GOLD_QUALITY_METRICS if key not in gold_metadata]
+            if missing_metrics:
+                raise ValueError(
+                    "Publicação bloqueada: metadata.json da Gold não contém métricas obrigatórias "
+                    f"({', '.join(missing_metrics)})"
+                )
+            invalid_metrics = [
+                key for key in _GOLD_QUALITY_METRICS
+                if not isinstance(gold_metadata[key], int)
+                or isinstance(gold_metadata[key], bool)
+                or gold_metadata[key] < 0
+            ]
+            if invalid_metrics:
+                raise ValueError(
+                    "Publicação bloqueada: métricas Gold inválidas "
+                    f"({', '.join(invalid_metrics)})"
+                )
+            if (
+                gold_metadata["resolved_rows"] + gold_metadata["discarded_rows"]
+                != gold_metadata["source_rows"]
+                or gold_metadata["aggregation_reduction"] > gold_metadata["resolved_rows"]
+            ):
+                raise ValueError(
+                    "Publicação bloqueada: métricas Gold não reconciliam "
+                    "(source_rows, resolved_rows, discarded_rows, aggregation_reduction)"
+                )
+            expected_catalog_id = catalog.metadata.catalog_id
+            expected_catalog_sha256 = catalog.metadata.sha256
+            if (
+                gold_metadata.get("ibge_catalog_id") != expected_catalog_id
+                or gold_metadata.get("ibge_catalog_sha256") != expected_catalog_sha256
+            ):
+                raise ValueError(
+                    "Publicação bloqueada: release IBGE da Gold diverge da release "
+                    f"selecionada ({gold_metadata.get('ibge_catalog_id')!r}/"
+                    f"{gold_metadata.get('ibge_catalog_sha256')!r})"
+                )
+            if (
+                gold_metadata.get("disease") != disease
+                or gold_metadata.get("source_year") != year
+                or gold_metadata.get("gold_target") != "serving"
+            ):
+                raise ValueError(
+                    "Publicação bloqueada: identidade da Gold diverge da execução "
+                    f"(disease={gold_metadata.get('disease')!r}, "
+                    f"source_year={gold_metadata.get('source_year')!r}, "
+                    f"gold_target={gold_metadata.get('gold_target')!r})"
+                )
+            expected_scope_type = geographic_scope.kind if geographic_scope else "MUNICIPALITIES"
+            expected_scope_sha256 = scope_sha256(municipios)
+            gold_scope = gold_metadata.get("geographic_scope")
+            if (
+                not isinstance(gold_scope, dict)
+                or gold_scope.get("type") != expected_scope_type
+                or gold_scope.get("municipality_count") != len(municipios)
+                or gold_scope.get("scope_sha256") != expected_scope_sha256
+            ):
+                raise ValueError(
+                    "Publicação bloqueada: escopo geográfico da Gold diverge do escopo "
+                    "selecionado"
+                )
+            invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
+            uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
+            if invalid_rows or uf_mismatch_rows:
+                raise ValueError(
+                    "Publicação bloqueada: Gold contém resoluções municipais inválidas "
+                    f"(invalid={invalid_rows}, uf_mismatch={uf_mismatch_rows})"
+                )
+    except Exception:
+        _export_stage_failure(
+            layer="gold", disease=disease, year=year, started=stage_started,
+            extra={"scope": geographic_scope.kind if geographic_scope else "MUNICIPALITIES"},
+        )
+        raise
     logger.info("Gold concluída: %s (linhas=%s)", gold_path, len(gold_df))
     export_stage_metrics(
         pipeline="sinan", layer="gold", disease=disease, year=year,
@@ -215,15 +253,22 @@ def run_load(
     try:
         stage_started = monotonic()
         logger.info("Publicando snapshot disease=%s year=%s batch_id=%s", disease, year, batch_id)
-        load_gold_to_postgres(
-            engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
-            expected_cases_total=expected_cases_total, snapshot_complete=True,
-            source_extracted_at=run_at, allow_empty=allow_empty,
-            ibge_catalog=catalog,
-            geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
-            geographic_scope_sha256=scope_sha256(municipios),
-            quality_metrics=quality_metrics,
-        )
+        try:
+            load_gold_to_postgres(
+                engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
+                expected_cases_total=expected_cases_total, snapshot_complete=True,
+                source_extracted_at=run_at, allow_empty=allow_empty,
+                ibge_catalog=catalog,
+                geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
+                geographic_scope_sha256=scope_sha256(municipios),
+                quality_metrics=quality_metrics,
+            )
+        except Exception:
+            _export_stage_failure(
+                layer="postgresql", disease=disease, year=year, started=stage_started,
+                extra={"scope": geographic_scope.kind if geographic_scope else "MUNICIPALITIES"},
+            )
+            raise
         export_stage_metrics(
             pipeline="sinan", layer="postgresql", disease=disease, year=year,
             rows=len(gold_df), duration_seconds=monotonic() - stage_started,

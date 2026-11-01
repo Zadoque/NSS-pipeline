@@ -161,6 +161,31 @@ def test_main_encaminha_escopo_e_lote_cnes(mocker, tmp_path):
     )
 
 
+def test_orquestrador_publica_falha_da_etapa_antes_de_propagar_erro(mocker, tmp_path):
+    mocker.patch.object(runner, "write_bronze", side_effect=RuntimeError("bronze indisponível"))
+    export = mocker.patch.object(runner, "export_stage_metrics")
+
+    with pytest.raises(RuntimeError, match="bronze indisponível"):
+        runner.run_load("DENG", 2026, source_path=tmp_path / "source.parquet")
+
+    export.assert_called_once()
+    assert export.call_args.kwargs["pipeline"] == "sinan"
+    assert export.call_args.kwargs["layer"] == "bronze"
+    assert export.call_args.kwargs["status"] == "failure"
+    assert export.call_args.kwargs["rows"] == 0
+
+
+def test_orquestrador_mede_falha_de_download_como_bronze(mocker):
+    mocker.patch.object(runner, "fetch_sinan", side_effect=RuntimeError("fonte indisponível"))
+    export = mocker.patch.object(runner, "export_stage_metrics")
+
+    with pytest.raises(RuntimeError, match="fonte indisponível"):
+        runner.run_load("DENG", 2026)
+
+    assert export.call_args.kwargs["layer"] == "bronze"
+    assert export.call_args.kwargs["status"] == "failure"
+
+
 @pytest.fixture
 def pipeline(mocker):
     mocker.patch.object(runner, "fetch_sinan", return_value=Path("source.parquet"))
