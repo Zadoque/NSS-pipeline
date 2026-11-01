@@ -116,6 +116,7 @@ def run_load(
         pipeline="sinan", layer="silver", disease=disease, year=year,
         rows=int(silver_metadata.get("rows", 0)),
         dropped_rows=int(silver_metadata.get("dropped_rows", 0)),
+        anomalous_dropped_rows=int(silver_metadata.get("invalid_date_rows", 0)),
         duration_seconds=monotonic() - stage_started,
     )
     logger.info("Silver concluída: %s", silver)
@@ -244,6 +245,10 @@ def run_load(
     export_stage_metrics(
         pipeline="sinan", layer="gold", disease=disease, year=year,
         rows=len(gold_df), dropped_rows=int(gold_metadata.get("discarded_rows", 0)),
+        anomalous_dropped_rows=(
+            int(gold_metadata.get("invalid_municipality_rows", 0))
+            + int(gold_metadata.get("uf_mismatch_rows", 0))
+        ),
         duration_seconds=monotonic() - stage_started,
         extra={"scope": geographic_scope.kind if geographic_scope else "MUNICIPALITIES"},
     )

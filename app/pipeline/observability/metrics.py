@@ -27,6 +27,7 @@ def export_stage_metrics(
     duration_seconds: float,
     status: str = "success",
     dropped_rows: int = 0,
+    anomalous_dropped_rows: int = 0,
     extra: Mapping[str, str] | None = None,
 ) -> bool:
     """Publica o último estado de uma etapa sem bloquear a pipeline.
@@ -38,7 +39,7 @@ def export_stage_metrics(
     """
     if status not in _STATUS_VALUES:
         raise ValueError(f"status de métrica inválido: {status}")
-    if rows < 0 or dropped_rows < 0 or duration_seconds < 0:
+    if rows < 0 or dropped_rows < 0 or anomalous_dropped_rows < 0 or duration_seconds < 0:
         raise ValueError("valores de métrica não podem ser negativos")
     url = _pushgateway_url()
     if url is None:
@@ -58,6 +59,12 @@ def export_stage_metrics(
     dropped_gauge = Gauge(
         "nss_pipeline_dropped_rows",
         "Quantidade de linhas descartadas na última execução da etapa",
+        label_names,
+        registry=registry,
+    )
+    anomalous_dropped_gauge = Gauge(
+        "nss_pipeline_anomalous_dropped_rows",
+        "Linhas descartadas por anomalias de qualidade na última execução da etapa",
         label_names,
         registry=registry,
     )
@@ -82,6 +89,7 @@ def export_stage_metrics(
     values = [labels[name] for name in label_names]
     rows_gauge.labels(*values).set(rows)
     dropped_gauge.labels(*values).set(dropped_rows)
+    anomalous_dropped_gauge.labels(*values).set(anomalous_dropped_rows)
     duration_gauge.labels(*values).set(duration_seconds)
     status_gauge.labels(*values).set(_STATUS_VALUES[status])
     execution_gauge.labels(*values).set(time())
@@ -90,7 +98,12 @@ def export_stage_metrics(
         pushadd_to_gateway(
             url,
             job="nss_pipeline",
-            grouping_key={"pipeline": pipeline, "disease": disease.lower(), "year": str(year)},
+            grouping_key={
+                "pipeline": pipeline,
+                "layer": layer,
+                "disease": disease.lower(),
+                "year": str(year),
+            },
             registry=registry,
         )
     except Exception:  # observabilidade é best effort por contrato

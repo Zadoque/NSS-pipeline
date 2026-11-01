@@ -31,6 +31,7 @@ def test_export_stage_metrics_sem_url_nao_tenta_push(monkeypatch):
         ({"status": "unknown"}, "status de métrica inválido: unknown"),
         ({"rows": -1}, "valores de métrica não podem ser negativos"),
         ({"dropped_rows": -1}, "valores de métrica não podem ser negativos"),
+        ({"anomalous_dropped_rows": -1}, "valores de métrica não podem ser negativos"),
         ({"duration_seconds": -1}, "valores de métrica não podem ser negativos"),
     ],
 )
@@ -52,19 +53,22 @@ def test_export_stage_metrics_eh_best_effort(monkeypatch):
 
     assert metrics.export_stage_metrics(
         pipeline="sinan", layer="gold", disease="deng", year=2026,
-        rows=10, dropped_rows=2, duration_seconds=1.5, extra={"scope": "BRAZIL"},
+        rows=10, dropped_rows=2, anomalous_dropped_rows=1,
+        duration_seconds=1.5, extra={"scope": "BRAZIL"},
     ) is True
     assert calls[0][0][0] == "http://pushgateway:9091"
     registry = calls[0][1]["registry"]
     samples = {sample.name: sample.value for metric in registry.collect() for sample in metric.samples}
     assert samples["nss_pipeline_rows"] == 10
     assert samples["nss_pipeline_dropped_rows"] == 2
+    assert samples["nss_pipeline_anomalous_dropped_rows"] == 1
     assert samples["nss_pipeline_stage_status"] == 1
     assert samples["nss_pipeline_stage_last_execution_timestamp_seconds"] > 0
     documentation = {metric.name: metric.documentation for metric in registry.collect()}
     assert documentation == {
         "nss_pipeline_rows": "Quantidade de linhas observada na última execução da etapa",
         "nss_pipeline_dropped_rows": "Quantidade de linhas descartadas na última execução da etapa",
+        "nss_pipeline_anomalous_dropped_rows": "Linhas descartadas por anomalias de qualidade na última execução da etapa",
         "nss_pipeline_stage_duration_seconds": "Duração da última execução da etapa em segundos",
         "nss_pipeline_stage_status": "Último estado da etapa (1=sucesso, 0=falha)",
         "nss_pipeline_stage_last_execution_timestamp_seconds": "Instante Unix da última execução observada da etapa",
@@ -84,7 +88,9 @@ def test_export_stage_metrics_preserva_defaults_labels_e_chave_do_push(monkeypat
     args, kwargs = calls[0]
     assert args[0] == "http://pushgateway:9091"
     assert kwargs["job"] == "nss_pipeline"
-    assert kwargs["grouping_key"] == {"pipeline": "sinan", "disease": "deng", "year": "2026"}
+    assert kwargs["grouping_key"] == {
+        "pipeline": "sinan", "layer": "bronze", "disease": "deng", "year": "2026",
+    }
     registry = kwargs["registry"]
     samples = {
         sample.name: (sample.value, sample.labels)
@@ -97,6 +103,27 @@ def test_export_stage_metrics_preserva_defaults_labels_e_chave_do_push(monkeypat
         "pipeline": "sinan", "layer": "bronze", "disease": "DENG",
         "year": "2026", "scope": "BRAZIL",
     }
+
+
+def test_export_stage_metrics_isola_grupos_de_etapas_sucessivas(monkeypatch):
+    monkeypatch.setenv("PROMETHEUS_PUSHGATEWAY_URL", "http://pushgateway:9091")
+    grouping_keys = []
+    monkeypatch.setattr(
+        metrics,
+        "pushadd_to_gateway",
+        lambda *_args, **kwargs: grouping_keys.append(kwargs["grouping_key"]),
+    )
+
+    for layer in ("bronze", "silver", "gold", "postgresql"):
+        assert metrics.export_stage_metrics(
+            pipeline="sinan", layer=layer, disease="DENG", year=2026,
+            rows=1, duration_seconds=0.1,
+        ) is True
+
+    assert grouping_keys == [
+        {"pipeline": "sinan", "layer": layer, "disease": "deng", "year": "2026"}
+        for layer in ("bronze", "silver", "gold", "postgresql")
+    ]
 
 
 def test_export_stage_metrics_registra_url_e_excecao_no_log(monkeypatch, caplog):

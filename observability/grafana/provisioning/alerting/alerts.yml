@@ -33,14 +33,14 @@ groups:
               refId: A
 
       - uid: nss-pipeline-dropped-rows
-        title: NSS Pipeline — linhas descartadas
+        title: NSS Pipeline — anomalias de qualidade
         condition: A
         for: 5m
         noDataState: OK
         execErrState: Error
         annotations:
-          summary: "A pipeline descartou linhas"
-          description: "{{ $value }} linhas foram descartadas em {{ $labels.layer }} / {{ $labels.disease }} {{ $labels.year }}."
+          summary: "A pipeline encontrou descartes anômalos"
+          description: "{{ $value }} linhas foram descartadas por anomalias de qualidade em {{ $labels.layer }} / {{ $labels.disease }} {{ $labels.year }}."
         labels:
           severity: warning
           service: nss-pipeline
@@ -52,7 +52,7 @@ groups:
             datasourceUid: nss-prometheus
             model:
               editorMode: code
-              expr: nss_pipeline_dropped_rows > 0
+              expr: nss_pipeline_anomalous_dropped_rows > 0
               instant: true
               intervalMs: 15000
               maxDataPoints: 43200
