@@ -110,9 +110,10 @@ def test_preflight_rejeita_url_do_pushgateway_invalida(pushgateway_url):
     )
 
 
-def test_preflight_rejeita_imagem_com_espacos():
-    with pytest.raises(ValueError, match="NSS_PIPELINE_IMAGE não pode conter espaços"):
-        validate_production_environment(_environment(NSS_PIPELINE_IMAGE="nss pipeline:ci"))
+@pytest.mark.parametrize("pipeline_image", ["nss pipeline:ci", "nss-pipeline:latest"])
+def test_preflight_rejeita_imagem_mutavel_ou_invalida(pipeline_image):
+    with pytest.raises(ValueError, match="NSS_PIPELINE_IMAGE deve usar digest SHA-256 ou tag de commit"):
+        validate_production_environment(_environment(NSS_PIPELINE_IMAGE=pipeline_image))
 
 
 def test_preflight_reconcilia_todos_os_erros_com_separador_estavel():

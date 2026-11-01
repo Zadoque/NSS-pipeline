@@ -21,7 +21,8 @@ durante Bronze, Silver, Gold ou publicação.
 - PostgreSQL disponível e migrations aplicadas;
 - overlay `docker-compose.production.yml` validado com secrets injetados pelo
   ambiente, sem expor portas internas publicamente;
-- `NSS_PIPELINE_IMAGE` apontando para uma imagem promovida por digest imutável;
+- `NSS_PIPELINE_IMAGE` apontando para uma imagem promovida por digest imutável
+  ou por tag de commit de 40 caracteres hexadecimais;
 - diretório de referência com espaço para o ZIP bruto, releases e checkpoints;
 - SHA-256 confirmado por uma fonte oficial antes da promoção;
 - execução de homologação concluída para a mesma release.

@@ -63,7 +63,7 @@ jobs:
       GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
       PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
       DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
-      NSS_PIPELINE_IMAGE: nss-pipeline:ci
+      NSS_PIPELINE_IMAGE: nss-pipeline:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
 

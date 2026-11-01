@@ -9,6 +9,7 @@ pelos comandos do runbook e pelo smoke test do Compose.
 from __future__ import annotations
 
 import os
+import re
 import sys
 from collections.abc import Mapping
 from urllib.parse import urlparse
@@ -31,6 +32,9 @@ _KNOWN_LOCAL_PASSWORDS = frozenset({
     "ci_password",
     "ci_grafana_password",
 })
+_IMMUTABLE_IMAGE_REFERENCE = re.compile(
+    r"(?:@sha256:[0-9a-fA-F]{64}|:[0-9a-fA-F]{40})$"
+)
 
 
 def validate_production_environment(
@@ -64,8 +68,13 @@ def validate_production_environment(
         )
 
     pipeline_image = values.get("NSS_PIPELINE_IMAGE", "").strip()
-    if pipeline_image and any(character.isspace() for character in pipeline_image):
-        errors.append("NSS_PIPELINE_IMAGE não pode conter espaços")
+    if pipeline_image and (
+        any(character.isspace() for character in pipeline_image)
+        or not _IMMUTABLE_IMAGE_REFERENCE.search(pipeline_image)
+    ):
+        errors.append(
+            "NSS_PIPELINE_IMAGE deve usar digest SHA-256 ou tag de commit"
+        )
 
     if errors:
         raise ValueError("preflight de produção falhou: " + "; ".join(errors))
