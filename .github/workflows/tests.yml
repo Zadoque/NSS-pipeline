@@ -86,7 +86,10 @@ jobs:
             .services.pipeline.image == $image and
             (.services.pipeline.volumes | length == 1) and
             .services.pipeline.volumes[0].target == "/data" and
-            (.services.pipeline.volumes[0].source == "pipeline_data")
+            (.services.pipeline.volumes[0].source == "pipeline_data") and
+            (.services.db.volumes | length == 1) and
+            (.services.db.volumes[0].target == "/var/lib/postgresql/data") and
+            (.services.db.volumes[0].source == "pgdata")
           ' "$compose_config" >/dev/null
 
       - name: Executar preflight de produção
