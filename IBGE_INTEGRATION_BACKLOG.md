@@ -743,3 +743,8 @@ O commit `cee030f` removeu também o bind mount local `db-init` do overlay de
 produção e adicionou a verificação correspondente ao CI
 [41268975660](https://github.com/Zadoque/NSS-pipeline/actions/runs/41268975660),
 que passou nos três jobs.
+
+O fechamento local também passou em `nix flake check --no-build` e em **735
+testes**, com 23 testes ignorados e um warning externo de `dateutil`. O commit
+documental `521adb6` foi validado novamente pelo CI
+[41269117856](https://github.com/Zadoque/NSS-pipeline/actions/runs/41269117856).

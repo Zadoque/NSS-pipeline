@@ -115,6 +115,12 @@ execução recente (`nss-pipeline-stale`). O CI `41268975660` também confirmou
 que o PostgreSQL não herda o bind mount local de `db-init`, usando apenas o
 volume nomeado de produção.
 
+Na validação local de fechamento, `nix flake check --no-build` passou e a
+suíte executada dentro do dev shell terminou com **735 testes aprovados, 23
+ignorados e um warning externo de `dateutil`**. O CI posterior do commit
+`521adb6` passou novamente nos três jobs em
+[41269117856](https://github.com/Zadoque/NSS-pipeline/actions/runs/41269117856).
+
 ### Fase 4 — Execução nacional controlada
 
 - obter fixture/dados SINAN nacionais autorizados e fixar release/ano;
