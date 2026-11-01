@@ -466,8 +466,27 @@ def test_municipio_upsert_inclui_municipio_da_unidade_com_catalogo(mocker):
     upsert_dim_municipio(conn, fact, catalog=catalog, require_unit_municipalities=True)
 
     rows = conn.execute.call_args.args[1]
-    assert {row["cd_mun"] for row in rows} == {"3301009", "3550308"}
+    assert rows == [
+        {"cd_mun": "3301009", "nm_mun": "Campos dos Goytacazes", "cd_uf": "33", "nm_uf": "Rio de Janeiro"},
+        {"cd_mun": "3550308", "nm_mun": "São Paulo", "cd_uf": "35", "nm_uf": "São Paulo"},
+    ]
     catalog.get_municipality.assert_called_once_with("3550308")
+
+
+def test_municipio_upsert_deduplica_por_codigo_mesmo_com_atributos_divergentes(mocker):
+    conn = mocker.Mock()
+    fact = _gold_minima()
+    fact = pd.concat([
+        fact,
+        fact.assign(nm_mun="Nome divergente"),
+    ], ignore_index=True)
+
+    upsert_dim_municipio(conn, fact)
+
+    rows = conn.execute.call_args.args[1]
+    assert rows == [{
+        "cd_mun": "3301009", "nm_mun": "Campos dos Goytacazes", "cd_uf": "33", "nm_uf": "Rio de Janeiro",
+    }]
 
 
 def test_municipio_upsert_rejeita_unidade_fora_do_catalogo(mocker):
@@ -490,6 +509,26 @@ def test_unidade_upsert_preserva_valores_existentes_quando_nulos(mocker):
     statement = str(conn.execute.call_args.args[0])
     assert "COALESCE(EXCLUDED.nm_unidade" in statement
     assert "COALESCE(EXCLUDED.cd_mun" in statement
+
+
+def test_unidade_ignora_municipio_da_notificacao_no_caminho_legado(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({
+        "cd_unidade": ["0000001"],
+        "cd_mun": ["3301009"],
+        "nm_unidade": ["UBS"],
+    })
+
+    upsert_dim_unidade_saude(conn, fact)
+
+    rows = conn.execute.call_args.args[1]
+    assert rows == [{
+        "cd_unidade": "0000001",
+        "nm_unidade": "UBS",
+        "razao_social": None,
+        "tp_unidade": None,
+        "cd_mun": None,
+    }]
 
 
 def test_catalogo_de_doencas_cobre_grupos_sinan_disponiveis_no_pysus():
@@ -522,6 +561,20 @@ def test_unidade_rejeita_municipios_cnes_conflitantes(mocker):
     conn.execute.assert_not_called()
 
 
+def test_unidade_detecta_conflito_mesmo_com_atributo_descritivo_nulo(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({
+        "cd_unidade": ["0000001", "0000001"],
+        "cd_mun_unidade": ["3301009", "3550308"],
+        "nm_unidade": ["UBS", None],
+    })
+
+    with pytest.raises(ValueError, match="municípios distintos"):
+        upsert_dim_unidade_saude(conn, fact)
+
+    conn.execute.assert_not_called()
+
+
 def test_unidade_prefere_municipio_cnes_valido_a_linha_nula(mocker):
     conn = mocker.Mock()
     fact = pd.DataFrame({
@@ -539,6 +592,21 @@ def test_unidade_prefere_municipio_cnes_valido_a_linha_nula(mocker):
         "tp_unidade": None,
         "cd_mun": "3550308",
     }]
+
+
+def test_unidade_com_municipio_preserva_linha_com_atributo_descritivo_nulo(mocker):
+    conn = mocker.Mock()
+    fact = pd.DataFrame({
+        "cd_unidade": ["0000001"],
+        "cd_mun_unidade": ["3550308"],
+        "nm_unidade": [None],
+    })
+
+    upsert_dim_unidade_saude(conn, fact)
+
+    rows = conn.execute.call_args.args[1]
+    assert rows[0]["cd_unidade"] == "0000001"
+    assert rows[0]["cd_mun"] == "3550308"
 
 
 def test_insert_fato_cases_handles_empty_and_renames_dimensions(mocker):
