@@ -731,3 +731,15 @@ Ruler, o commit `1505984` passou no CI
 os três jobs passaram e a regra `nss-pipeline-stale` foi encontrada pelo UID
 provisionado. O roteamento para contact point produtivo e o teste de entrega
 continuam gates externos.
+
+A comparação com `origin/prometheus/grafana` confirmou a adaptação da ideia
+original: o dashboard, datasource, Prometheus/Pushgateway e métricas por etapa
+foram preservados, enquanto a métrica epidemiológica de alta cardinalidade da
+branch foi substituída por consultas SQL e métricas operacionais de baixa
+cardinalidade. Isso mantém a reconciliação epidemiológica no PostgreSQL e evita
+usar município, unidade ou semana como labels Prometheus.
+
+O commit `cee030f` removeu também o bind mount local `db-init` do overlay de
+produção e adicionou a verificação correspondente ao CI
+[41268975660](https://github.com/Zadoque/NSS-pipeline/actions/runs/41268975660),
+que passou nos três jobs.

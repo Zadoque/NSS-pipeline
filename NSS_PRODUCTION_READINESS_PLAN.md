@@ -111,7 +111,9 @@ autorizados, restore de backup/rollback e contact point real continua externo.
 O CI também valida `NSS_PIPELINE_IMAGE`, remove bind mounts de código/testes no
 overlay e mantém somente o volume persistente de dados da pipeline. A mesma
 execução validou as três regras Grafana, incluindo a regra de ausência de
-execução recente (`nss-pipeline-stale`).
+execução recente (`nss-pipeline-stale`). O CI `41268975660` também confirmou
+que o PostgreSQL não herda o bind mount local de `db-init`, usando apenas o
+volume nomeado de produção.
 
 ### Fase 4 — Execução nacional controlada
 
