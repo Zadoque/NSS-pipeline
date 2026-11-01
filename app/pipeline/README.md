@@ -357,10 +357,12 @@ agendamento automático definido ainda (veja
 
 ### Como o join acontece na Gold
 
-Quando `unidade_notificacao` é passada em `--columns`, `aggregate_file` lê o
-lote CNES `COMPLETED` mais recente e compatível (`_latest_cnes_lookup()`) e
-faz um `left join` entre `ID_UNIDADE` (SINAN) e `cd_unidade` (CNES),
-trazendo `nm_unidade`, `razao_social_unidade` e `tp_unidade` para a Gold.
+Quando `unidade_notificacao` é passada em `--columns`, `aggregate_file` faz um
+`left join` entre `ID_UNIDADE` (SINAN) e `cd_unidade` (CNES), trazendo
+`nm_unidade`, `razao_social_unidade` e `tp_unidade` para a Gold. Em uma
+publicação `serving`, o lote deve ser informado explicitamente por
+`--cnes-batch-id`; a seleção automática do lote `COMPLETED` mais recente e
+compatível (`_latest_cnes_lookup()`) fica restrita a usos ad hoc.
 
 ```bash
 docker compose run --rm pipeline --disease DENG --year 2026 --columns="unidade_notificacao"
@@ -373,8 +375,8 @@ docker compose run --rm pipeline --disease DENG --year 2026 \
   --columns="unidade_notificacao" --cnes-batch-id 20261014T120000Z
 ```
 
-Sem `--cnes-batch-id`, a seleção automática considera apenas lotes válidos.
-Quando informado, o lote precisa existir exatamente em
+Para `serving`, `--cnes-batch-id` é obrigatório. O lote precisa existir
+exatamente em
 `silver/cnes/batch_id={id}` e atender ao mesmo contrato de completude,
 cobertura e release IBGE; a Gold registra o identificador no próprio
 `metadata.json`.
