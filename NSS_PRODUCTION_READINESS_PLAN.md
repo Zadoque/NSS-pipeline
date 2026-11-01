@@ -62,6 +62,10 @@ Evidência atual: migrations até `0010`, testes PostgreSQL para município da
 unidade fora do município da notificação e preservação cadastral, manifesto
 CNES v2, seleção explícita de lote em serving e locks de consolidação.
 
+Os contratos P0/P1 de deduplicação municipal, separação do município da
+notificação e preservação de unidade com atributos nulos também possuem
+regressões unitárias direcionadas.
+
 ### Fase 2 — Observabilidade Grafana adaptada
 
 - exportar por etapa `rows`, `dropped_rows`, duração, status e timestamp;
@@ -77,7 +81,10 @@ CNES v2, seleção explícita de lote em serving e locks de consolidação.
 
 Evidência atual: dashboard e provisioning versionados, regras
 `nss-pipeline-stage-failure` e `nss-pipeline-dropped-rows`, smoke test Compose
-verde e testes de contrato do módulo de métricas em 151/151 mutantes mortos.
+verde no overlay de produção e testes de contrato do módulo de métricas em
+151/151 mutantes mortos. O preflight agora exige também um
+`PROMETHEUS_PUSHGATEWAY_URL` válido, e o CI consulta Grafana, Prometheus e
+Pushgateway pela rede interna, sem depender de portas públicas.
 
 ### Fase 3 — Pré-produção e ensaio de rollback
 
@@ -95,6 +102,11 @@ verde e testes de contrato do módulo de métricas em 151/151 mutantes mortos.
 
 Critério de saída: todos os gates passam sem intervenção manual não descrita no
 runbook e o alerta chega ao contact point produtivo de teste.
+
+Evidência automatizada parcial: o CI `41266649351` executou o overlay de
+produção com portas públicas removidas, preflight, migrations e verificações
+autenticadas de Grafana/datasource; os três jobs passaram. O ensaio com dados
+autorizados, backup/rollback e contact point real continua externo.
 
 ### Fase 4 — Execução nacional controlada
 

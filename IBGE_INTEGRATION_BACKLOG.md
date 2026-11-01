@@ -689,3 +689,20 @@ Esta medição substitui a baseline global anterior como referência consolidada
 as rodadas dirigidas continuam sendo evidências complementares. A meta de 95%
 permanece pendente e deve ser perseguida por contratos críticos, sem bloquear
 os gates funcionais já aprovados por uma interpretação isolada da mutação.
+
+### Smoke de produção e contratos P0/P1 — 01/11/2026
+
+O commit `642d940` passou a executar o smoke do CI usando o overlay
+`docker-compose.production.yml`, com portas públicas removidas, migrations no
+banco do overlay e healthchecks internos. O commit `e7ff762` tornou a consulta
+autenticada compatível com o `wget` BusyBox da imagem Grafana. O CI final do
+commit `705c839`, execução
+[41266649351](https://github.com/Zadoque/NSS-pipeline/actions/runs/41266649351),
+passou nos três jobs: **729 testes unitários, 26 testes de integração e smoke
+de Compose/Grafana/Prometheus/PostgreSQL**.
+
+O preflight de produção agora exige `PROMETHEUS_PUSHGATEWAY_URL` com esquema e
+host válidos; o overlay injeta esse destino no serviço pipeline. Foram também
+adicionadas regressões para deduplicação municipal por código, identidade
+canônica do catálogo, separação do município da notificação e detecção de
+associação CNES conflitante mesmo com atributos descritivos nulos.
