@@ -723,3 +723,11 @@ serviço pipeline no overlay de produção. A imagem é fornecida por
 `pipeline_data`; o preflight e o CI verificam esse contrato. O CI
 [41267565962](https://github.com/Zadoque/NSS-pipeline/actions/runs/41267565962)
 passou nos três jobs.
+
+O commit `bec0022` adicionou o alerta Grafana de ausência de execução recente.
+Após duas correções nas asserções do smoke para refletir o contrato real da API
+Ruler, o commit `1505984` passou no CI
+[41268443373](https://github.com/Zadoque/NSS-pipeline/actions/runs/41268443373):
+os três jobs passaram e a regra `nss-pipeline-stale` foi encontrada pelo UID
+provisionado. O roteamento para contact point produtivo e o teste de entrega
+continuam gates externos.

@@ -104,12 +104,14 @@ Pushgateway pela rede interna, sem depender de portas públicas.
 Critério de saída: todos os gates passam sem intervenção manual não descrita no
 runbook e o alerta chega ao contact point produtivo de teste.
 
-Evidência automatizada parcial: o CI `41266649351` executou o overlay de
+Evidência automatizada parcial: o CI `41268443373` executou o overlay de
 produção com portas públicas removidas, preflight, migrations e verificações
 autenticadas de Grafana/datasource; os três jobs passaram. O ensaio com dados
 autorizados, restore de backup/rollback e contact point real continua externo.
 O CI também valida `NSS_PIPELINE_IMAGE`, remove bind mounts de código/testes no
-overlay e mantém somente o volume persistente de dados da pipeline.
+overlay e mantém somente o volume persistente de dados da pipeline. A mesma
+execução validou as três regras Grafana, incluindo a regra de ausência de
+execução recente (`nss-pipeline-stale`).
 
 ### Fase 4 — Execução nacional controlada
 
