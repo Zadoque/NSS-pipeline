@@ -37,8 +37,12 @@ commit `c8a9c6d` foi aprovado no run
 A baseline global anterior à inclusão do preflight é 7.143/9.294 mutantes
 mortos, 2.124 sobreviventes e 27 timeouts; a meta global de 95% continua
 pendente e não deve ser confundida com a validação funcional dos gates P0/P1.
-O preflight foi posteriormente incluído no escopo com 57/57 mutantes mortos;
-é necessária uma nova rodada global para atualizar o denominador consolidado.
+O preflight foi posteriormente incluído no escopo com 57/57 mutantes mortos.
+A nova baseline global foi concluída em 01/11/2026 com **9.368 mutantes**:
+**7.205 mortos, 2.125 sobreviventes, 21 timeouts e 17 casos sem testes**.
+Entre os mutantes classificáveis, a taxa foi **77,22%**; a meta global de 95%
+continua pendente. Os timeouts e casos sem testes não entram no denominador,
+mas permanecem itens de qualidade a investigar.
 
 ### Fase 1 — Integridade de dados e publicação
 

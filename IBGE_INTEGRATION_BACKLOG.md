@@ -676,3 +676,16 @@ classificou **57 mutantes mortos e nenhum sobrevivente**.
 O job `compose-validation` do CI também executa o preflight com credenciais
 sintéticas não produtivas, além de validar o overlay, migrations, dashboard,
 Grafana e Prometheus.
+
+### Baseline global atualizada — 01/11/2026
+
+Após a inclusão do preflight no escopo configurado do `mutmut`, foi concluída
+uma nova rodada global limpa com `mutmut run --max-children 4`. O resultado foi
+de **9.368 mutantes**: **7.205 mortos, 2.125 sobreviventes, 21 timeouts e 17
+casos sem testes**. Considerando apenas mortos e sobreviventes, a taxa de
+mutantes classificáveis foi **77,22%**.
+
+Esta medição substitui a baseline global anterior como referência consolidada;
+as rodadas dirigidas continuam sendo evidências complementares. A meta de 95%
+permanece pendente e deve ser perseguida por contratos críticos, sem bloquear
+os gates funcionais já aprovados por uma interpretação isolada da mutação.
