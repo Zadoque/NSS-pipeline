@@ -133,6 +133,21 @@ jobs:
             -c "SELECT (has_schema_privilege('$GRAFANA_DB_USER', 'analytics', 'USAGE') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT')) AS readonly;" \
             | grep -q t
 
+      - name: Validar isolamento das séries no Pushgateway
+        run: |
+          compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
+          $compose run --rm --no-deps --entrypoint python pipeline -c '
+          from app.pipeline.observability.metrics import export_stage_metrics
+          for layer in ("bronze", "silver"):
+              assert export_stage_metrics(
+                  pipeline="ci", layer=layer, disease="DENG", year=2099,
+                  rows=1, duration_seconds=0.1,
+              )
+          '
+          pushgateway_metrics="$($compose exec -T pushgateway wget -qO- http://localhost:9091/metrics)"
+          printf '%s\n' "$pushgateway_metrics" | grep -E 'nss_pipeline_rows\{[^}]*pipeline="ci"[^}]*layer="bronze"[^}]*year="2099"' >/dev/null
+          printf '%s\n' "$pushgateway_metrics" | grep -E 'nss_pipeline_rows\{[^}]*pipeline="ci"[^}]*layer="silver"[^}]*year="2099"' >/dev/null
+
       - name: Validar backup do banco do smoke test
         run: |
           backup_path="$RUNNER_TEMP/situacao_saude.dump"
