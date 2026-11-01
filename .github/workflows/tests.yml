@@ -108,6 +108,18 @@ jobs:
           test -s "$backup_path"
           docker run --rm -v "$RUNNER_TEMP:/backup:ro" postgres:16 \
             pg_restore --list /backup/situacao_saude.dump >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c 'CREATE DATABASE nss_restore'
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db pg_restore --exit-on-error --no-owner -U "$POSTGRES_USER" \
+            -d nss_restore < "$backup_path"
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d nss_restore \
+            -c 'SELECT version_num FROM alembic_version;' \
+            -c 'SELECT count(*) FROM analytics.dim_municipio;'
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db dropdb -U "$POSTGRES_USER" nss_restore
           sha256sum "$backup_path"
 
       - name: Validar consultas SQL do dashboard
