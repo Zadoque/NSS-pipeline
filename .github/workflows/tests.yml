@@ -168,6 +168,7 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db pg_restore --exit-on-error --no-owner -U "$POSTGRES_USER" \
             -d nss_restore < "$backup_path"
+          compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
           restore_container=nss-pipeline-restore-db
           network="$($compose ps -q db | xargs docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{ $name }}{{end}}')"
           docker rm -f "$restore_container" >/dev/null 2>&1 || true
