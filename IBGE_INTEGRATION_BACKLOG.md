@@ -622,6 +622,10 @@ classificou **151 mutantes**, com **85 mortos** e **66 sobreviventes**; ela não
 orientar testes adicionais de validação de labels, valores e tratamento de
 falha do Pushgateway.
 
+Após os testes adicionais de contrato, a mesma rodada dirigida foi reexecutada
+com **116 mutantes mortos** e **35 sobreviventes** em 151. A baseline global
+continua separada e a meta de 95% permanece pendente.
+
 Foram adicionados testes para falha de download e de escrita da Bronze. A
 suíte local passou em **696 testes**, com **26 testes de integração
 deselecionados** e um warning externo do `dateutil`. O CI do commit foi
