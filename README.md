@@ -167,9 +167,9 @@ O preflight do overlay de produção também exige
 `PROMETHEUS_PUSHGATEWAY_URL`, garantindo que as execuções produtivas tenham um
 destino de métricas configurado.
 Também são provisionadas regras Grafana para falha de etapa e descarte de
-linhas. Elas alteram o estado dos alertas, mas o canal de notificação deve ser
-configurado no ambiente produtivo com um contact point e uma notification
-policy aprovados pela operação.
+linhas, além de ausência de execução recente. Elas alteram o estado dos
+alertas, mas o canal de notificação deve ser configurado no ambiente produtivo
+com um contact point e uma notification policy aprovados pela operação.
 
 O Compose executa `alembic upgrade head` no serviço `migrate` antes de permitir
 que a pipeline rode. Para aplicar migrations manualmente em um ambiente já

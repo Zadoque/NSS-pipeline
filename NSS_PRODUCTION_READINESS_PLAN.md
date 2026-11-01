@@ -74,7 +74,8 @@ regressões unitárias direcionadas.
 - provisionar Prometheus, Pushgateway, Grafana, datasources e dashboard por
   arquivos versionados;
 - manter consultas PostgreSQL para publicações, falhas e métricas históricas;
-- provisionar alertas para falha de etapa e descarte anormal de linhas;
+- provisionar alertas para falha de etapa, descarte anormal de linhas e
+  ausência de execução recente;
 - validar o stack completo no smoke test do CI;
 - configurar contact point e notification policy produtivos fora do repositório,
   com teste de entrega e responsável operacional.

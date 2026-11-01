@@ -57,3 +57,29 @@ groups:
               intervalMs: 15000
               maxDataPoints: 43200
               refId: A
+
+      - uid: nss-pipeline-stale
+        title: NSS Pipeline — ausência de execução recente
+        condition: A
+        for: 15m
+        noDataState: Alerting
+        execErrState: Error
+        annotations:
+          summary: "A NSS Pipeline não publica métricas recentes"
+          description: "Não houve execução observada nas últimas 24 horas; verifique o scheduler e o Pushgateway."
+        labels:
+          severity: critical
+          service: nss-pipeline
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: nss-prometheus
+            model:
+              editorMode: code
+              expr: absent(nss_pipeline_stage_last_execution_timestamp_seconds) or (time() - max(nss_pipeline_stage_last_execution_timestamp_seconds) > 86400)
+              instant: true
+              intervalMs: 15000
+              maxDataPoints: 43200
+              refId: A
