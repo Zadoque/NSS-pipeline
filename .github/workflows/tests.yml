@@ -99,6 +99,17 @@ jobs:
       - name: Aplicar migrations no banco do smoke test
         run: docker compose -f docker-compose.yml -f docker-compose.production.yml run --rm migrate
 
+      - name: Validar backup do banco do smoke test
+        run: |
+          backup_path="$RUNNER_TEMP/situacao_saude.dump"
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db pg_dump --format=custom --no-owner --no-acl \
+            -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$backup_path"
+          test -s "$backup_path"
+          docker run --rm -v "$RUNNER_TEMP:/backup:ro" postgres:16 \
+            pg_restore --list /backup/situacao_saude.dump >/dev/null
+          sha256sum "$backup_path"
+
       - name: Validar consultas SQL do dashboard
         run: |
           docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
