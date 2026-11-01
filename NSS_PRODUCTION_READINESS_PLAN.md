@@ -81,9 +81,9 @@ regressões unitárias direcionadas.
   com teste de entrega e responsável operacional.
 
 Evidência atual: dashboard e provisioning versionados, regras
-`nss-pipeline-stage-failure` e `nss-pipeline-dropped-rows`, smoke test Compose
-verde no overlay de produção e testes de contrato do módulo de métricas em
-151/151 mutantes mortos. O preflight agora exige também um
+`nss-pipeline-stage-failure`, `nss-pipeline-dropped-rows` e
+`nss-pipeline-stale`, smoke test Compose verde no overlay de produção e testes
+de contrato do módulo de métricas em 151/151 mutantes mortos. O preflight agora exige também um
 `PROMETHEUS_PUSHGATEWAY_URL` válido, e o CI consulta Grafana, Prometheus e
 Pushgateway pela rede interna, sem depender de portas públicas.
 

@@ -196,8 +196,9 @@ docker compose -f docker-compose.yml -f docker-compose.production.yml \
   wget -qO- http://localhost:3000/api/health
 ```
 
-As regras `nss-pipeline-stage-failure` e `nss-pipeline-dropped-rows` apenas
-avaliam o estado no Grafana. A entrega para e-mail, Slack ou PagerDuty exige
+As regras `nss-pipeline-stage-failure`, `nss-pipeline-dropped-rows` e
+`nss-pipeline-stale` apenas avaliam o estado no Grafana. A entrega para
+e-mail, Slack ou PagerDuty exige
 contact point e policy configurados pela operação; credenciais não devem ser
 versionadas neste repositório.
 
