@@ -89,7 +89,10 @@ jobs:
             (.services.pipeline.volumes[0].source == "pipeline_data") and
             (.services.db.volumes | length == 1) and
             (.services.db.volumes[0].target == "/var/lib/postgresql/data") and
-            (.services.db.volumes[0].source == "pgdata")
+            (.services.db.volumes[0].source == "pgdata") and
+            (.services.prometheus.restart == "unless-stopped") and
+            (.services.pushgateway.restart == "unless-stopped") and
+            (.services.grafana.restart == "unless-stopped")
           ' "$compose_config" >/dev/null
 
       - name: Executar preflight de produção
