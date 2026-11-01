@@ -170,8 +170,9 @@ jobs:
             --header="$grafana_auth_header" \
             http://localhost:3000/api/ruler/grafana/api/v1/rules \
             | jq -e '
-              ."NSS Pipeline"[0].rules | length == 3 and
-              any(.[]; .uid == "nss-pipeline-stale")
+              (."NSS Pipeline"[0].rules) as $rules |
+              ($rules | length == 3) and
+              ($rules | any(.[]; ((.expr // "") | tostring | contains("nss_pipeline_stage_last_execution_timestamp_seconds"))))
             ' >/dev/null
           for attempt in $(seq 1 30); do
             if $compose exec -T grafana wget -qO- \
