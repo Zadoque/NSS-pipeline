@@ -20,6 +20,7 @@ REQUIRED_VARIABLES = (
     "GRAFANA_ADMIN_USER",
     "GRAFANA_ADMIN_PASSWORD",
     "DATABASE_URL",
+    "PROMETHEUS_PUSHGATEWAY_URL",
 )
 
 _KNOWN_LOCAL_PASSWORDS = frozenset({
@@ -50,6 +51,16 @@ def validate_production_environment(
     parsed = urlparse(database_url)
     if database_url and (parsed.scheme != "postgresql+psycopg2" or not parsed.hostname):
         errors.append("DATABASE_URL deve usar postgresql+psycopg2 com host")
+
+    pushgateway_url = values.get("PROMETHEUS_PUSHGATEWAY_URL", "").strip()
+    parsed_pushgateway = urlparse(pushgateway_url)
+    if pushgateway_url and (
+        parsed_pushgateway.scheme not in {"http", "https"}
+        or not parsed_pushgateway.hostname
+    ):
+        errors.append(
+            "PROMETHEUS_PUSHGATEWAY_URL deve usar http(s) com host"
+        )
 
     if errors:
         raise ValueError("preflight de produção falhou: " + "; ".join(errors))

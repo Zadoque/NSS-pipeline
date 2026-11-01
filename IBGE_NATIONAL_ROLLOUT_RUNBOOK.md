@@ -13,6 +13,10 @@ durante Bronze, Silver, Gold ou publicação.
   python -m app.pipeline.preflight
   ```
 
+  O preflight também exige `PROMETHEUS_PUSHGATEWAY_URL` com uma URL `http` ou
+  `https` válida; em produção, a publicação não deve prosseguir sem o destino
+  de métricas operacional.
+
 - ambiente carregado pelo `flake.nix`;
 - PostgreSQL disponível e migrations aplicadas;
 - overlay `docker-compose.production.yml` validado com secrets injetados pelo

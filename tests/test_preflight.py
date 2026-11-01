@@ -11,6 +11,7 @@ def _environment(**overrides):
         "GRAFANA_ADMIN_USER": "grafana_ops",
         "GRAFANA_ADMIN_PASSWORD": "strong-grafana-secret",
         "DATABASE_URL": "postgresql+psycopg2://nss_prod:secret@db:5432/nss",
+        "PROMETHEUS_PUSHGATEWAY_URL": "http://pushgateway:9091",
     }
     values.update(overrides)
     return values
@@ -67,6 +68,7 @@ def test_preflight_rejeita_cada_credencial_local(monkeypatch, name):
 @pytest.mark.parametrize("name", [
     "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB",
     "GRAFANA_ADMIN_USER", "GRAFANA_ADMIN_PASSWORD", "DATABASE_URL",
+    "PROMETHEUS_PUSHGATEWAY_URL",
 ])
 def test_preflight_rejeita_cada_variavel_obrigatoria(name):
     values = _environment()
@@ -89,6 +91,19 @@ def test_preflight_rejeita_url_de_banco_invalida(database_url):
     assert str(error.value) == (
         "preflight de produção falhou: "
         "DATABASE_URL deve usar postgresql+psycopg2 com host"
+    )
+
+
+@pytest.mark.parametrize("pushgateway_url", ["pushgateway:9091", "ftp://pushgateway:9091"])
+def test_preflight_rejeita_url_do_pushgateway_invalida(pushgateway_url):
+    with pytest.raises(ValueError) as error:
+        validate_production_environment(
+            _environment(PROMETHEUS_PUSHGATEWAY_URL=pushgateway_url)
+        )
+
+    assert str(error.value) == (
+        "preflight de produção falhou: "
+        "PROMETHEUS_PUSHGATEWAY_URL deve usar http(s) com host"
     )
 
 
