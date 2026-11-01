@@ -63,6 +63,7 @@ jobs:
       GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
       PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
       DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
+      NSS_PIPELINE_IMAGE: nss-pipeline:ci
     steps:
       - uses: actions/checkout@v7
 
@@ -77,7 +78,16 @@ jobs:
           GRAFANA_ADMIN_USER: ci_admin
           GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
           PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
-        run: docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability config --quiet
+        run: |
+          compose_config="$RUNNER_TEMP/production-compose.json"
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            --profile observability config --format json > "$compose_config"
+          jq -e --arg image "$NSS_PIPELINE_IMAGE" '
+            .services.pipeline.image == $image and
+            (.services.pipeline.volumes | length == 1) and
+            .services.pipeline.volumes[0].target == "/data" and
+            (.services.pipeline.volumes[0].source == "pipeline_data")
+          ' "$compose_config" >/dev/null
 
       - name: Executar preflight de produção
         env:
@@ -91,7 +101,7 @@ jobs:
         run: python -m app.pipeline.preflight
 
       - name: Construir imagens operacionais
-        run: docker compose build pipeline migrate
+        run: docker build --tag "$NSS_PIPELINE_IMAGE" .
 
       - name: Subir stack de observabilidade
         run: docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability up -d db prometheus pushgateway grafana

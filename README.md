@@ -181,7 +181,9 @@ docker compose run --rm migrate
 
 Para um ambiente compartilhado, use também o overlay
 `docker-compose.production.yml`. Ele exige as credenciais por ambiente e
-remove as portas públicas de PostgreSQL, Prometheus, Pushgateway e Grafana:
+remove as portas públicas de PostgreSQL, Prometheus, Pushgateway e Grafana.
+Também exige `NSS_PIPELINE_IMAGE`, que deve apontar para a imagem promovida por
+digest imutável:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.production.yml \

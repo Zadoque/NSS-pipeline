@@ -21,6 +21,7 @@ REQUIRED_VARIABLES = (
     "GRAFANA_ADMIN_PASSWORD",
     "DATABASE_URL",
     "PROMETHEUS_PUSHGATEWAY_URL",
+    "NSS_PIPELINE_IMAGE",
 )
 
 _KNOWN_LOCAL_PASSWORDS = frozenset({
@@ -62,6 +63,10 @@ def validate_production_environment(
             "PROMETHEUS_PUSHGATEWAY_URL deve usar http(s) com host"
         )
 
+    pipeline_image = values.get("NSS_PIPELINE_IMAGE", "").strip()
+    if pipeline_image and any(character.isspace() for character in pipeline_image):
+        errors.append("NSS_PIPELINE_IMAGE não pode conter espaços")
+
     if errors:
         raise ValueError("preflight de produção falhou: " + "; ".join(errors))
 
@@ -70,6 +75,7 @@ def validate_production_environment(
         "database_host": parsed.hostname,
         "database_name": values["POSTGRES_DB"].strip(),
         "grafana_admin_user": values["GRAFANA_ADMIN_USER"].strip(),
+        "pipeline_image": pipeline_image,
     }
 
 

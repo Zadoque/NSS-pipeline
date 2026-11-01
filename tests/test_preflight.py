@@ -12,6 +12,7 @@ def _environment(**overrides):
         "GRAFANA_ADMIN_PASSWORD": "strong-grafana-secret",
         "DATABASE_URL": "postgresql+psycopg2://nss_prod:secret@db:5432/nss",
         "PROMETHEUS_PUSHGATEWAY_URL": "http://pushgateway:9091",
+        "NSS_PIPELINE_IMAGE": "registry.example/nss-pipeline@sha256:" + "a" * 64,
     }
     values.update(overrides)
     return values
@@ -24,6 +25,7 @@ def test_preflight_retorna_apenas_resumo_sem_secrets():
         "database_host": "db",
         "database_name": "nss",
         "grafana_admin_user": "grafana_ops",
+        "pipeline_image": "registry.example/nss-pipeline@sha256:" + "a" * 64,
     }
     assert "secret" not in repr(result)
 
@@ -69,6 +71,7 @@ def test_preflight_rejeita_cada_credencial_local(monkeypatch, name):
     "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB",
     "GRAFANA_ADMIN_USER", "GRAFANA_ADMIN_PASSWORD", "DATABASE_URL",
     "PROMETHEUS_PUSHGATEWAY_URL",
+    "NSS_PIPELINE_IMAGE",
 ])
 def test_preflight_rejeita_cada_variavel_obrigatoria(name):
     values = _environment()
@@ -105,6 +108,11 @@ def test_preflight_rejeita_url_do_pushgateway_invalida(pushgateway_url):
         "preflight de produção falhou: "
         "PROMETHEUS_PUSHGATEWAY_URL deve usar http(s) com host"
     )
+
+
+def test_preflight_rejeita_imagem_com_espacos():
+    with pytest.raises(ValueError, match="NSS_PIPELINE_IMAGE não pode conter espaços"):
+        validate_production_environment(_environment(NSS_PIPELINE_IMAGE="nss pipeline:ci"))
 
 
 def test_preflight_reconcilia_todos_os_erros_com_separador_estavel():
