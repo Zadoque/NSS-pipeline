@@ -67,6 +67,9 @@ jobs:
       - name: Subir stack de observabilidade
         run: docker compose --profile observability up -d db prometheus pushgateway grafana
 
+      - name: Aplicar migrations no banco do smoke test
+        run: docker compose run --rm migrate
+
       - name: Verificar provisionamento Grafana e Prometheus
         run: |
           trap 'docker compose --profile observability down -v' EXIT
@@ -86,3 +89,10 @@ jobs:
           curl --fail --silent -u admin:admin \
             http://localhost:3000/api/ruler/grafana/api/v1/rules \
             | jq -e '."NSS Pipeline"[0].rules | length == 2' >/dev/null
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent -u admin:admin \
+              http://localhost:3000/api/datasources/uid/nss-postgres/health \
+              | jq -e '.status == "OK"' >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then exit 1; fi
+            sleep 2
+          done
