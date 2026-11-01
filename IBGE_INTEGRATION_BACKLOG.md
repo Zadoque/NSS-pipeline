@@ -632,3 +632,24 @@ Foram adicionados testes para falha de download e de escrita da Bronze. A
 suíte local passou em **696 testes**, com **26 testes de integração
 deselecionados** e um warning externo do `dateutil`. O CI do commit foi
 aprovado nos três jobs: [41255814320](https://github.com/Zadoque/NSS-pipeline/actions/runs/41255814320).
+
+### Baseline global de mutação — 01/11/2026
+
+Foi concluída uma rodada global limpa com `mutmut run --max-children 4`, sem
+alteração do worktree durante a execução. A rodada processou **9.294
+mutantes**: **7.143 mortos**, **2.124 sobreviventes** e **27 timeouts**.
+Considerando somente os mutantes classificáveis (mortos + sobreviventes), o
+resultado atual é **77,08%**, ainda distante da meta global de 95%.
+
+Os sobreviventes estão distribuídos principalmente em `pipeline.reference`
+(582), `pipeline.sinan` (433), `pipeline.load` (333), `pipeline.run_cnes`
+(311), `pipeline.run_load` (252) e `pipeline.update_sinan` (150). Essa
+distribuição é uma fila de investigação de testes e contratos; não implica que
+cada sobrevivente represente um bug de produção. Os **27 timeouts** devem ser
+tratados separadamente, pois podem refletir custo/isolamento de testes em vez
+de uma lacuna de asserção.
+
+O acesso ao GitHub foi confirmado via `gh auth status`, com a conta `Zadoque`
+ativa, protocolo SSH e escopo `repo`. O último CI publicado continua aprovado
+no commit `23acf2a`, execução
+[41257525931](https://github.com/Zadoque/NSS-pipeline/actions/runs/41257525931).
