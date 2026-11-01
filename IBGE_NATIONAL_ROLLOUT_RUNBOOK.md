@@ -120,13 +120,31 @@ ambiente, não no volume efêmero do container:
 ```bash
 backup_dir="/var/backups/nss/$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$backup_dir"
-pg_dump --format=custom --no-owner --no-acl \
-  --host="${PGHOST:-db}" --port="${PGPORT:-5432}" --username="$POSTGRES_USER" \
-  --dbname="$POSTGRES_DB" \
-  --file="$backup_dir/situacao_saude.dump"
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  exec -T db pg_dump --format=custom --no-owner --no-acl \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$backup_dir/situacao_saude.dump"
 pg_restore --list "$backup_dir/situacao_saude.dump" >/dev/null
 sha256sum "$backup_dir/situacao_saude.dump" > "$backup_dir/SHA256SUMS"
 ```
+
+O `pg_dump` é executado dentro do container `db`, onde o nome do serviço é
+resolvido pela rede Compose; o redirecionamento ocorre no host e grava no
+armazenamento persistente. Não execute `pg_dump` diretamente no host usando
+`db` como hostname, pois o overlay produtivo não publica a porta do PostgreSQL.
+
+Após restaurar em uma instância substituta, execute o reprovisionamento
+idempotente antes de iniciar o Grafana:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  run --rm --no-deps \
+  -e DATABASE_URL="postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/$RESTORED_DATABASE" \
+  --entrypoint python migrate -m app.pipeline.observability.provision_grafana_role
+```
+
+O comando reconcilia a role e os grants mesmo quando `alembic_version` já
+registra a migration `0011`. Em seguida, valide o datasource Grafana e uma
+conexão com `GRAFANA_DB_USER` antes do cutover.
 
 Se uma etapa falhar antes do commit, a transação é revertida e o snapshot
 anterior continua servível. Confirme isso consultando a última publicação e o

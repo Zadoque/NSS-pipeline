@@ -169,6 +169,15 @@ jobs:
             exec -T db pg_restore --exit-on-error --no-owner -U "$POSTGRES_USER" \
             -d nss_restore < "$backup_path"
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            run --rm --no-deps \
+            -e DATABASE_URL="postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/nss_restore" \
+            --entrypoint python migrate -m app.pipeline.observability.provision_grafana_role
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T -e PGPASSWORD="$GRAFANA_DB_PASSWORD" db \
+            psql -v ON_ERROR_STOP=1 -U "$GRAFANA_DB_USER" -d nss_restore \
+            -c "SELECT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT') AS readonly;" \
+            | grep -q t
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d nss_restore \
             -c 'SELECT version_num FROM alembic_version;' \
             -c 'SELECT count(*) FROM analytics.dim_municipio;'
@@ -217,6 +226,7 @@ jobs:
               (."NSS Pipeline"[0].rules) as $rules |
               ($rules | length == 3) and
               ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-stale")) and
+              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-stale" and (.grafana_alert.data[0].model.expr | contains("max by (pipeline, layer, disease, year)")))) and
               ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-dropped-rows" and .grafana_alert.data[0].model.expr == "nss_pipeline_anomalous_dropped_rows > 0"))
             ' >/dev/null
           for attempt in $(seq 1 30); do

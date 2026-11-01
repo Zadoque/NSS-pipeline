@@ -3,26 +3,14 @@
 from __future__ import annotations
 
 import os
-import re
-
 from alembic import op
-from sqlalchemy import text
+
+from app.pipeline.observability.grafana_role import provision_grafana_role
 
 revision = "0011"
 down_revision = "0010"
 branch_labels = None
 depends_on = None
-
-_ROLE_NAME = re.compile(r"^[a-z_][a-z0-9_]*$")
-
-
-def _quote_literal(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-
-def _quote_identifier(value: str) -> str:
-    return '"' + value.replace('"', '""') + '"'
-
 
 def _credentials() -> tuple[str, str] | None:
     user = os.environ.get("GRAFANA_DB_USER", "").strip()
@@ -35,8 +23,6 @@ def _credentials() -> tuple[str, str] | None:
         raise RuntimeError(
             "GRAFANA_DB_USER e GRAFANA_DB_PASSWORD devem ser fornecidos juntos"
         )
-    if not _ROLE_NAME.fullmatch(user):
-        raise ValueError("GRAFANA_DB_USER deve ser um identificador PostgreSQL simples")
     return user, password
 
 
@@ -44,36 +30,7 @@ def upgrade() -> None:
     credentials = _credentials()
     if credentials is None:
         return
-    user, password = credentials
-    role_literal = _quote_literal(user)
-    password_literal = _quote_literal(password)
-    role_identifier = _quote_identifier(user)
-    connection = op.get_bind()
-    database = connection.execute(text("SELECT current_database()")).scalar_one()
-
-    op.execute(f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = {role_literal}) THEN
-                EXECUTE format(
-                    'CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
-                    {role_literal}, {password_literal}
-                );
-            ELSE
-                EXECUTE format(
-                    'ALTER ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
-                    {role_literal}, {password_literal}
-                );
-            END IF;
-        END
-        $$;
-    """)
-    op.execute(f"GRANT CONNECT ON DATABASE {_quote_identifier(database)} TO {role_identifier}")
-    op.execute(f"GRANT USAGE ON SCHEMA analytics TO {role_identifier}")
-    op.execute(
-        "GRANT SELECT ON TABLE analytics.pipeline_execution_metrics, "
-        f"analytics.pipeline_publications TO {role_identifier}"
-    )
+    provision_grafana_role(op.get_bind(), *credentials)
 
 
 def downgrade() -> None:
@@ -81,7 +38,7 @@ def downgrade() -> None:
     if credentials is None:
         return
     user, _ = credentials
-    role_identifier = _quote_identifier(user)
+    role_identifier = '"' + user.replace('"', '""') + '"'
     op.execute(f"REVOKE ALL PRIVILEGES ON TABLE analytics.pipeline_execution_metrics, analytics.pipeline_publications FROM {role_identifier}")
     op.execute(f"REVOKE ALL PRIVILEGES ON SCHEMA analytics FROM {role_identifier}")
     op.execute(f"DROP ROLE IF EXISTS {role_identifier}")
