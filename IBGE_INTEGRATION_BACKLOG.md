@@ -623,8 +623,10 @@ orientar testes adicionais de validação de labels, valores e tratamento de
 falha do Pushgateway.
 
 Após os testes adicionais de contrato, a mesma rodada dirigida foi reexecutada
-com **116 mutantes mortos** e **35 sobreviventes** em 151. A baseline global
-continua separada e a meta de 95% permanece pendente.
+com **116 mutantes mortos** e **35 sobreviventes** em 151. Os testes finais de
+documentação dos gauges e do traceback do Pushgateway eliminaram os últimos
+sobreviventes: o módulo agora está em **151 mutantes mortos e 0 sobreviventes**.
+A baseline global continua separada e a meta global de 95% permanece pendente.
 
 Foram adicionados testes para falha de download e de escrita da Bronze. A
 suíte local passou em **696 testes**, com **26 testes de integração

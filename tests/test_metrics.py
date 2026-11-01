@@ -26,22 +26,22 @@ def test_export_stage_metrics_sem_url_nao_tenta_push(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "overrides",
+    ("overrides", "message"),
     [
-        {"status": "unknown"},
-        {"rows": -1},
-        {"dropped_rows": -1},
-        {"duration_seconds": -1},
+        ({"status": "unknown"}, "status de métrica inválido: unknown"),
+        ({"rows": -1}, "valores de métrica não podem ser negativos"),
+        ({"dropped_rows": -1}, "valores de métrica não podem ser negativos"),
+        ({"duration_seconds": -1}, "valores de métrica não podem ser negativos"),
     ],
 )
-def test_export_stage_metrics_rejeita_valores_invalidos(monkeypatch, overrides):
+def test_export_stage_metrics_rejeita_valores_invalidos(monkeypatch, overrides, message):
     monkeypatch.setenv("PROMETHEUS_PUSHGATEWAY_URL", "http://pushgateway:9091")
     arguments = {
         "pipeline": "sinan", "layer": "bronze", "disease": "DENG", "year": 2026,
         "rows": 0, "duration_seconds": 0, **overrides,
     }
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=f"^{message}$"):
         metrics.export_stage_metrics(**arguments)
 
 
@@ -61,6 +61,14 @@ def test_export_stage_metrics_eh_best_effort(monkeypatch):
     assert samples["nss_pipeline_dropped_rows"] == 2
     assert samples["nss_pipeline_stage_status"] == 1
     assert samples["nss_pipeline_stage_last_execution_timestamp_seconds"] > 0
+    documentation = {metric.name: metric.documentation for metric in registry.collect()}
+    assert documentation == {
+        "nss_pipeline_rows": "Quantidade de linhas observada na última execução da etapa",
+        "nss_pipeline_dropped_rows": "Quantidade de linhas descartadas na última execução da etapa",
+        "nss_pipeline_stage_duration_seconds": "Duração da última execução da etapa em segundos",
+        "nss_pipeline_stage_status": "Último estado da etapa (1=sucesso, 0=falha)",
+        "nss_pipeline_stage_last_execution_timestamp_seconds": "Instante Unix da última execução observada da etapa",
+    }
 
 
 def test_export_stage_metrics_preserva_defaults_labels_e_chave_do_push(monkeypatch):
@@ -89,6 +97,26 @@ def test_export_stage_metrics_preserva_defaults_labels_e_chave_do_push(monkeypat
         "pipeline": "sinan", "layer": "bronze", "disease": "DENG",
         "year": "2026", "scope": "BRAZIL",
     }
+
+
+def test_export_stage_metrics_registra_url_e_excecao_no_log(monkeypatch, caplog):
+    monkeypatch.setenv("PROMETHEUS_PUSHGATEWAY_URL", "http://pushgateway:9091")
+    monkeypatch.setattr(
+        metrics,
+        "pushadd_to_gateway",
+        lambda *args, **kwargs: (_ for _ in ()).throw(ConnectionError("offline")),
+    )
+
+    with caplog.at_level("WARNING", logger="app.pipeline.observability.metrics"):
+        assert metrics.export_stage_metrics(
+            pipeline="cnes", layer="silver", disease="CNES", year=2026,
+            rows=1, duration_seconds=0.1,
+        ) is False
+
+    record = caplog.records[-1]
+    assert record.getMessage() == "Falha ao exportar métricas para Pushgateway http://pushgateway:9091"
+    assert record.exc_info is not None
+    assert record.exc_info[0] is ConnectionError
 
 
 def test_export_stage_metrics_nao_bloqueia_quando_pushgateway_falha(monkeypatch):
