@@ -22,6 +22,7 @@ only_mutate = [
     "app/pipeline/update_sinan.py",
     "app/pipeline/run_cnes.py",
     "app/pipeline/run_load.py",
+    "app/pipeline/preflight.py",
     "app/pipeline/scope.py",
     "app/pipeline/reference/ibge/catalog.py",
     "app/pipeline/reference/ibge/client.py",

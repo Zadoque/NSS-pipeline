@@ -47,3 +47,59 @@ def test_preflight_rejeita_variavel_obrigatoria_ausente():
 
     with pytest.raises(ValueError, match="GRAFANA_ADMIN_PASSWORD ausente"):
         validate_production_environment(values)
+
+
+def test_preflight_usa_os_environment_quando_mapa_nao_e_informado(monkeypatch):
+    for name, value in _environment().items():
+        monkeypatch.setenv(name, value)
+
+    assert validate_production_environment()["database_host"] == "db"
+
+
+@pytest.mark.parametrize("name", ["POSTGRES_PASSWORD", "GRAFANA_ADMIN_PASSWORD"])
+def test_preflight_rejeita_cada_credencial_local(monkeypatch, name):
+    values = _environment(**{name: "admin"})
+
+    with pytest.raises(ValueError, match=f"{name} usa credencial local conhecida"):
+        validate_production_environment(values)
+
+
+@pytest.mark.parametrize("name", [
+    "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB",
+    "GRAFANA_ADMIN_USER", "GRAFANA_ADMIN_PASSWORD", "DATABASE_URL",
+])
+def test_preflight_rejeita_cada_variavel_obrigatoria(name):
+    values = _environment()
+    values.pop(name)
+
+    with pytest.raises(ValueError) as error:
+        validate_production_environment(values)
+
+    assert str(error.value) == f"preflight de produção falhou: {name} ausente"
+
+
+@pytest.mark.parametrize("database_url", [
+    "sqlite:///local.db",
+    "postgresql+psycopg2:///nss",
+])
+def test_preflight_rejeita_url_de_banco_invalida(database_url):
+    with pytest.raises(ValueError) as error:
+        validate_production_environment(_environment(DATABASE_URL=database_url))
+
+    assert str(error.value) == (
+        "preflight de produção falhou: "
+        "DATABASE_URL deve usar postgresql+psycopg2 com host"
+    )
+
+
+def test_preflight_reconcilia_todos_os_erros_com_separador_estavel():
+    values = _environment(POSTGRES_PASSWORD="admin")
+    values.pop("DATABASE_URL")
+
+    with pytest.raises(ValueError) as error:
+        validate_production_environment(values)
+
+    assert str(error.value) == (
+        "preflight de produção falhou: "
+        "DATABASE_URL ausente; POSTGRES_PASSWORD usa credencial local conhecida"
+    )

@@ -43,8 +43,7 @@ def validate_production_environment(
             errors.append(f"{name} ausente")
 
     for name in ("POSTGRES_PASSWORD", "GRAFANA_ADMIN_PASSWORD"):
-        value = values.get(name, "").strip()
-        if value in _KNOWN_LOCAL_PASSWORDS:
+        if name in values and values[name].strip() in _KNOWN_LOCAL_PASSWORDS:
             errors.append(f"{name} usa credencial local conhecida")
 
     database_url = values.get("DATABASE_URL", "").strip()
@@ -55,8 +54,9 @@ def validate_production_environment(
     if errors:
         raise ValueError("preflight de produção falhou: " + "; ".join(errors))
 
+    assert parsed.hostname is not None  # garantido pela validação acima
     return {
-        "database_host": parsed.hostname or "",
+        "database_host": parsed.hostname,
         "database_name": values["POSTGRES_DB"].strip(),
         "grafana_admin_user": values["GRAFANA_ADMIN_USER"].strip(),
     }

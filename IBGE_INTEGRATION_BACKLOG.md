@@ -667,4 +667,5 @@ python -m app.pipeline.preflight
 ```
 
 A suíte unitária passou em **713 testes**, com um warning externo do
-`dateutil`; o preflight possui três testes dedicados.
+`dateutil`. O preflight possui **15 testes dedicados** e a mutação dirigida
+classificou **57 mutantes mortos e nenhum sobrevivente**.
