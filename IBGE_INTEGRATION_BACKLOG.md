@@ -716,3 +716,10 @@ separado, consultou `alembic_version` e uma dimensão restaurada. O CI
 [41267266806](https://github.com/Zadoque/NSS-pipeline/actions/runs/41267266806)
 passou nos três jobs. O restore completo com dados e procedimento de cutover
 em pré-produção continua sendo gate externo.
+
+O commit `37bf636` eliminou os bind mounts de código, testes e dados locais do
+serviço pipeline no overlay de produção. A imagem é fornecida por
+`NSS_PIPELINE_IMAGE`, enquanto `/data` usa o volume persistente
+`pipeline_data`; o preflight e o CI verificam esse contrato. O CI
+[41267565962](https://github.com/Zadoque/NSS-pipeline/actions/runs/41267565962)
+passou nos três jobs.

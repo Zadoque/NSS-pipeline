@@ -107,6 +107,8 @@ Evidência automatizada parcial: o CI `41266649351` executou o overlay de
 produção com portas públicas removidas, preflight, migrations e verificações
 autenticadas de Grafana/datasource; os três jobs passaram. O ensaio com dados
 autorizados, restore de backup/rollback e contact point real continua externo.
+O CI também valida `NSS_PIPELINE_IMAGE`, remove bind mounts de código/testes no
+overlay e mantém somente o volume persistente de dados da pipeline.
 
 ### Fase 4 — Execução nacional controlada
 
