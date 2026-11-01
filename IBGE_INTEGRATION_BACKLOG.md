@@ -575,3 +575,28 @@ Uma nova matriz independente em cache isolado consultou os **49 grupos** PySUS
 para 2024: **47 disponíveis**, `HEPA`/`INFL` indisponíveis e nenhuma falha
 técnica. A matriz foi somente de descoberta de fonte e não altera o gate de
 carga SINAN autorizada nacional.
+
+## Atualização operacional — 01/11/2026
+
+Após a auditoria de integridade CNES e a adaptação da observabilidade da branch
+Grafana, o estado verificável do repositório é:
+
+- migrations PostgreSQL executadas pelo serviço Compose `migrate`, com revisão
+  `0010` e execução idempotente;
+- manifesto CNES v2 com SHA-256 do Parquet e reconciliação entre municípios com
+  e sem registros;
+- dashboard Grafana provisionado com métricas Prometheus e tabelas SQL das
+  métricas/publicações PostgreSQL;
+- regras provisionadas `nss-pipeline-stage-failure` e
+  `nss-pipeline-dropped-rows`;
+- CI com três gates: 695 testes unitários, 26 testes PostgreSQL e smoke test
+  completo do Compose/Grafana/PostgreSQL, incluindo migrations e health do
+  datasource (`41254846538` aprovado);
+- 24 warnings da suíte foram eliminados; resta apenas um warning proveniente de
+  `dateutil`, fora do código do projeto.
+
+Os gates ainda externos permanecem deliberadamente explícitos: contact point e
+notification policy produtivos, secrets do ambiente, fixture SINAN autorizada
+para a execução nacional e a linha de base completa de mutação. Portanto,
+`IBGE-013` continua bloqueado por dependências de operação/dados, e não deve
+ser marcado como rollout concluído apenas por CI verde.
