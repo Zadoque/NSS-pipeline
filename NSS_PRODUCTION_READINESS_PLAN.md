@@ -78,6 +78,7 @@ verde e testes de contrato do módulo de métricas em 151/151 mutantes mortos.
 ### Fase 3 — Pré-produção e ensaio de rollback
 
 - executar `python -m app.pipeline.preflight` com o secret manager injetado;
+- manter o mesmo preflight como gate do job `compose-validation` no CI;
 - construir imagens a partir de commit imutável;
 - aplicar `alembic upgrade head` em banco de pré-produção;
 - executar uma doença/ano de fixture autorizada com lote CNES explicitamente

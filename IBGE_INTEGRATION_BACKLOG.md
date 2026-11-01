@@ -672,3 +672,7 @@ python -m app.pipeline.preflight
 A suíte unitária passou em **713 testes**, com um warning externo do
 `dateutil`. O preflight possui **15 testes dedicados** e a mutação dirigida
 classificou **57 mutantes mortos e nenhum sobrevivente**.
+
+O job `compose-validation` do CI também executa o preflight com credenciais
+sintéticas não produtivas, além de validar o overlay, migrations, dashboard,
+Grafana e Prometheus.
