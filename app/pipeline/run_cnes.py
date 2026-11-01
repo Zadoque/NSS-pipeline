@@ -239,7 +239,9 @@ def _write_cnes_consolidated(
     finally:
         temporary.unlink(missing_ok=True)
     return int(pq.ParquetFile(destination).metadata.num_rows)
-def run_cnes(
+
+
+def _run_cnes(
     municipios: dict[str, str] | None = None,
     *,
     catalog: MunicipalityCatalog | None = None,
@@ -492,6 +494,54 @@ def run_cnes(
         )
     logger.info("CNES concluído: %s (linhas=%s)", parquet, rows)
     return parquet
+
+
+def run_cnes(
+    municipios: dict[str, str] | None = None,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+    geographic_scope: GeographicScope | None = None,
+    page_size: int = DEFAULT_CNES_PAGE_SIZE,
+    session=None,
+    request_timeout: float = DEFAULT_CNES_REQUEST_TIMEOUT,
+    checkpoint_path: Path | None = None,
+    continue_on_error: bool = False,
+    workers: int = 1,
+) -> Path:
+    """Executa CNES e publica falha fatal no Pushgateway quando necessário."""
+    stage_started = monotonic()
+    scope = (
+        geographic_scope.kind
+        if geographic_scope is not None
+        else "CATALOG" if catalog is not None else "LEGACY"
+    )
+    try:
+        return _run_cnes(
+            municipios,
+            catalog=catalog,
+            geographic_scope=geographic_scope,
+            page_size=page_size,
+            session=session,
+            request_timeout=request_timeout,
+            checkpoint_path=checkpoint_path,
+            continue_on_error=continue_on_error,
+            workers=workers,
+        )
+    except Exception:
+        try:
+            export_stage_metrics(
+                pipeline="cnes",
+                layer="silver",
+                disease="CNES",
+                year=datetime.now(UTC).year,
+                rows=0,
+                duration_seconds=monotonic() - stage_started,
+                status="failure",
+                extra={"scope": scope, "batch_status": "FATAL"},
+            )
+        except Exception:  # noqa: BLE001 - nunca mascarar a falha original
+            logger.warning("Falha ao registrar erro fatal do CNES", exc_info=True)
+        raise
 
 
 def main() -> None:

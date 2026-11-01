@@ -34,6 +34,20 @@ def _silver(code: str) -> pd.DataFrame:
     )
 
 
+def test_run_cnes_publica_falha_fatal_sem_substituir_excecao(mocker):
+    mocker.patch.object(pipeline, "_run_cnes", side_effect=RuntimeError("CNES indisponível"))
+    export = mocker.patch.object(pipeline, "export_stage_metrics")
+
+    with pytest.raises(RuntimeError, match="CNES indisponível"):
+        pipeline.run_cnes({"3301009": "Campos"})
+
+    export.assert_called_once()
+    assert export.call_args.kwargs["pipeline"] == "cnes"
+    assert export.call_args.kwargs["layer"] == "silver"
+    assert export.call_args.kwargs["status"] == "failure"
+    assert export.call_args.kwargs["extra"] == {"scope": "LEGACY", "batch_status": "FATAL"}
+
+
 def test_validate_checkpoint_completed_rejeita_tipo_com_mensagem_exata():
     with pytest.raises(ValueError) as error:
         _validate_checkpoint_completed([], {"3301009": "Campos"})
