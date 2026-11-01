@@ -19,6 +19,9 @@ durante Bronze, Silver, Gold ou publicação.
 
 - ambiente carregado pelo `flake.nix`;
 - PostgreSQL disponível e migrations aplicadas;
+- `GRAFANA_DB_USER` e `GRAFANA_DB_PASSWORD` definidos por secret manager,
+  distintos da role administrativa do PostgreSQL; a migration cria a role de
+  observabilidade com somente `CONNECT`, `USAGE` e `SELECT` necessários;
 - overlay `docker-compose.production.yml` validado com secrets injetados pelo
   ambiente, sem expor portas internas publicamente;
 - `NSS_PIPELINE_IMAGE` apontando para uma imagem promovida por digest OCI
@@ -30,6 +33,9 @@ durante Bronze, Silver, Gold ou publicação.
   `work/nss-pipeline`.
 - contact point e notification policy do Grafana configurados fora do
   repositório, usando secrets do ambiente produtivo.
+- o alerta de descarte usa `nss_pipeline_anomalous_dropped_rows`; descartes
+  esperados pelo escopo geográfico são acompanhados separadamente e não são
+  tratados como falha de qualidade.
 - Os grupos SINAN do PySUS estão cobertos pelo catálogo operacional. A versão
   PySUS 2.11.7 homologada possui 49 grupos, verificados automaticamente.
   Na consulta remota sequencial de 31/10/2026, 47 grupos retornaram Parquet

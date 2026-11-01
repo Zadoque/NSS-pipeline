@@ -33,6 +33,7 @@ _KNOWN_LOCAL_PASSWORDS = frozenset({
     "test_pass",
     "ci_password",
     "ci_grafana_password",
+    "grafana_ro",
 })
 _IMMUTABLE_IMAGE_REFERENCE = re.compile(
     r"@sha256:[0-9a-fA-F]{64}$"

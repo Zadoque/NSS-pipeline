@@ -136,6 +136,11 @@ jobs:
       - name: Validar isolamento das séries no Pushgateway
         run: |
           compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
+          for attempt in $(seq 1 30); do
+            if $compose exec -T pushgateway wget -qO- http://localhost:9091/-/ready >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then exit 1; fi
+            sleep 2
+          done
           $compose run --rm --no-deps --entrypoint python pipeline -c '
           from app.pipeline.observability.metrics import export_stage_metrics
           for layer in ("bronze", "silver"):
@@ -145,8 +150,8 @@ jobs:
               )
           '
           pushgateway_metrics="$($compose exec -T pushgateway wget -qO- http://localhost:9091/metrics)"
-          printf '%s\n' "$pushgateway_metrics" | grep -E 'nss_pipeline_rows\{[^}]*pipeline="ci"[^}]*layer="bronze"[^}]*year="2099"' >/dev/null
-          printf '%s\n' "$pushgateway_metrics" | grep -E 'nss_pipeline_rows\{[^}]*pipeline="ci"[^}]*layer="silver"[^}]*year="2099"' >/dev/null
+          printf '%s\n' "$pushgateway_metrics" | grep 'nss_pipeline_rows{' | grep 'pipeline="ci"' | grep 'layer="bronze"' | grep 'year="2099"' >/dev/null
+          printf '%s\n' "$pushgateway_metrics" | grep 'nss_pipeline_rows{' | grep 'pipeline="ci"' | grep 'layer="silver"' | grep 'year="2099"' >/dev/null
 
       - name: Validar backup do banco do smoke test
         run: |
@@ -211,7 +216,8 @@ jobs:
             | jq -e '
               (."NSS Pipeline"[0].rules) as $rules |
               ($rules | length == 3) and
-              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-stale"))
+              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-stale")) and
+              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-dropped-rows" and .grafana_alert.data[0].model.expr == "nss_pipeline_anomalous_dropped_rows > 0"))
             ' >/dev/null
           for attempt in $(seq 1 30); do
             if $compose exec -T grafana wget -qO- \

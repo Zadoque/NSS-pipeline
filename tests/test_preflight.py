@@ -61,7 +61,7 @@ def test_preflight_usa_os_environment_quando_mapa_nao_e_informado(monkeypatch):
     assert validate_production_environment()["database_host"] == "db"
 
 
-@pytest.mark.parametrize("name", ["POSTGRES_PASSWORD", "GRAFANA_ADMIN_PASSWORD"])
+@pytest.mark.parametrize("name", ["POSTGRES_PASSWORD", "GRAFANA_ADMIN_PASSWORD", "GRAFANA_DB_PASSWORD"])
 def test_preflight_rejeita_cada_credencial_local(monkeypatch, name):
     values = _environment(**{name: "admin"})
 

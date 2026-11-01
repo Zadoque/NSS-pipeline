@@ -153,11 +153,14 @@ PROMETHEUS_PUSHGATEWAY_URL=http://pushgateway:9091 \
 
 Depois, o Grafana fica em `http://localhost:3000` e o Prometheus em
 `http://localhost:9090`. O dashboard operacional acompanha Bronze, Silver,
-Gold e PostgreSQL por quantidade de linhas, descartes, duração e estado. As
+Gold e PostgreSQL por quantidade de linhas, descartes, descartes anômalos,
+duração e estado. As
 métricas usam somente labels operacionais de baixa cardinalidade; municípios,
 unidades e semanas não são labels Prometheus. O datasource `NSS PostgreSQL`
 também é provisionado para consultas SQL de auditoria; suas credenciais vêm
-de `POSTGRES_USER`, `POSTGRES_PASSWORD` e `POSTGRES_DB` do ambiente. O
+de `GRAFANA_DB_USER`, `GRAFANA_DB_PASSWORD` e `POSTGRES_DB`, e a migration
+cria essa role sem privilégios administrativos, apenas com leitura do schema
+de observabilidade. O
 dashboard inclui tabelas de reconciliação de execução e de publicações no
 PostgreSQL, sem misturar contagens de camadas com métricas epidemiológicas.
 As credenciais administrativas do Grafana vêm de `GRAFANA_ADMIN_USER` e
@@ -166,8 +169,10 @@ local e devem ser substituídos antes de qualquer exposição compartilhada.
 O preflight do overlay de produção também exige
 `PROMETHEUS_PUSHGATEWAY_URL`, garantindo que as execuções produtivas tenham um
 destino de métricas configurado.
-Também são provisionadas regras Grafana para falha de etapa e descarte de
-linhas, além de ausência de execução recente. Elas alteram o estado dos
+Também são provisionadas regras Grafana para falha de etapa e descarte anômalo
+de linhas, além de ausência de execução recente. Descartes esperados por
+escopo continuam disponíveis como métrica informativa e não disparam esse
+alerta. As regras alteram o estado dos
 alertas, mas o canal de notificação deve ser configurado no ambiente produtivo
 com um contact point e uma notification policy aprovados pela operação.
 
