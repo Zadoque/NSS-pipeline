@@ -7,6 +7,12 @@ durante Bronze, Silver, Gold ou publicação.
 
 ## Pré-condições
 
+- executar o preflight sem imprimir secrets:
+
+  ```bash
+  python -m app.pipeline.preflight
+  ```
+
 - ambiente carregado pelo `flake.nix`;
 - PostgreSQL disponível e migrations aplicadas;
 - overlay `docker-compose.production.yml` validado com secrets injetados pelo

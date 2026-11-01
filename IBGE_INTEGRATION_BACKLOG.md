@@ -653,3 +653,18 @@ O acesso ao GitHub foi confirmado via `gh auth status`, com a conta `Zadoque`
 ativa, protocolo SSH e escopo `repo`. O último CI publicado continua aprovado
 no commit `23acf2a`, execução
 [41257525931](https://github.com/Zadoque/NSS-pipeline/actions/runs/41257525931).
+
+### Preflight produtivo — 01/11/2026
+
+O módulo `app.pipeline.preflight` adiciona uma validação executável antes do
+overlay de produção. Ele exige as variáveis de PostgreSQL/Grafana e
+`DATABASE_URL`, rejeita credenciais locais conhecidas e valida o esquema da URL
+sem imprimir secrets. O resumo aprovado expõe somente host, banco e usuário do
+Grafana. O runbook agora inicia as pré-condições com:
+
+```bash
+python -m app.pipeline.preflight
+```
+
+A suíte unitária passou em **713 testes**, com um warning externo do
+`dateutil`; o preflight possui três testes dedicados.
