@@ -168,15 +168,41 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db pg_restore --exit-on-error --no-owner -U "$POSTGRES_USER" \
             -d nss_restore < "$backup_path"
-          docker compose -f docker-compose.yml -f docker-compose.production.yml \
-            run --rm --no-deps \
-            -e DATABASE_URL="postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/nss_restore" \
-            --entrypoint python migrate -m app.pipeline.observability.provision_grafana_role
-          docker compose -f docker-compose.yml -f docker-compose.production.yml \
-            exec -T -e PGPASSWORD="$GRAFANA_DB_PASSWORD" db \
-            psql -v ON_ERROR_STOP=1 -U "$GRAFANA_DB_USER" -d nss_restore \
-            -c "SELECT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT') AS readonly;" \
+          restore_container=nss-pipeline-restore-db
+          network="$($compose ps -q db | xargs docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{ $name }}{{end}}')"
+          docker rm -f "$restore_container" >/dev/null 2>&1 || true
+          docker run --detach --name "$restore_container" --network "$network" \
+            -e POSTGRES_USER=restore_admin \
+            -e POSTGRES_PASSWORD=restore_admin_secret \
+            -e POSTGRES_DB=situacao_saude postgres:16
+          for attempt in $(seq 1 30); do
+            if docker exec "$restore_container" pg_isready -U restore_admin -d situacao_saude >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then exit 1; fi
+            sleep 2
+          done
+          docker exec -i "$restore_container" pg_restore --exit-on-error --no-owner \
+            -U restore_admin -d situacao_saude < "$backup_path"
+          special_password='a'\''b\c$$d'
+          docker run --rm --network "$network" \
+            -e DATABASE_URL="postgresql+psycopg2://restore_admin:restore_admin_secret@$restore_container:5432/situacao_saude" \
+            -e GRAFANA_DB_USER=restore_grafana_ro \
+            -e GRAFANA_DB_PASSWORD="$special_password" \
+            --entrypoint python "$NSS_PIPELINE_IMAGE" \
+            -m app.pipeline.observability.provision_grafana_role
+          docker run --rm --network "$network" \
+            -e PGPASSWORD="$special_password" postgres:16 \
+            psql -h "$restore_container" -U restore_grafana_ro -d situacao_saude \
+            -v ON_ERROR_STOP=1 \
+            -c "SELECT has_table_privilege('restore_grafana_ro', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('restore_grafana_ro', 'analytics.pipeline_publications', 'INSERT') AS readonly;" \
             | grep -q t
+          if docker run --rm --network "$network" \
+            -e PGPASSWORD="$special_password" postgres:16 \
+            psql -h "$restore_container" -U restore_grafana_ro -d situacao_saude \
+            -c 'INSERT INTO analytics.pipeline_publications (disease_codigo) VALUES ('"'"'DENG'"'"');' >/dev/null 2>&1; then
+            echo 'role Grafana conseguiu escrever no banco restaurado' >&2
+            exit 1
+          fi
+          docker rm -f "$restore_container" >/dev/null
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d nss_restore \
             -c 'SELECT version_num FROM alembic_version;' \

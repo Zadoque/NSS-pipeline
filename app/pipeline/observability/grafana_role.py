@@ -10,10 +10,6 @@ from sqlalchemy.engine import Connection
 _ROLE_NAME = re.compile(r"^[a-z_][a-z0-9_]*$")
 
 
-def _quote_literal(value: str) -> str:
-    return "'" + value.replace("'", "''") + "'"
-
-
 def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
 
@@ -28,28 +24,19 @@ def validate_role_name(user: str) -> str:
 def provision_grafana_role(connection: Connection, user: str, password: str) -> None:
     """Cria ou reconcilia a role e seus grants, sem depender do Alembic."""
     user = validate_role_name(user)
-    role_literal = _quote_literal(user)
-    password_literal = _quote_literal(password)
     role_identifier = _quote_identifier(user)
-    database = connection.execute(text("SELECT current_database()" )).scalar_one()
-
-    connection.execute(text(f"""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = {role_literal}) THEN
-                EXECUTE format(
-                    'CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
-                    {role_literal}, {password_literal}
-                );
-            ELSE
-                EXECUTE format(
-                    'ALTER ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT PASSWORD %L',
-                    {role_literal}, {password_literal}
-                );
-            END IF;
-        END
-        $$;
-    """))
+    database = connection.execute(text("SELECT current_database()")).scalar_one()
+    password_literal = connection.execute(
+        text("SELECT quote_literal(:password)"), {"password": password}
+    ).scalar_one()
+    role_exists = connection.execute(
+        text("SELECT 1 FROM pg_roles WHERE rolname = :role"), {"role": user}
+    ).first() is not None
+    role_statement = "ALTER ROLE" if role_exists else "CREATE ROLE"
+    connection.execute(text(
+        f"{role_statement} {role_identifier} LOGIN NOSUPERUSER NOCREATEDB "
+        f"NOCREATEROLE NOINHERIT PASSWORD {password_literal}"
+    ))
     connection.execute(text(f"GRANT CONNECT ON DATABASE {_quote_identifier(database)} TO {role_identifier}"))
     connection.execute(text(f"GRANT USAGE ON SCHEMA analytics TO {role_identifier}"))
     connection.execute(text(
