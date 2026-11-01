@@ -298,6 +298,44 @@ def test_cache_local_passa_para_bronze_sem_leitura_em_memoria(mocker, pipeline):
     assert runner.write_bronze.call_args.kwargs["run_at"].tzinfo is not None
 
 
+def test_gold_failure_is_exported_before_error_propagates(mocker, pipeline):
+    aggregate, _, _, _ = pipeline
+    aggregate.side_effect = RuntimeError("gold indisponível")
+    export = mocker.patch.object(runner, "export_stage_metrics")
+    mocker.patch.object(runner.pd, "read_parquet", return_value=pd.DataFrame({"ID_MUNICIP": ["330100"]}))
+
+    with pytest.raises(RuntimeError, match="gold indisponível"):
+        runner.run_load("DENG", 2026)
+
+    failure = [call for call in export.call_args_list if call.kwargs.get("status") == "failure"]
+    assert len(failure) == 1
+    assert failure[0].kwargs["layer"] == "gold"
+    assert failure[0].kwargs["extra"] == {"scope": "MUNICIPALITIES"}
+
+
+def test_postgresql_failure_is_exported_before_error_propagates(mocker, pipeline):
+    _, engine, _, load = pipeline
+    load.side_effect = RuntimeError("postgres indisponível")
+    export = mocker.patch.object(runner, "export_stage_metrics")
+    mocker.patch.object(
+        runner.pd,
+        "read_parquet",
+        side_effect=[
+            pd.DataFrame({"ID_MUNICIP": ["330100"]}),
+            pd.DataFrame({"cases_total": [1]}),
+        ],
+    )
+
+    with pytest.raises(RuntimeError, match="postgres indisponível"):
+        runner.run_load("DENG", 2026)
+
+    failure = [call for call in export.call_args_list if call.kwargs.get("status") == "failure"]
+    assert len(failure) == 1
+    assert failure[0].kwargs["layer"] == "postgresql"
+    assert failure[0].kwargs["extra"] == {"scope": "MUNICIPALITIES"}
+    engine.dispose.assert_called_once()
+
+
 def test_publicacao_vazia_explicita_e_falha_liberam_conexao(mocker, pipeline):
     _, engine, _, load = pipeline
     silver = pd.DataFrame({"ID_MUNICIP": ["9999999"]})
