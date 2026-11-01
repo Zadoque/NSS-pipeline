@@ -176,6 +176,20 @@ subido, use:
 docker compose run --rm migrate
 ```
 
+Para um ambiente compartilhado, use também o overlay
+`docker-compose.production.yml`. Ele exige as credenciais por ambiente e
+remove as portas públicas de PostgreSQL, Prometheus, Pushgateway e Grafana:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability config --quiet
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability up -d db prometheus pushgateway grafana
+```
+
+O overlay não contém secrets; eles devem ser fornecidos pelo secret manager do
+ambiente de deploy.
+
 ## Qualidade e CI
 
 As verificações locais recomendadas são:

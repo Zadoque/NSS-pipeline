@@ -61,6 +61,15 @@ jobs:
       - name: Validar configuração do Compose
         run: docker compose --profile observability config --quiet
 
+      - name: Validar overlay de produção
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: situacao_saude
+          GRAFANA_ADMIN_USER: ci_admin
+          GRAFANA_ADMIN_PASSWORD: ci_grafana_password
+        run: docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability config --quiet
+
       - name: Construir imagens operacionais
         run: docker compose build pipeline migrate
 
