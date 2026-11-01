@@ -706,3 +706,9 @@ host válidos; o overlay injeta esse destino no serviço pipeline. Foram também
 adicionadas regressões para deduplicação municipal por código, identidade
 canônica do catálogo, separação do município da notificação e detecção de
 associação CNES conflitante mesmo com atributos descritivos nulos.
+
+O commit `83ec4a2` adicionou ao mesmo smoke a criação de dump PostgreSQL em
+formato custom, validação com `pg_restore --list` e checksum. O CI
+[41267032401](https://github.com/Zadoque/NSS-pipeline/actions/runs/41267032401)
+passou nos três jobs. Isso comprova a geração e a integridade estrutural do
+backup; o restore completo em pré-produção continua sendo gate externo.
