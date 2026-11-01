@@ -110,6 +110,7 @@ jobs:
         run: |
           compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
           trap "$compose down -v" EXIT
+          grafana_auth_header="Authorization: Basic $(printf '%s' "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" | base64 -w0)"
           for service_url in \
             'prometheus http://localhost:9090/-/ready' \
             'pushgateway http://localhost:9091/-/ready' \
@@ -119,7 +120,7 @@ jobs:
             for attempt in $(seq 1 30); do
               if [ "$service" = grafana ]; then
                 if $compose exec -T grafana wget -qO- \
-                  --user="$GRAFANA_ADMIN_USER" --password="$GRAFANA_ADMIN_PASSWORD" \
+                  --header="$grafana_auth_header" \
                   "$url" >/dev/null; then break; fi
               elif $compose exec -T "$service" wget -qO- "$url" >/dev/null; then
                 break
@@ -129,16 +130,16 @@ jobs:
             done
           done
           $compose exec -T grafana wget -qO- \
-            --user="$GRAFANA_ADMIN_USER" --password="$GRAFANA_ADMIN_PASSWORD" \
+            --header="$grafana_auth_header" \
             http://localhost:3000/api/search \
             | jq -e 'any(.[]; .uid == "nss-pipeline-overview")' >/dev/null
           $compose exec -T grafana wget -qO- \
-            --user="$GRAFANA_ADMIN_USER" --password="$GRAFANA_ADMIN_PASSWORD" \
+            --header="$grafana_auth_header" \
             http://localhost:3000/api/ruler/grafana/api/v1/rules \
             | jq -e '."NSS Pipeline"[0].rules | length == 2' >/dev/null
           for attempt in $(seq 1 30); do
             if $compose exec -T grafana wget -qO- \
-              --user="$GRAFANA_ADMIN_USER" --password="$GRAFANA_ADMIN_PASSWORD" \
+              --header="$grafana_auth_header" \
               http://localhost:3000/api/datasources/uid/nss-postgres/health \
               | jq -e '.status == "OK"' >/dev/null; then break; fi
             if [ "$attempt" -eq 30 ]; then exit 1; fi
