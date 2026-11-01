@@ -610,6 +610,11 @@ impedir o alerta `nss-pipeline-stage-failure` de detectar a interrupção. A
 exceção original continua sendo propagada e uma falha do próprio Pushgateway
 não invalida a execução.
 
+O commit `8b9bdeb` estendeu o mesmo contrato ao executor CNES: falhas fatais de
+validação, consulta, checkpoint ou consolidação publicam a etapa `silver` com
+`batch_status=FATAL`, sem confundir esse estado com um lote `PARTIAL` que foi
+concluído com erros classificados.
+
 Foram adicionados testes para falha de download e de escrita da Bronze. A
 suíte local passou em **696 testes**, com **26 testes de integração
 deselecionados** e um warning externo do `dateutil`. O CI do commit foi
