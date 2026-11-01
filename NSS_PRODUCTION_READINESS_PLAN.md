@@ -76,6 +76,8 @@ regressões unitárias direcionadas.
 - manter consultas PostgreSQL para publicações, falhas e métricas históricas;
 - provisionar alertas para falha de etapa, descarte anormal de linhas e
   ausência de execução recente;
+- reiniciar automaticamente Prometheus, Pushgateway e Grafana após falha de
+  processo, mantendo a pipeline one-shot sem restart automático;
 - validar o stack completo no smoke test do CI;
 - configurar contact point e notification policy produtivos fora do repositório,
   com teste de entrega e responsável operacional.
@@ -113,7 +115,9 @@ overlay e mantém somente o volume persistente de dados da pipeline. A mesma
 execução validou as três regras Grafana, incluindo a regra de ausência de
 execução recente (`nss-pipeline-stale`). O CI `41268975660` também confirmou
 que o PostgreSQL não herda o bind mount local de `db-init`, usando apenas o
-volume nomeado de produção.
+volume nomeado de produção. O commit `d8f9665` adicionou `restart:
+unless-stopped` aos três serviços de observabilidade e o CI
+`41269406601` validou esse contrato.
 
 Na validação local de fechamento, `nix flake check --no-build` passou e a
 suíte executada dentro do dev shell terminou com **735 testes aprovados, 23

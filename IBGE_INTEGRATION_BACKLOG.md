@@ -744,6 +744,12 @@ produção e adicionou a verificação correspondente ao CI
 [41268975660](https://github.com/Zadoque/NSS-pipeline/actions/runs/41268975660),
 que passou nos três jobs.
 
+O commit `d8f9665` adicionou políticas `unless-stopped` para Prometheus,
+Pushgateway e Grafana. O smoke do CI
+[41269406601](https://github.com/Zadoque/NSS-pipeline/actions/runs/41269406601)
+validou as políticas junto com o Compose de produção, backup/restore,
+migrations e os três jobs de testes.
+
 O fechamento local também passou em `nix flake check --no-build` e em **735
 testes**, com 23 testes ignorados e um warning externo de `dateutil`. O commit
 documental `521adb6` foi validado novamente pelo CI
