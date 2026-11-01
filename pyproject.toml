@@ -10,6 +10,7 @@ on_dependency_change = "rerun"
 also_copy = ["app/__init__.py", "pytest.ini", "pyproject.toml", "territories"]
 only_mutate = [
     "app/pipeline/atomic_io.py",
+    "app/pipeline/observability/metrics.py",
     "app/pipeline/sinan/columns.py",
     "app/pipeline/sinan/source.py",
     "app/pipeline/sinan/bronze.py",

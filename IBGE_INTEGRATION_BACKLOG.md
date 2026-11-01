@@ -615,6 +615,13 @@ validação, consulta, checkpoint ou consolidação publicam a etapa `silver` co
 `batch_status=FATAL`, sem confundir esse estado com um lote `PARTIAL` que foi
 concluído com erros classificados.
 
+O módulo `app/pipeline/observability/metrics.py` passou a fazer parte do
+escopo configurado do `mutmut`. A rodada dirigida disponível nesta máquina
+classificou **151 mutantes**, com **85 mortos** e **66 sobreviventes**; ela não
+é a baseline global e não substitui a meta de 95%. Os sobreviventes devem
+orientar testes adicionais de validação de labels, valores e tratamento de
+falha do Pushgateway.
+
 Foram adicionados testes para falha de download e de escrita da Bronze. A
 suíte local passou em **696 testes**, com **26 testes de integração
 deselecionados** e um warning externo do `dateutil`. O CI do commit foi
