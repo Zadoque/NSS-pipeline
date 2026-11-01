@@ -103,7 +103,39 @@ As métricas globais da execução são gravadas uma única vez em
 `analytics.pipeline_publications` são legadas e ficam zeradas; relatórios não
 devem somá-las por município.
 
-## 4. Fallback e retomada
+## 4. Backup antes da publicação e rollback
+
+Antes de uma publicação nacional, crie e valide um backup consistente do banco
+de serving. O diretório deve estar em armazenamento persistente protegido pelo
+ambiente, não no volume efêmero do container:
+
+```bash
+backup_dir="/var/backups/nss/$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$backup_dir"
+pg_dump --format=custom --no-owner --no-acl \
+  --file="$backup_dir/situacao_saude.dump" \
+  --dbname="$DATABASE_URL"
+pg_restore --list "$backup_dir/situacao_saude.dump" >/dev/null
+sha256sum "$backup_dir/situacao_saude.dump" > "$backup_dir/SHA256SUMS"
+```
+
+Se uma etapa falhar antes do commit, a transação é revertida e o snapshot
+anterior continua servível. Confirme isso consultando a última publicação e o
+`batch_id` antes de retomar.
+
+Se uma publicação já confirmada for considerada incorreta, não apague fatos
+manualmente nem tente reconstruí-los a partir de `pipeline_publications`: essa
+tabela guarda métricas por município, não o histórico completo dos fatos.
+Acione o procedimento de restauração aprovado pela operação, preferivelmente
+restaurando o dump em uma instância substituta, validando migrations,
+contagens e healthchecks, e só então fazendo o cutover controlado. Registre o
+ID do backup, seu SHA-256, o batch revertido e o novo batch de recuperação.
+
+O teste de restore em pré-produção é obrigatório antes do rollout nacional;
+sem ele, existe fallback transacional, mas não há evidência de rollback de uma
+publicação já confirmada.
+
+## 5. Fallback e retomada
 
 Se o IBGE estiver indisponível durante o processamento, use somente a release
 local aprovada. Não execute fallback por nome, proximidade ou truncamento
@@ -113,7 +145,7 @@ Se o CNES falhar, mantenha o checkpoint e o lote parcial identificados; não
 misture Bronzes de releases ou parâmetros diferentes. Depois de corrigir a
 causa, retome com os mesmos argumentos e valide o metadata novamente.
 
-## 5. Critérios de encerramento
+## 6. Critérios de encerramento
 
 - release IBGE, hash e escopo estão registrados no metadata Gold e na
   publicação;
@@ -124,7 +156,7 @@ causa, retome com os mesmos argumentos e valide o metadata novamente.
 - rollback ou falha de atualização preservou a release ativa anterior;
 - logs, checkpoints e manifestos foram arquivados junto da execução.
 
-## 6. Verificação operacional e observabilidade
+## 7. Verificação operacional e observabilidade
 
 Antes de promover a publicação, confirme que o serviço de migration terminou
 com sucesso e que o banco está na revisão esperada:
