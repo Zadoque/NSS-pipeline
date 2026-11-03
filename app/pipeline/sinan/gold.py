@@ -53,7 +53,7 @@ def age_band(
         age.lt(1), age.between(1, 4), age.between(5, 9), age.between(10, 14),
         age.between(15, 19), age.between(20, 39), age.between(40, 59),
         age.between(60, 64), age.between(65, 69), age.between(70, 74),
-        age.between(75, 79), age.ge(80),
+        age.between(75, 79), age.ge(80),     
     ]
     labels = [
         "LT1", "01_04", "05_09", "10_14", "15_19", "20_39",
