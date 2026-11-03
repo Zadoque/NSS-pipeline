@@ -6,6 +6,7 @@ services:
       - ./app:/app/app
       - ./tests:/app/tests
       - ./pytest.ini:/app/pytest.ini
+      - ./pyproject.toml:/app/pyproject.toml
     entrypoint: ["python", "-m", "app.pipeline.run"]
     depends_on:
       migrate:
@@ -13,7 +14,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/${POSTGRES_DB:-situacao_saude}
       TEST_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/situacao_saude_test
-      PROMETHEUS_PUSHGATEWAY_URL: ${PROMETHEUS_PUSHGATEWAY_URL:-}
+      PROMETHEUS_PUSHGATEWAY_URL: ${PROMETHEUS_PUSHGATEWAY_URL:-http://pushgateway:9091}
 
   migrate:
     build: .
