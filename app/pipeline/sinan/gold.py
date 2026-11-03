@@ -429,13 +429,18 @@ def _latest_cnes_lookup() -> pd.DataFrame | None:
     return _load_cnes_batch(batches[-1])
 
 
-def _cnes_lookup_for_batch(batch_id: str) -> pd.DataFrame:
+def _cnes_lookup_for_batch(
+    batch_id: str,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+    expected_scope: set[str] | None = None,
+) -> pd.DataFrame:
     if not re.fullmatch(r"\d{8}T\d{6}Z", batch_id):
         raise ValueError("cnes_batch_id inválido")
     path = BASE_DIR / "silver" / "cnes" / f"batch_id={batch_id}" / "data.parquet"
     if not path.exists():
         raise FileNotFoundError(f"lote CNES não encontrado: {batch_id}")
-    return _load_cnes_batch(path)
+    return _load_cnes_batch(path, catalog=catalog, expected_scope=expected_scope)
 
 def _gold_input_schema(source_schema: pa.Schema, keys: list[str]) -> pa.Schema:
     needed = GOLD_REQUIRED_COLUMNS | {"ID_UNIDADE", "NU_IDADE_N", "TP_IDADE"}
@@ -500,7 +505,9 @@ def aggregate_file(
     _validate_source_matches(source_metadata, disease, year, source)
 
     cnes_lookup = (
-        _cnes_lookup_for_batch(cnes_batch_id)
+        _cnes_lookup_for_batch(
+            cnes_batch_id, catalog=catalog, expected_scope=set(scope_codes),
+        )
         if cnes_batch_id is not None
         else _latest_cnes_lookup()
     )

@@ -38,7 +38,7 @@ def test_aggregate_file_grava_ad_hoc_e_serving_em_arvores_distintas(
         }
     ).to_parquet(source)
     monkeypatch.setattr(gold, "BASE_DIR", tmp_path / "data")
-    monkeypatch.setattr(gold, "_cnes_lookup_for_batch", lambda _: None)
+    monkeypatch.setattr(gold, "_cnes_lookup_for_batch", lambda *args, **kwargs: None)
     run_at = datetime(2026, 1, 6, tzinfo=UTC)
 
     ad_hoc = gold.aggregate_file(

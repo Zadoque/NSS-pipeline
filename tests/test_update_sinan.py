@@ -274,7 +274,7 @@ def test_main_encaminha_diseases_years_manifesto_e_catalogo(monkeypatch, tmp_pat
     )
     monkeypatch.setattr(
         "app.pipeline.update_sinan.update",
-        lambda diseases, years, manifest, catalog=None: captured.update(
+        lambda diseases, years, manifest, catalog=None, **kwargs: captured.update(
             diseases=diseases, years=years, manifest=manifest, catalog=catalog
         ),
     )
@@ -303,7 +303,7 @@ def test_main_aplica_defaults_sem_catalogo(monkeypatch):
     captured = {}
     monkeypatch.setattr(
         "app.pipeline.update_sinan.update",
-        lambda diseases, years, manifest, catalog=None: captured.update(
+        lambda diseases, years, manifest, catalog=None, **kwargs: captured.update(
             diseases=diseases, years=years, manifest=manifest, catalog=catalog
         ),
     )

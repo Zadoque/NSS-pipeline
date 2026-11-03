@@ -65,7 +65,7 @@ def test_lotes_equivalem_agregacao_completa(raw, source, lookup, monkeypatch, ba
     monkeypatch.setattr(gold, "_latest_cnes_lookup", lambda: cnes)
     cnes_batch_id = "20261014T120000Z" if target == "serving" else None
     if cnes_batch_id is not None:
-        monkeypatch.setattr(gold, "_cnes_lookup_for_batch", lambda _: cnes)
+        monkeypatch.setattr(gold, "_cnes_lookup_for_batch", lambda *args, **kwargs: cnes)
     monkeypatch.setattr(gold.pd, "read_parquet", lambda *args, **kwargs: pytest.fail("leitura integral"))
     aggregate = gold.aggregate
     def check_batch(frame, *args, **kwargs):
