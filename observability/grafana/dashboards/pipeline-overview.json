@@ -9,7 +9,7 @@
       "id": 1,
       "title": "Linhas por camada",
       "type": "timeseries",
-      "targets": [{"expr": "nss_pipeline_rows", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+      "targets": [{"expr": "nss_pipeline_rows{pipeline=\"sinan\",disease=~\"$disease\",year=~\"$year\",layer=~\"$layer\"}", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
@@ -18,7 +18,7 @@
       "id": 2,
       "title": "Duração por camada",
       "type": "timeseries",
-      "targets": [{"expr": "nss_pipeline_stage_duration_seconds", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+      "targets": [{"expr": "nss_pipeline_stage_duration_seconds{pipeline=\"sinan\",disease=~\"$disease\",year=~\"$year\",layer=~\"$layer\"}", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
@@ -27,7 +27,7 @@
       "id": 3,
       "title": "Linhas descartadas",
       "type": "timeseries",
-      "targets": [{"expr": "nss_pipeline_dropped_rows", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+      "targets": [{"expr": "nss_pipeline_dropped_rows{pipeline=\"sinan\",disease=~\"$disease\",year=~\"$year\",layer=~\"$layer\"}", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
@@ -36,7 +36,7 @@
       "id": 7,
       "title": "Descartes anômalos",
       "type": "timeseries",
-      "targets": [{"expr": "nss_pipeline_anomalous_dropped_rows", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+      "targets": [{"expr": "nss_pipeline_anomalous_dropped_rows{pipeline=\"sinan\",disease=~\"$disease\",year=~\"$year\",layer=~\"$layer\"}", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
     },
     {
       "datasource": {"type": "prometheus", "uid": "nss-prometheus"},
@@ -45,7 +45,7 @@
       "id": 4,
       "title": "Status das etapas",
       "type": "stat",
-      "targets": [{"expr": "nss_pipeline_stage_status", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
+      "targets": [{"expr": "nss_pipeline_stage_status{pipeline=\"sinan\",disease=~\"$disease\",year=~\"$year\",layer=~\"$layer\"}", "legendFormat": "{{layer}} / {{disease}} {{year}}"}]
     },
     {
       "datasource": {"type": "grafana-postgresql-datasource", "uid": "nss-postgres"},
@@ -57,7 +57,7 @@
       "targets": [{
         "format": "table",
         "rawQuery": true,
-        "rawSql": "SELECT published_at AS time, disease_codigo, ano, batch_id, geographic_scope_type, source_rows, resolved_rows, discarded_rows, aggregation_reduction, invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows FROM analytics.pipeline_execution_metrics ORDER BY published_at DESC LIMIT 20",
+        "rawSql": "SELECT published_at AS time, disease_codigo, ano, batch_id, geographic_scope_type, source_rows, resolved_rows, discarded_rows, aggregation_reduction, invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows FROM analytics.pipeline_execution_metrics WHERE disease_codigo IN (${disease:sqlstring}) AND CAST(ano AS text) IN (${year:sqlstring}) ORDER BY published_at DESC LIMIT 20",
         "refId": "A"
       }]
     },
@@ -71,14 +71,18 @@
       "targets": [{
         "format": "table",
         "rawQuery": true,
-        "rawSql": "SELECT published_at AS time, disease_codigo, ano, batch_id, COUNT(*) AS municipalities_published, SUM(groups_total) AS groups_total, SUM(cases_total) AS cases_total, geographic_scope_type FROM analytics.pipeline_publications GROUP BY published_at, disease_codigo, ano, batch_id, geographic_scope_type ORDER BY published_at DESC LIMIT 20",
+        "rawSql": "SELECT published_at AS time, disease_codigo, ano, batch_id, COUNT(*) AS municipalities_published, SUM(groups_total) AS groups_total, SUM(cases_total) AS cases_total, geographic_scope_type FROM analytics.pipeline_publications WHERE disease_codigo IN (${disease:sqlstring}) AND CAST(ano AS text) IN (${year:sqlstring}) GROUP BY published_at, disease_codigo, ano, batch_id, geographic_scope_type ORDER BY published_at DESC LIMIT 20",
         "refId": "A"
       }]
     }
   ],
   "schemaVersion": 41,
   "tags": ["nss", "pipeline", "observability"],
-  "templating": {"list": []},
+  "templating": {"list": [
+    {"name": "disease", "label": "Doença", "type": "query", "datasource": {"type": "prometheus", "uid": "nss-prometheus"}, "query": "label_values(nss_pipeline_rows{pipeline=\"sinan\"}, disease)", "refresh": 1, "multi": true, "includeAll": true, "options": [], "current": {"text": "All", "value": ["$__all"]}},
+    {"name": "year", "label": "Ano", "type": "query", "datasource": {"type": "prometheus", "uid": "nss-prometheus"}, "query": "label_values(nss_pipeline_rows{pipeline=\"sinan\"}, year)", "refresh": 1, "multi": true, "includeAll": true, "options": [], "current": {"text": "All", "value": ["$__all"]}},
+    {"name": "layer", "label": "Camada", "type": "query", "datasource": {"type": "prometheus", "uid": "nss-prometheus"}, "query": "label_values(nss_pipeline_rows{pipeline=\"sinan\"}, layer)", "refresh": 1, "multi": true, "includeAll": true, "options": [], "current": {"text": "All", "value": ["$__all"]}}
+  ]},
   "time": {"from": "now-6h", "to": "now"},
   "title": "NSS Pipeline — Visão operacional",
   "uid": "nss-pipeline-overview",
