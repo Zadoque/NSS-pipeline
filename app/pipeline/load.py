@@ -152,6 +152,26 @@ def _integer_series(series: pd.Series, column: str, minimum: int, maximum: int) 
     return numbers.astype("int64")
 
 
+def _normalize_sem_not(series: pd.Series, year: pd.Series | int) -> pd.Series:
+    """Normaliza apenas SEM_NOT no formato AASS para AAAASS.
+
+    O fallback é deliberadamente restrito ao ano processado: ``2601`` só
+    pode virar ``202601`` quando o ano do registro é 2026. Valores de quatro
+    dígitos de outro ano continuam sujeitos à rejeição normal do formato.
+    """
+    numbers = _integer_series(series, "SEM_NOT", 0, 999953)
+    years = pd.Series(year, index=series.index) if isinstance(year, int) else year
+    years = _integer_series(years, "year", 1, 9999)
+    aass = (
+        numbers.between(1000, 9999)
+        & (numbers // 100 == years % 100)
+        & (numbers % 100).between(1, 53)
+    )
+    normalized = numbers.copy()
+    normalized.loc[aass] = years.loc[aass] * 100 + numbers.loc[aass] % 100
+    return normalized
+
+
 def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: str) -> pd.DataFrame:
     df = gold_df.copy()
     df["disease_codigo"] = disease_codigo
@@ -177,7 +197,7 @@ def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: st
     df["cd_sexo"] = _clean_code_series(df[sex_column], "I") if sex_column in df.columns else "I"
     week_column = "SEM_NOT" if "SEM_NOT" in df.columns else "not_week"
     df["semana_notif"] = (
-        _integer_series(df[week_column], week_column, 0, 999953).astype("int32")
+        _normalize_sem_not(df[week_column], df["year"]).astype("int32")
         if week_column in df.columns else 0
     )
     weeks = df["semana_notif"]

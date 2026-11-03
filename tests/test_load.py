@@ -13,6 +13,7 @@ from app.pipeline.load import (
     UNIDADE_NAO_IDENTIFICADA,
     _clean_code_series,
     _integer_series,
+    _normalize_sem_not,
     _prepare_fact_frame,
     _register_catalog_release,
     _scope_statement,
@@ -120,7 +121,12 @@ def test_semana_aaaass_e_preservada_sem_overflow():
     assert facts.loc[0, "semana_notif"] == 202602
 
 
-@pytest.mark.parametrize("value", ["5994", "202600", "202654", "202602.5", "invalido"])
+def test_semana_aass_e_normalizada_para_aaaass():
+    result = _normalize_sem_not(pd.Series(["2601", "2653", "0"]), pd.Series([2026] * 3))
+    assert list(result) == [202601, 202653, 0]
+
+
+@pytest.mark.parametrize("value", ["2350", "5994", "202600", "202654", "202602.5", "invalido"])
 def test_semana_invalida_e_rejeitada(value):
     with pytest.raises(ValueError):
         _validate(_gold_minima(SEM_NOT=[value]))
