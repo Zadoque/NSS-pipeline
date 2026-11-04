@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import datetime
 from collections.abc import Mapping
 from time import time
 
@@ -108,5 +109,40 @@ def export_stage_metrics(
         )
     except Exception:  # observabilidade é best effort por contrato
         logger.warning("Falha ao exportar métricas para Pushgateway %s", url, exc_info=True)
+        return False
+    return True
+
+
+def export_publication_metadata_metrics(
+    *, pipeline: str, disease: str, year: int,
+    source_extracted_at: datetime, added_at: datetime,
+) -> bool:
+    """Publica os dois instantes de linhagem da publicação atual."""
+    url = _pushgateway_url()
+    if url is None:
+        return False
+    registry = CollectorRegistry()
+    labels = {"pipeline": pipeline, "disease": disease.upper(), "year": str(year)}
+    source_gauge = Gauge(
+        "nss_pipeline_source_extracted_timestamp_seconds",
+        "Instante UTC em que a fonte da publicação foi extraída",
+        list(labels), registry=registry,
+    )
+    added_gauge = Gauge(
+        "nss_pipeline_added_timestamp_seconds",
+        "Instante UTC em que a publicação foi adicionada ao PostgreSQL",
+        list(labels), registry=registry,
+    )
+    values = [labels[name] for name in labels]
+    source_gauge.labels(*values).set(source_extracted_at.timestamp())
+    added_gauge.labels(*values).set(added_at.timestamp())
+    try:
+        pushadd_to_gateway(
+            url, job="nss_pipeline", grouping_key={
+                "pipeline": pipeline, "disease": disease.lower(), "year": str(year),
+            }, registry=registry,
+        )
+    except Exception:
+        logger.warning("Falha ao exportar metadados de publicação para %s", url, exc_info=True)
         return False
     return True

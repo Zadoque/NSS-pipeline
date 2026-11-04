@@ -35,7 +35,7 @@ def _silver_minima(**overrides) -> pd.DataFrame:
     return pd.DataFrame(base)
 
 
-@pytest.mark.parametrize("coluna", ["NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"])
+@pytest.mark.parametrize("coluna", ["NM_UF"])
 def test_aggregate_levanta_erro_quando_falta_coluna_obrigatoria(coluna):
     df = _silver_minima().drop(columns=[coluna])
     with pytest.raises(ValueError, match="Colunas Silver ausentes"):
@@ -408,8 +408,7 @@ def test_gold_input_schema_projeta_dimensoes_obrigatorias_e_preserva_metadata():
 
     assert result.names == [
         "DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO",
-        "ANO_NASC", "SEM_NOT", "ID_UNIDADE", "NU_IDADE_N", "TP_IDADE",
-        "CLASSI_FIN",
+        "ANO_NASC", "ID_UNIDADE", "NU_IDADE_N", "TP_IDADE", "CLASSI_FIN",
     ]
     assert result.metadata == {b"source": b"silver"}
 

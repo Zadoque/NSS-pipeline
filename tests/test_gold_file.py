@@ -108,10 +108,10 @@ def test_saida_vazia_preserva_contrato(raw, source, monkeypatch, empty_source):
     pd.testing.assert_frame_equal(actual, expected)
 
 
-def test_coluna_obrigatoria_ausente_e_rejeitada_em_arquivo_vazio(raw, source):
+def test_semana_epidemiologica_ausente_e_preservada_como_nula_em_arquivo_vazio(raw, source):
     raw.iloc[:0].drop(columns="SEM_NOT").to_parquet(source, index=False)
-    with pytest.raises(ValueError, match="Colunas Silver ausentes.*SEM_NOT"):
-        gold.aggregate_file(source, "DENG", 2024)
+    result = gold.aggregate_file(source, "DENG", 2024)
+    assert result.exists()
 
 
 def test_falha_entre_lotes_preserva_saida_anterior(source, monkeypatch):

@@ -130,7 +130,7 @@ jobs:
             | grep -q t
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-            -c "SELECT (has_schema_privilege('$GRAFANA_DB_USER', 'analytics', 'USAGE') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT')) AS readonly;" \
+            -c "SELECT (has_schema_privilege('$GRAFANA_DB_USER', 'analytics', 'USAGE') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_current_publication', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_current_publication', 'INSERT')) AS readonly;" \
             | grep -q t
 
       - name: Validar isolamento das séries no Pushgateway
@@ -217,6 +217,7 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
             -v ON_ERROR_STOP=1 \
             -c 'SELECT published_at AS time, disease_codigo, ano, batch_id, geographic_scope_type, source_rows, resolved_rows, discarded_rows, aggregation_reduction, invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows FROM analytics.pipeline_execution_metrics ORDER BY published_at DESC LIMIT 0;' \
+            -c 'SELECT added_at AS time, disease_codigo, ano, batch_id, source_extracted_timestamp FROM analytics.pipeline_current_publication ORDER BY added_at DESC LIMIT 0;' \
             -c 'SELECT published_at AS time, disease_codigo, ano, batch_id, COUNT(*) AS municipalities_published, SUM(groups_total) AS groups_total, SUM(cases_total) AS cases_total, geographic_scope_type FROM analytics.pipeline_publications GROUP BY published_at, disease_codigo, ano, batch_id, geographic_scope_type ORDER BY published_at DESC LIMIT 0;'
 
       - name: Verificar provisionamento Grafana e Prometheus

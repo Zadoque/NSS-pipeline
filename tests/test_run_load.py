@@ -256,15 +256,14 @@ def test_orquestrador_bloqueia_total_divergente_antes_de_abrir_transacao(
     engine.dispose.assert_called_once()
 
 
-def test_silver_vazia_nao_publica_mesmo_com_allow_empty(mocker, pipeline):
+def test_silver_vazia_publica_snapshot_zero_com_allow_empty(mocker, pipeline):
     aggregate, _, get_engine, load = pipeline
     mocker.patch.object(runner.pd, "read_parquet", return_value=pd.DataFrame(columns=["ID_MUNICIP"]))
-    with pytest.raises(RuntimeError) as error:
-        runner.run_load("DENG", 2026, allow_empty=True)
-    assert str(error.value) == "Silver sem notificações válidas: publicação bloqueada"
-    aggregate.assert_not_called()
-    get_engine.assert_not_called()
-    load.assert_not_called()
+    runner.run_load("DENG", 2026, allow_empty=True)
+    aggregate.assert_called_once()
+    get_engine.assert_called_once()
+    load.assert_called_once()
+    assert load.call_args.kwargs["expected_cases_total"] == 0
 
 
 def test_falha_de_ingestao_nao_abre_carga(pipeline, mocker):

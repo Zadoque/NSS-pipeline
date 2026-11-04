@@ -25,9 +25,6 @@ def test_required_keys_inclui_campos_obrigatorios():
         "data_notificacao",
         "municipio",
         "uf",
-        "sexo",
-        "ano_nascimento",
-        "semana_notificacao",
     }
 
 

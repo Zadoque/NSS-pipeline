@@ -30,6 +30,13 @@ def _pysus_cache_lock():
     with lock_path.open("a+", encoding="utf-8") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         try:
+            # PySUS may leave a replay WAL after refreshing its remote DuckDB
+            # catalog.  A later read then fails with "schema pysus already
+            # exists" even though the catalog itself is valid.  Access is
+            # serialized here, so stale WALs can be discarded safely before
+            # the next catalog operation.
+            for wal in cache_path.glob("ducklake/*.duckdb.wal"):
+                wal.unlink(missing_ok=True)
             yield
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)

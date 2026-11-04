@@ -81,6 +81,7 @@ def update_one(
     catalog: MunicipalityCatalog | None = None,
     cnes_batch_id: str | None = None,
     geographic_scope: GeographicScope | None = None,
+    allow_uf_mismatch: bool = False,
 ) -> str:
     key = f"{remote.disease}:{remote.year}"
     catalog_id = catalog.metadata.catalog_id if catalog else None
@@ -112,6 +113,8 @@ def update_one(
         load_options["cnes_batch_id"] = cnes_batch_id
     if geographic_scope is not None:
         load_options["geographic_scope"] = geographic_scope
+    if allow_uf_mismatch:
+        load_options["allow_uf_mismatch"] = True
     run_load(remote.disease, remote.year, **load_options)
     manifest[key] = {
         "remotePath": remote.path,
@@ -132,6 +135,7 @@ def _update_unlocked(
     cnes_batch_id: str | None = None,
     geographic_scope: GeographicScope | None = None,
     continue_on_error: bool = False,
+    allow_uf_mismatch: bool = False,
 ) -> list[str]:
     manifest = _load_manifest(manifest_path)
     results: list[str] = []
@@ -143,6 +147,7 @@ def _update_unlocked(
                 result = update_one(
                     remote, manifest, catalog=catalog, cnes_batch_id=cnes_batch_id,
                     geographic_scope=geographic_scope,
+                    allow_uf_mismatch=allow_uf_mismatch,
                 )
                 _save_manifest(manifest_path, manifest)
             except SinanSourceUnavailable as exc:
@@ -186,12 +191,14 @@ def update(
     cnes_batch_id: str | None = None,
     geographic_scope: GeographicScope | None = None,
     continue_on_error: bool = False,
+    allow_uf_mismatch: bool = False,
 ) -> list[str]:
     with _manifest_lock(manifest_path):
         return _update_unlocked(
             diseases, years, manifest_path, catalog=catalog, cnes_batch_id=cnes_batch_id,
             geographic_scope=geographic_scope,
             continue_on_error=continue_on_error,
+            allow_uf_mismatch=allow_uf_mismatch,
         )
 
 
@@ -221,6 +228,10 @@ def main() -> None:
         "--continue-on-error", action="store_true",
         help="Registra falhas de schema/processamento e continua nos demais grupos",
     )
+    parser.add_argument(
+        "--allow-uf-mismatch", action="store_true",
+        help="Canoniza pelo código IBGE e preserva a contagem de UF inconsistente na qualidade",
+    )
     args = parser.parse_args()
     diseases = [value.strip().upper() for value in args.diseases.split(",") if value.strip()]
     unknown = sorted(set(diseases) - set(TRACKED_DISEASES))
@@ -244,6 +255,7 @@ def main() -> None:
             catalog=catalog, cnes_batch_id=args.cnes_batch_id,
             geographic_scope=geographic_scope,
             continue_on_error=args.continue_on_error,
+            allow_uf_mismatch=args.allow_uf_mismatch,
         ) or []
         unavailable = [result for result in results if result.endswith(": unavailable")]
         if unavailable and not args.allow_unavailable:

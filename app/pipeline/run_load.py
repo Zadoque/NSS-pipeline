@@ -85,6 +85,7 @@ def run_load(
     catalog: MunicipalityCatalog | None = None,
     geographic_scope: GeographicScope | None = None,
     cnes_batch_id: str | None = None,
+    allow_uf_mismatch: bool = False,
 ) -> None:
     disease = disease.upper()
     if catalog is not None and geographic_scope is not None:
@@ -95,7 +96,7 @@ def run_load(
     stage_started = monotonic()
     try:
         source = source_path if source_path is not None else fetch_sinan(disease, year)
-        bronze = write_bronze(source, disease, year, run_at=run_at)
+        bronze = write_bronze(source, disease, year, run_at=run_at, allow_empty=allow_empty)
     except Exception:
         _export_stage_failure(layer="bronze", disease=disease, year=year, started=stage_started)
         raise
@@ -128,7 +129,7 @@ def run_load(
     else:
         municipios = legacy_rj_mapping()
     silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP", "SG_UF_NOT"])
-    if silver_scope.empty:
+    if silver_scope.empty and not allow_empty:
         raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
     if catalog is None:
         expected_cases_total = int(
@@ -137,7 +138,8 @@ def run_load(
         )
     else:
         resolved_codes = resolve_catalog_municipality_codes(
-            silver_scope["ID_MUNICIP"], catalog, silver_scope.get("SG_UF_NOT")
+            silver_scope["ID_MUNICIP"], catalog, silver_scope.get("SG_UF_NOT"),
+            allow_uf_mismatch=allow_uf_mismatch,
         )
         expected_cases_total = int(resolved_codes.isin(municipios).sum())
 
@@ -148,6 +150,7 @@ def run_load(
             municipios=municipios, catalog=catalog, run_at=run_at, target="serving",
             cnes_batch_id=cnes_batch_id,
             geographic_scope_type=geographic_scope.kind if geographic_scope else "MUNICIPALITIES",
+            allow_uf_mismatch=allow_uf_mismatch,
         )
 
         gold_df = pd.read_parquet(gold_path)
@@ -230,7 +233,7 @@ def run_load(
                 )
             invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
             uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
-            if invalid_rows or uf_mismatch_rows:
+            if invalid_rows or (uf_mismatch_rows and not allow_uf_mismatch):
                 raise ValueError(
                     "Publicação bloqueada: Gold contém resoluções municipais inválidas "
                     f"(invalid={invalid_rows}, uf_mismatch={uf_mismatch_rows})"
@@ -305,6 +308,10 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Seleciona todos os municípios da release IBGE",
     )
     parser.add_argument("--cnes-batch-id", help="Lote CNES fixado para o enriquecimento da Gold")
+    parser.add_argument(
+        "--allow-uf-mismatch", action="store_true",
+        help="Canoniza o município pelo código IBGE e publica linhas com UF declarada inconsistente, preservando a métrica",
+    )
     return parser
 
 
@@ -326,10 +333,14 @@ def main() -> None:
             if args.all_brazil:
                 scope_kwargs["require_national"] = True
             scope = select_scope(catalog, **scope_kwargs)
+        load_options = {}
+        if args.allow_uf_mismatch:
+            load_options["allow_uf_mismatch"] = True
         run_load(
             args.disease, args.year, allow_empty=args.allow_empty,
             catalog=catalog, geographic_scope=scope,
             cnes_batch_id=args.cnes_batch_id,
+            **load_options,
         )
     except Exception:
         logger.exception("Falha na carga SINAN disease=%s year=%s", args.disease, args.year)

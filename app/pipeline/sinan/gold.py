@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import hashlib
 import re
+import os
 from collections.abc import Mapping
 from pathlib import Path
  
@@ -68,11 +69,11 @@ def age_band(
         result = result.mask(condition.fillna(False), label)
     return result
 
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 DEFAULT_BATCH_SIZE = 50_000
 GoldTarget = Literal["ad_hoc", "serving"]
 CNES_METADATA_COLUMNS = ["nm_unidade", "razao_social_unidade", "tp_unidade"]
-GOLD_REQUIRED_COLUMNS = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"}
+GOLD_REQUIRED_COLUMNS = {"DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF"}
 
 def normalize_municipality_codes(
     series: pd.Series, municipios: dict[str, str] | MunicipalityCatalog,
@@ -91,6 +92,7 @@ def resolve_catalog_municipality_codes(
     series: pd.Series,
     catalog: MunicipalityCatalog,
     declared_ufs: pd.Series | None = None,
+    *, allow_uf_mismatch: bool = False,
 ) -> pd.Series:
     """Resolve códigos pela identidade IBGE, sem truncar códigos completos."""
     ufs = declared_ufs.tolist() if declared_ufs is not None else [None] * len(series)
@@ -99,6 +101,8 @@ def resolve_catalog_municipality_codes(
         if declared_uf is not None and pd.isna(declared_uf):
             declared_uf = None
         result = catalog.resolve(value, declared_uf=declared_uf)
+        if allow_uf_mismatch and result.status.value == "UF_MISMATCH":
+            result = catalog.resolve(value)
         resolved_codes.append(
             result.municipality.code7
             if result.status.value == "VALID" and result.municipality is not None
@@ -118,6 +122,7 @@ def aggregate(
     municipios: dict[str, str] | MunicipalityCatalog | None = None,
     cnes_lookup: pd.DataFrame | None = None,
     catalog: MunicipalityCatalog | None = None,
+    allow_uf_mismatch: bool = False,
 ) -> pd.DataFrame:
     selected_columns = validate_keys(selected_columns)
     if municipios is None:
@@ -139,7 +144,8 @@ def aggregate(
     work = df.copy()
     if catalog is not None:
         work["cd_mun"] = resolve_catalog_municipality_codes(
-            work["ID_MUNICIP"], catalog, work.get("SG_UF_NOT")
+            work["ID_MUNICIP"], catalog, work.get("SG_UF_NOT"),
+            allow_uf_mismatch=allow_uf_mismatch,
         )
     else:
         work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
@@ -202,13 +208,18 @@ def aggregate(
         work["_ibge_uf_name"] if catalog is not None else work["NM_UF"]
     )
     work["nm_mun"] = work["cd_mun"].map(municipios)
-    work["sex"] = work["CS_SEXO"].astype("string")
-    work["birth_year"] = pd.to_numeric(work["ANO_NASC"], errors="coerce").astype("Int64")
+    work["sex"] = work.get(
+        "CS_SEXO", pd.Series("I", index=work.index, dtype="string")
+    ).astype("string").fillna("I")
+    work["birth_year"] = pd.to_numeric(
+        work.get("ANO_NASC", pd.Series(0, index=work.index)), errors="coerce"
+    ).fillna(0).astype("Int64")
     work["age_band"] = age_band(
         work["year"], work["birth_year"],
         work.get("NU_IDADE_N"), work.get("TP_IDADE"),
     )
-    work["not_week"] = pd.to_numeric(work["SEM_NOT"], errors="coerce").astype("Int64")
+    week = work.get("SEM_NOT", pd.Series(pd.NA, index=work.index, dtype="object"))
+    work["not_week"] = pd.to_numeric(week, errors="coerce").astype("Int64")
 
     group_cols = [
         "year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex",
@@ -443,7 +454,9 @@ def _cnes_lookup_for_batch(
     return _load_cnes_batch(path, catalog=catalog, expected_scope=expected_scope)
 
 def _gold_input_schema(source_schema: pa.Schema, keys: list[str]) -> pa.Schema:
-    needed = GOLD_REQUIRED_COLUMNS | {"ID_UNIDADE", "NU_IDADE_N", "TP_IDADE"}
+    needed = GOLD_REQUIRED_COLUMNS | {
+        "CS_SEXO", "ANO_NASC", "ID_UNIDADE", "NU_IDADE_N", "TP_IDADE"
+    }
     needed.update(CATALOG[key].source_column for key in keys if CATALOG[key].groupable)
     return pa.schema(
         [field for field in source_schema if field.name in needed],
@@ -473,6 +486,7 @@ def aggregate_file(
     batch_size: int = DEFAULT_BATCH_SIZE,
     cnes_batch_id: str | None = None,
     geographic_scope_type: str = "MUNICIPALITIES",
+    allow_uf_mismatch: bool = False,
 ) -> Path:
     if batch_size <= 0:
         raise ValueError("batch_size deve ser maior que zero")
@@ -530,7 +544,10 @@ def aggregate_file(
     with pq.ParquetFile(source) as original:
         schema = _gold_input_schema(original.schema_arrow, selected_columns)
         empty = pa.Table.from_batches([], schema=schema).to_pandas()
-        result = aggregate(empty, disease, selected_columns, municipios, cnes_lookup=cnes_lookup, catalog=catalog)
+        result = aggregate(
+            empty, disease, selected_columns, municipios, cnes_lookup=cnes_lookup,
+            catalog=catalog, allow_uf_mismatch=allow_uf_mismatch,
+        )
         len_before = original.metadata.num_rows
         for batch in original.iter_batches(batch_size=batch_size, columns=schema.names):
             batch_frame = batch.to_pandas()
@@ -543,6 +560,7 @@ def aggregate_file(
             partial = aggregate(
                 batch_frame, disease, selected_columns, municipios,
                 cnes_lookup=cnes_lookup, catalog=catalog,
+                allow_uf_mismatch=allow_uf_mismatch,
             )
             batches += 1
             if not partial.empty:

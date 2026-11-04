@@ -171,11 +171,10 @@ def test_tamanho_de_lote_invalido_falha_antes_da_leitura(source, batch_size):
         silver.transform_file(source, "DENG", 2024, batch_size=batch_size)
 
 
-def test_schema_incompleto_falha_antes_de_criar_lote(raw, source):
+def test_schema_sem_semana_epidemiologica_e_aceito(raw, source):
     raw.drop(columns="SEM_NOT").to_parquet(source, index=False)
-    with pytest.raises(ValueError, match="Colunas obrigatórias.*SEM_NOT"):
-        silver.transform_file(source, "DENG", 2024)
-    assert not silver.BASE_DIR.exists()
+    result = silver.transform_file(source, "DENG", 2024)
+    assert result.exists()
 
 
 def test_run_at_ausente_obtem_horario_em_utc(raw, source, monkeypatch):

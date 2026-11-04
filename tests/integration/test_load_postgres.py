@@ -74,7 +74,7 @@ def _limpar_fato_entre_testes(postgres_engine):
     sem precisar recriar o schema inteiro a cada um (lento)."""
     yield
     with postgres_engine.begin() as conn:
-        conn.execute(text("TRUNCATE analytics.fato_casos, analytics.pipeline_publications"))
+        conn.execute(text("TRUNCATE analytics.fato_casos, analytics.pipeline_publications, analytics.pipeline_current_publication"))
 
 
 def _gold_exemplo(cases_total: int = 5) -> pd.DataFrame:

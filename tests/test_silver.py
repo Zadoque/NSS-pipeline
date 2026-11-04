@@ -56,6 +56,11 @@ def test_transform_levanta_erro_quando_falta_coluna_obrigatoria():
         transform(df, year=2026)
 
 
+def test_transform_aceita_grupo_sem_semana_epidemiologica():
+    result = transform(_sinan_bruto().drop(columns=["SEM_NOT"]), year=2026)
+    assert len(result) == 2
+
+
 def test_transform_dedup_usa_nu_notific_quando_presente(recwarn):
     df = _sinan_bruto()
     transform(df, year=2026)

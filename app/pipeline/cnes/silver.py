@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -9,7 +10,7 @@ import pandas as pd
 from ..atomic_io import write_json_atomic, write_parquet_atomic
 from ..reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 
 
 def transform_cnes(

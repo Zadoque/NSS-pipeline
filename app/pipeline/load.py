@@ -9,6 +9,7 @@ import pandas as pd
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Connection, Engine
 
+from .observability.metrics import export_publication_metadata_metrics
 from .scope import scope_sha256
 
 DISEASE_NAMES: dict[str, str] = {
@@ -153,22 +154,18 @@ def _integer_series(series: pd.Series, column: str, minimum: int, maximum: int) 
 
 
 def _normalize_sem_not(series: pd.Series, year: pd.Series | int) -> pd.Series:
-    """Normaliza apenas SEM_NOT no formato AASS para AAAASS.
+    """Normaliza SEM_NOT no formato AASS ou AAAASS para AAAASS.
 
-    O fallback é deliberadamente restrito ao ano processado: ``2601`` só
-    pode virar ``202601`` quando o ano do registro é 2026. Valores de quatro
-    dígitos de outro ano continuam sujeitos à rejeição normal do formato.
+    Alguns arquivos SINAN misturam ``2601``/``2553`` com o formato completo;
+    ambos representam 2026/semana 01 e 2025/semana 53, respectivamente. A
+    validação continua restrita a semanas epidemiológicas entre 01 e 53.
     """
     numbers = _integer_series(series, "SEM_NOT", 0, 999953)
     years = pd.Series(year, index=series.index) if isinstance(year, int) else year
     years = _integer_series(years, "year", 1, 9999)
-    aass = (
-        numbers.between(1000, 9999)
-        & (numbers // 100 == years % 100)
-        & (numbers % 100).between(1, 53)
-    )
+    aass = numbers.between(1000, 9999) & numbers.mod(100).between(1, 53)
     normalized = numbers.copy()
-    normalized.loc[aass] = years.loc[aass] * 100 + numbers.loc[aass] % 100
+    normalized.loc[aass] = (2000 + numbers.loc[aass] // 100) * 100 + numbers.loc[aass] % 100
     return normalized
 
 
@@ -365,6 +362,28 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     )
 
     rows = subset[["cd_unidade", *db_cols]].to_dict(orient="records")
+    if len(rows) > 10_000:
+        # SQLAlchemy's default psycopg2 executemany issues one round trip per
+        # row for this dimension.  CNES national snapshots can exceed 600k
+        # units, so use PostgreSQL's multi-values executor in bounded pages.
+        from psycopg2.extras import execute_values
+
+        columns = ["cd_unidade", *db_cols]
+        update_columns = [column for column in columns if column != "cd_unidade"]
+        update_clause = ", ".join(
+            f"{column} = COALESCE(EXCLUDED.{column}, analytics.dim_unidade_saude.{column})"
+            for column in update_columns
+        )
+        statement = f"""
+            INSERT INTO analytics.dim_unidade_saude ({', '.join(columns)})
+            VALUES %s
+            ON CONFLICT (cd_unidade) DO UPDATE SET {update_clause}
+        """
+        values = [tuple(row.get(column) for column in columns) for row in rows]
+        raw = conn.connection.driver_connection
+        with raw.cursor() as cursor:
+            execute_values(cursor, statement, values, page_size=10_000)
+        return
     _upsert(
         conn,
         "analytics.dim_unidade_saude",
@@ -372,6 +391,44 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
         conflict_cols=["cd_unidade"],
         preserve_existing_on_null=True,
     )
+
+
+def load_cnes_to_postgres(
+    engine: Engine, cnes_df: pd.DataFrame, *, catalog=None,
+) -> None:
+    """Publica o snapshot Silver CNES na dimensão de unidades.
+
+    A carga é separada da Gold do SINAN para que o catálogo nacional de
+    estabelecimentos chegue ao PostgreSQL mesmo quando uma doença não possui
+    notificações no recorte publicado.
+    """
+    required = {"cd_unidade", "cd_mun"}
+    missing = required - set(cnes_df.columns)
+    if missing:
+        raise ValueError(f"Silver CNES sem colunas obrigatórias: {sorted(missing)}")
+    if cnes_df.empty:
+        raise ValueError("Silver CNES vazia: publicação bloqueada")
+    if catalog is None:
+        raise ValueError("carga CNES nacional exige o catálogo IBGE ativo")
+
+    cnes_codes = set(cnes_df["cd_mun"].dropna().astype("string").str.strip())
+    catalog_municipalities = catalog.municipalities()
+    catalog_codes = {municipality.code7 for municipality in catalog_municipalities}
+    missing_codes = sorted(cnes_codes - catalog_codes)
+    if missing_codes:
+        raise ValueError(f"CNES referencia município ausente no catálogo IBGE: {missing_codes[:5]}")
+    municipalities = [
+        {
+            "cd_mun": municipality.code7,
+            "nm_mun": municipality.name,
+            "cd_uf": municipality.uf_code,
+            "nm_uf": municipality.uf_name,
+        }
+        for municipality in catalog_municipalities
+    ]
+    with engine.begin() as conn:
+        _upsert(conn, "analytics.dim_municipio", municipalities, conflict_cols=["cd_mun"])
+        upsert_dim_unidade_saude(conn, cnes_df)
 
 
 def upsert_dim_classificacao(conn: Connection, fact_df: pd.DataFrame) -> None:
@@ -393,6 +450,24 @@ def insert_fato_casos(conn: Connection, fact_df: pd.DataFrame) -> None:
         columns={"year": "ano", "month": "mes"}
     )
     columns = list(frame.columns)
+    if len(frame) > FACT_INSERT_BATCH_SIZE:
+        raw = conn.connection.driver_connection
+        from psycopg2.extensions import connection as PsycopgConnection
+        if isinstance(raw, PsycopgConnection):
+            from psycopg2.extras import execute_values
+
+            statement = (
+                f"INSERT INTO analytics.fato_casos ({', '.join(columns)}) VALUES %s"
+            )
+            values = frame.astype(object).where(pd.notna(frame), None)
+            with raw.cursor() as cursor:
+                execute_values(
+                    cursor,
+                    statement,
+                    values.itertuples(index=False, name=None),
+                    page_size=FACT_INSERT_BATCH_SIZE,
+                )
+            return
     statement = text(
         f"INSERT INTO analytics.fato_casos ({', '.join(columns)}) "
         f"VALUES ({', '.join(':' + column for column in columns)})"
@@ -543,6 +618,7 @@ def load_gold_to_postgres(
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 raise ValueError(f"métrica Gold inválida: {column}")
             quality[column] = value
+    publication_added_at = datetime.now(UTC)
     with engine.begin() as conn:
         # Serializa também recortes parcialmente sobrepostos da mesma doença/ano.
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
@@ -580,7 +656,7 @@ def load_gold_to_postgres(
         rows = [{
             "disease_codigo": disease_codigo, "ano": year, "cd_mun": code,
             "batch_id": batch_id, "source_extracted_at": source_extracted_at,
-            "published_at": datetime.now(UTC),
+            "published_at": publication_added_at,
             "groups_total": int(totals.loc[code, "size"]) if code in totals.index else 0,
             "cases_total": int(totals.loc[code, "sum"]) if code in totals.index else 0,
             "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
@@ -595,13 +671,26 @@ def load_gold_to_postgres(
                 conflict_cols=["disease_codigo", "ano", "cd_mun", "batch_id"])
         _upsert(
             conn,
+            "analytics.pipeline_current_publication",
+            [{
+                "disease_codigo": disease_codigo,
+                "ano": year,
+                "cd_mun": code,
+                "batch_id": batch_id,
+                "source_extracted_timestamp": source_extracted_at,
+                "added_at": publication_added_at,
+            } for code in scope],
+            conflict_cols=["disease_codigo", "ano", "cd_mun"],
+        )
+        _upsert(
+            conn,
             "analytics.pipeline_execution_metrics",
             [{
                 "disease_codigo": disease_codigo,
                 "ano": year,
                 "batch_id": batch_id,
                 "source_extracted_at": source_extracted_at,
-                "published_at": datetime.now(UTC),
+                "published_at": publication_added_at,
                 "geographic_scope_type": geographic_scope_type,
                 "geographic_scope_sha256": geographic_scope_sha256,
                 "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
@@ -610,3 +699,7 @@ def load_gold_to_postgres(
             }],
             conflict_cols=["disease_codigo", "ano", "batch_id"],
         )
+    export_publication_metadata_metrics(
+        pipeline="sinan", disease=disease_codigo, year=year,
+        source_extracted_at=source_extracted_at, added_at=publication_added_at,
+    )

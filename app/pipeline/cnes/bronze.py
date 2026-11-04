@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,7 +16,7 @@ from ..atomic_io import write_json_atomic, write_parquet_atomic
 from ..reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 
 API_BASE = "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos"
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 
 
 def _session_with_retries() -> requests.Session:

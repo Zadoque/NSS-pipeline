@@ -28,7 +28,7 @@ from .reference.ibge.storage import load_active_catalog
 from .scope import GeographicScope, legacy_rj_mapping, select_scope, validate_scope_catalog
 from .observability import export_stage_metrics
 
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 logger = logging.getLogger(__name__)
 DEFAULT_CNES_PAGE_SIZE = 100
