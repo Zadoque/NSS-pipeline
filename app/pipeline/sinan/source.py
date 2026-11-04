@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import os
 import tempfile
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,6 +15,31 @@ import pysus
 
 BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 SOURCE_DIR = BASE_DIR / "source" / "sinan"
+
+
+class SinanSourceUnavailable(RuntimeError):
+    """O catálogo remoto não possui Parquet para o recorte solicitado."""
+
+
+@contextmanager
+def _pysus_cache_lock():
+    """Serializa o acesso ao catálogo DuckLake compartilhado pelo PySUS."""
+    cache_path = Path(pysus.CACHEPATH)
+    cache_path.mkdir(parents=True, exist_ok=True)
+    lock_path = cache_path / ".nss-sinan-cache.lock"
+    with lock_path.open("a+", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            # PySUS may leave a replay WAL after refreshing its remote DuckDB
+            # catalog.  A later read then fails with "schema pysus already
+            # exists" even though the catalog itself is valid.  Access is
+            # serialized here, so stale WALs can be discarded safely before
+            # the next catalog operation.
+            for wal in cache_path.glob("ducklake/*.duckdb.wal"):
+                wal.unlink(missing_ok=True)
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
 
 
 @dataclass(frozen=True)
@@ -34,8 +61,13 @@ class RemoteSinanFile:
 
 def inspect_remote_file(disease: str, year: int) -> RemoteSinanFile:
     disease = disease.upper()
-    files = pysus.ftp.sinan(disease=disease, year=year, download=False)
+    with _pysus_cache_lock():
+        files = pysus.ftp.sinan(disease=disease, year=year, download=False)
     parquet_files = [item for item in files if str(item.path).lower().endswith(".parquet")]
+    if not parquet_files:
+        raise SinanSourceUnavailable(
+            f"Nenhum Parquet SINAN disponível para {disease}/{year}"
+        )
     if len(parquet_files) != 1:
         raise RuntimeError(
             f"Esperado exatamente um Parquet SINAN para {disease}/{year}; "
@@ -62,11 +94,12 @@ def download_remote_file(remote: RemoteSinanFile) -> Path:
     ) as temporary:
         temporary_path = Path(temporary.name)
     try:
-        files = pysus.ftp.sinan(disease=remote.disease, year=remote.year, download=False)
-        parquet_files = [item for item in files if str(item.path) == remote.path]
-        if len(parquet_files) != 1:
-            raise RuntimeError(f"Arquivo remoto mudou durante o download: {remote.path}")
-        asyncio.run(parquet_files[0].download(output=temporary_path))
+        with _pysus_cache_lock():
+            files = pysus.ftp.sinan(disease=remote.disease, year=remote.year, download=False)
+            parquet_files = [item for item in files if str(item.path) == remote.path]
+            if len(parquet_files) != 1:
+                raise RuntimeError(f"Arquivo remoto mudou durante o download: {remote.path}")
+            asyncio.run(parquet_files[0].download(output=temporary_path))
         downloaded_size = temporary_path.stat().st_size
         if downloaded_size != remote.size_bytes:
             raise RuntimeError(

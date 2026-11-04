@@ -1,68 +1,295 @@
-# NSS — Pipeline de Dados PySUS/SINAN
+# NSS Pipeline
 
-Este repositório contém **somente a pipeline Python de dados** do Núcleo de Situação de Saúde (NSS/UENF). Ele não é monorepo e não contém frontend nem backend HTTP da aplicação.
+Pipeline de dados do Núcleo de Situação de Saúde (NSS/UENF). Baixa notificações
+do SINAN via PySUS, preserva o dado bruto, valida e deduplica registros,
+agrega resultados e publica no PostgreSQL. Também mantém o território IBGE,
+ingere CNES e fornece observabilidade Prometheus/Pushgateway/Grafana.
 
-## Responsabilidade
+Este repositório contém somente a pipeline Python. A API Java/Spring Boot e o
+frontend ficam em repositórios separados.
 
-A pipeline ingere dados do SINAN via PySUS e aplica uma arquitetura Medallion:
+## Arquitetura
 
 ```text
-PySUS / SINAN -> Bronze -> Silver -> Gold
+SINAN/PySUS ──> Bronze ──> Silver ──> Gold ──> PostgreSQL ──> API/dashboard
+                  ▲          ▲        ▲
+IBGE ─────────────┴──────────┴────────┘  identidade, escopo e release
+CNES/API ──────> Bronze ──> Silver ──────┘  dimensão de estabelecimentos
 ```
 
-- **Bronze:** preservação do dado bruto e metadados de ingestão.
-- **Silver:** validação, normalização, filtro temporal e deduplicação.
-- **Gold:** agregações prontas para consumo posterior pela arquitetura de persistência/API.
+- **Bronze:** Parquet bruto e metadados de ingestão.
+- **Silver:** schema canônico, normalização, filtro temporal e deduplicação.
+- **Gold:** agregação por doença/ano/mês/UF/município e dimensões opcionais.
+- **Serving:** Gold validada e carregada transacionalmente no PostgreSQL.
+- **IBGE:** identidade municipal, UFs, crosswalk 6↔7 dígitos e releases com
+  manifesto, SHA-256 e promoção atômica.
+- **CNES:** dimensão independente, reutilizável por várias doenças e anos.
 
-O caminho síncrono definitivo da aplicação é mantido fora deste repositório: frontend -> API Java/Spring Boot -> PostgreSQL. Esta pipeline é responsável pela preparação e atualização dos dados.
+Cada execução recebe `batch_id`, grava `metadata.json` e escreve artefatos
+atomicamente. Uma carga inválida não deve substituir uma publicação válida.
 
 ## Estrutura
 
 ```text
-.
-├── app/
-│   └── pipeline/
-│       ├── README.md
-│       ├── atomic_io.py
-│       ├── columns.py
-│       ├── gold.py
-│       ├── run.py
-│       ├── silver.py
-│       └── sinan.py
-├── Dockerfile
-├── docker-compose.yml
-└── requirements.txt
+app/pipeline/                    código e documentação detalhada
+  sinan/                         Bronze, Silver, Gold e fonte SINAN
+  cnes/                          ingestão e normalização CNES
+  reference/ibge/                releases e catálogo territorial
+  esporo/                         fluxo de esporotricose
+  run.py                          SINAN até Gold ad hoc
+  run_load.py                     SINAN até serving/PostgreSQL
+  run_cnes.py                     lote CNES por escopo
+  update_sinan.py                 atualização incremental
+migrations/                      Alembic e schema analytics
+observability/                   Prometheus, Grafana e alertas
+tests/                           testes unitários, nacionais e integração
+docker-compose.yml               ambiente local
+docker-compose.production.yml    overlay de produção
+Dockerfile                       imagem operacional
+flake.nix                        ambiente reprodutível
 ```
 
-A documentação detalhada da pipeline está em [`app/pipeline/README.md`](app/pipeline/README.md).
+Leia [`app/pipeline/README.md`](app/pipeline/README.md) para os contratos de
+dados e módulos. O rollout nacional está em
+[`IBGE_NATIONAL_ROLLOUT_RUNBOOK.md`](IBGE_NATIONAL_ROLLOUT_RUNBOOK.md).
 
-## Execução
+## Pré-requisitos e configuração
+
+É necessário Python 3.12+, Docker/Compose v2 e PostgreSQL 16 para serving ou
+integração. PySUS, pandas, PyArrow, DuckDB e demais dependências estão em
+`requirements.txt`; ferramentas de teste estão em `requirements-dev.txt`.
+`nix develop` fornece o ambiente completo e cria `.venv`.
 
 ```bash
-docker compose run --rm pipeline --disease DENG --year 2026 --columns=""
+cp .env.example .env
 ```
 
-ou localmente:
+| Variável | Finalidade |
+|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | banco principal |
+| `DATABASE_URL` | conexão SQLAlchemy/Alembic |
+| `TEST_DATABASE_URL` | somente testes; deve terminar em `_test` |
+| `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` | login administrativo Grafana |
+| `GRAFANA_DB_USER`, `GRAFANA_DB_PASSWORD` | role read-only do datasource |
+| `PROMETHEUS_PUSHGATEWAY_URL` | destino das métricas |
+| `NSS_PIPELINE_IMAGE` | imagem do overlay; produção exige digest OCI |
+
+No overlay produtivo, secrets vêm do secret manager. O preflight rejeita
+credencial administrativa reutilizada, credenciais locais conhecidas e imagem
+sem `@sha256:<64 hex>`.
+
+## Execução local passo a passo
+
+### 1. Ambiente Python
+
+```bash
+nix develop
+# ou, sem Nix:
+python3.12 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt -r requirements-dev.txt
+```
+
+### 2. Banco e migrations
+
+```bash
+mkdir -p data
+docker compose up -d db
+docker compose run --rm migrate
+```
+
+`migrate` executa `alembic upgrade head`. A migration `0011` cria a role
+Grafana read-only quando `GRAFANA_DB_USER/PASSWORD` estão configurados.
+
+### 3. Release IBGE (quando houver escopo explícito)
+
+```bash
+python -m app.pipeline.reference.ibge.refresh \
+  --root data/reference/ibge --catalog-id ibge-dtb-2025 \
+  --reference-year 2025 \
+  --dtb-url 'https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip' \
+  --expected-sha256 <SHA256_OFICIAL>
+```
+
+O comando valida a release e só depois promove `active.json`. Sem catálogo,
+os comandos mantêm o recorte RJ legado.
+
+### 4. SINAN até Gold ad hoc
 
 ```bash
 python -m app.pipeline.run --disease DENG --year 2026 --columns ""
+
+python -m app.pipeline.run --disease CHIK --year 2026 \
+  --catalog-root data/reference/ibge --all-brazil \
+  --columns "sexo,evolucao"
 ```
 
-Exemplo com dimensões adicionais:
+`--municipios`, `--ufs` e `--all-brazil` são mutuamente exclusivos e exigem
+`--catalog-root`.
+
+### 5. CNES e serving/PostgreSQL
 
 ```bash
-python -m app.pipeline.run --disease CHIK --year 2026 --columns "sexo,evolucao"
+python -m app.pipeline.run_cnes --catalog-root data/reference/ibge \
+  --all-brazil --checkpoint data/reference/cnes-checkpoint.json \
+  --workers 8 --continue-on-error
+
+python -m app.pipeline.run_load --disease DENG --year 2026 \
+  --catalog-root data/reference/ibge --all-brazil \
+  --cnes-batch-id <BATCH_CNES_COMPLETED>
 ```
 
-## Dependências principais
+Lote CNES `PARTIAL` nunca pode enriquecer serving. Em produção, fixe o batch
+CNES explicitamente. `--allow-empty` só deve ser usado após confirmar a
+ausência na fonte.
 
-- Python 3.12+
-- PySUS
-- pandas
-- pyarrow
+## Docker Compose
 
-## Repositórios relacionados
+O volume `./data:/data` mantém os artefatos no host. O fluxo equivalente é:
 
+```bash
+mkdir -p data
+docker compose build pipeline migrate
+docker compose up -d db
+docker compose run --rm migrate
+docker compose run --rm pipeline --disease DENG --year 2026 --columns=""
+```
+
+Para módulos alternativos, use `--entrypoint python`:
+
+```bash
+docker compose run --rm --entrypoint python pipeline \
+  -m app.pipeline.run_cnes --catalog-root /data/reference/ibge --ufs RJ
+docker compose run --rm --entrypoint python pipeline \
+  -m app.pipeline.run_load --help
+```
+
+No PowerShell, prefira `--columns="sexo,evolucao"`.
+
+## Observabilidade local
+
+```bash
+PROMETHEUS_PUSHGATEWAY_URL=http://pushgateway:9091 \
+  docker compose --profile observability up -d
+docker compose --profile observability ps
+curl -fsS http://localhost:9090/-/ready
+curl -fsS http://localhost:9091/-/ready
+curl -fsS http://localhost:3000/api/health
+```
+
+Grafana: `http://localhost:3000`; Prometheus: `http://localhost:9090`;
+Pushgateway: `http://localhost:9091`; PostgreSQL: `localhost:5432`.
+O dashboard acompanha linhas, descartes totais, descartes anômalos, duração e
+estado. Descartes esperados por escopo não acionam o alerta de anomalia. O
+alerta de ausência é individualizado por `pipeline/layer/disease/year` para
+séries que já publicaram métricas.
+
+```bash
+docker compose --profile observability down
+```
+
+## Produção e recuperação
+
+```bash
+export NSS_PIPELINE_IMAGE=registry.example/nss-pipeline@sha256:<64-hex>
+python -m app.pipeline.preflight
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability config --quiet
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  --profile observability up -d db prometheus pushgateway grafana
+```
+
+O overlay remove portas públicas, bind mounts de código e builds locais.
+Consulte o [runbook nacional](IBGE_NATIONAL_ROLLOUT_RUNBOOK.md) antes de
+promover dados.
+
+Backup dentro da rede Compose, com saída persistente no host:
+
+```bash
+backup_dir="/var/backups/nss/$(date -u +%Y%m%dT%H%M%SZ)"
+mkdir -p "$backup_dir"
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  exec -T db pg_dump --format=custom --no-owner --no-acl \
+  -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$backup_dir/situacao_saude.dump"
+pg_restore --list "$backup_dir/situacao_saude.dump" >/dev/null
+sha256sum "$backup_dir/situacao_saude.dump" > "$backup_dir/SHA256SUMS"
+```
+
+Após restore em outro servidor, reprovisione a role mesmo se Alembic já
+registrar `0011`:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.production.yml \
+  run --rm --no-deps \
+  -e DATABASE_URL="postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/$RESTORED_DATABASE" \
+  --entrypoint python migrate -m app.pipeline.observability.provision_grafana_role
+```
+
+Consulte `IBGE_NATIONAL_ROLLOUT_RUNBOOK.md` para promoção IBGE, rollback,
+contact points e cutover.
+
+## Testes e cobertura
+
+```bash
+pytest -m "not integration"
+docker compose up -d db
+TEST_DATABASE_URL=postgresql+psycopg2://nss:nss@localhost:5432/situacao_saude_test \
+  pytest -m integration
+pytest -q
+```
+
+Cobertura de linhas medida em **03/11/2026**, usando `--source=app`:
+
+| Tipo | Testes | Cobertura |
+|---|---:|---:|
+| Unitários/nacionais (`-m "not integration"`) | 742 | **93,81%** |
+| Integração PostgreSQL (`-m integration`) | 26 | **36,87%** |
+| Compose/observabilidade | validação de infraestrutura | não aplicável à cobertura Python |
+| Mutação (`mutmut`) | métrica de robustez | meta de 95% de mutantes mortos |
+
+São medições independentes sobre todo `app`, não percentuais aditivos. Para
+reproduzir:
+
+```bash
+coverage run --source=app --data-file=.coverage.unit \
+  -m pytest -m "not integration"
+coverage report --data-file=.coverage.unit --precision=2
+
+coverage run --source=app --data-file=.coverage.integration \
+  -m pytest -m integration
+coverage report --data-file=.coverage.integration --precision=2
+```
+
+O CI valida também Compose, migrations, role Grafana, Pushgateway, restore,
+alertas e provisionamento; isso não gera cobertura Python de linhas. A métrica
+de mutação é separada da cobertura de linhas.
+
+```bash
+mutmut run
+mutmut results
+```
+
+## Comandos úteis
+
+```bash
+docker compose ps
+docker compose logs -f db migrate
+docker compose run --rm migrate
+docker compose down
+docker compose down -v
+python -m app.pipeline.run --help
+python -m app.pipeline.run_cnes --help
+python -m app.pipeline.run_load --help
+python -m app.pipeline.update_sinan --help
+python -m app.pipeline.preflight
+```
+
+## Documentos relacionados
+
+- [Documentação detalhada da pipeline](app/pipeline/README.md)
+- [Runbook nacional](IBGE_NATIONAL_ROLLOUT_RUNBOOK.md)
+- [Plano de prontidão](NSS_PRODUCTION_READINESS_PLAN.md)
+- [Backlog de integração](IBGE_INTEGRATION_BACKLOG.md)
 - Frontend: `Zadoque/nss-front-end`
-- Backend Java/Spring Boot: `ArtursPereira/Site-Sala-de-Situa-o-de-Saude-Java`
-- Arquitetura/deployment: `Zadoque/nss-deployment`
+- Backend: `ArtursPereira/Site-Sala-de-Situa-o-de-Saude-Java`
+- Deployment: `Zadoque/nss-deployment`

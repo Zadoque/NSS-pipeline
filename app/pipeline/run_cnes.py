@@ -1,71 +1,609 @@
 from __future__ import annotations
 
+import argparse
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import json
 import logging
+import os
+import tempfile
+from time import monotonic
 from datetime import UTC, datetime
 from pathlib import Path
 
+import duckdb
 import pandas as pd
+import pyarrow.parquet as pq
+import requests
+
+import fcntl
 
 from .atomic_io import write_json_atomic, write_parquet_atomic
-from .cnes.bronze import fetch_estabelecimentos, write_bronze_cnes
+from .cnes.bronze import fetch_estabelecimentos, session_with_retries, write_bronze_cnes
 from .cnes.silver import transform_cnes
-from .sinan.gold import MUNICIPIOS_RJ
 from .territory_mapping import enrich_cnes_territories
+from .territory_assets import asset_directory
+from .reference.ibge.models import MunicipalityCatalog, ResolutionStatus
+from .reference.ibge.storage import load_active_catalog
+from .scope import GeographicScope, legacy_rj_mapping, select_scope, validate_scope_catalog
+from .observability import export_stage_metrics
 
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 TERRITORY_ASSETS_DIR = Path(__file__).resolve().parents[2] / "territories"
 logger = logging.getLogger(__name__)
+DEFAULT_CNES_PAGE_SIZE = 100
+DEFAULT_CNES_REQUEST_TIMEOUT = 60.0
+_SHA256_LENGTH = 64
 
 
-def run_cnes(municipios: dict[str, str] | None = None) -> Path:
-    municipios = municipios if municipios is not None else MUNICIPIOS_RJ
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _consolidated_municipalities(path: Path) -> list[str]:
+    """Lê a cobertura efetiva do Parquet sem materializar o lote em pandas."""
+    if "cd_mun" not in pq.ParquetFile(path).schema.names:
+        return []
+    connection = duckdb.connect()
+    try:
+        rows = connection.execute(
+            """
+            SELECT DISTINCT lpad(trim(CAST(cd_mun AS VARCHAR)), 7, '0')
+            FROM read_parquet(?)
+            WHERE cd_mun IS NOT NULL AND trim(CAST(cd_mun AS VARCHAR)) <> ''
+            ORDER BY 1
+            """,
+            [str(path)],
+        ).fetchall()
+    finally:
+        connection.close()
+    return [row[0] for row in rows]
+
+
+def _validate_checkpoint_completed(completed: object, municipios: dict[str, str]) -> dict:
+    if not isinstance(completed, dict):
+        raise ValueError("checkpoint CNES com completed inválido")
+    expected_codes = set(municipios)
+    if not set(completed).issubset(expected_codes):
+        raise ValueError("checkpoint CNES contém município fora do escopo")
+    for code, entry in completed.items():
+        if not isinstance(code, str) or not isinstance(entry, dict):
+            raise ValueError("checkpoint CNES com completed inválido")
+        bronze_path = entry.get("bronze_path")
+        bronze_sha256 = entry.get("bronze_sha256")
+        rows = entry.get("rows")
+        if (
+            not isinstance(bronze_path, str) or not bronze_path
+            or not isinstance(bronze_sha256, str)
+            or len(bronze_sha256) != _SHA256_LENGTH
+            or any(character not in "0123456789abcdefABCDEF" for character in bronze_sha256)
+            or not isinstance(rows, int)
+            or isinstance(rows, bool)
+            or rows < 0
+        ):
+            raise ValueError("checkpoint CNES com completed inválido")
+    return completed
+
+
+def _validate_checkpoint_failed(failed: object, municipios: dict[str, str]) -> dict:
+    if not isinstance(failed, dict):
+        raise ValueError("checkpoint CNES com failed inválido")
+    expected_codes = set(municipios)
+    if not set(failed).issubset(expected_codes):
+        raise ValueError("checkpoint CNES contém falha fora do escopo")
+    for code, entry in failed.items():
+        if not isinstance(code, str) or not isinstance(entry, dict):
+            raise ValueError("checkpoint CNES com failed inválido")
+        error_type = entry.get("error_type")
+        error_message = entry.get("error_message")
+        if (
+            not isinstance(error_type, str) or not error_type
+            or not isinstance(error_message, str) or not error_message
+        ):
+            raise ValueError("checkpoint CNES com failed inválido")
+    return failed
+
+
+def _classify_cnes_error(error: Exception) -> str:
+    if isinstance(error, (requests.exceptions.Timeout, requests.exceptions.ConnectionError)):
+        return "NETWORK_ERROR"
+    if isinstance(error, requests.exceptions.HTTPError):
+        return "HTTP_ERROR"
+    if isinstance(error, ValueError):
+        return "VALIDATION_ERROR"
+    if isinstance(error, RuntimeError):
+        return "API_ERROR"
+    return "PROCESSING_ERROR"
+
+
+def _parallel_fetch_batches(
+    municipalities: list[str],
+    *,
+    page_size: int,
+    catalog: MunicipalityCatalog | None,
+    request_timeout: float,
+    workers: int,
+):
+    """Busca CNES em janelas limitadas, sem manter o lote nacional inteiro em memória."""
+    window_size = workers * 4
+    for start in range(0, len(municipalities), window_size):
+        batch = municipalities[start:start + window_size]
+
+        def fetch_one(code: str):
+            worker_session = session_with_retries()
+            try:
+                return fetch_estabelecimentos(
+                    code,
+                    limit=page_size,
+                    catalog=catalog,
+                    session=worker_session,
+                    timeout=request_timeout,
+                )
+            except Exception as error:  # classificado pelo chamador
+                return error
+            finally:
+                worker_session.close()
+
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {code: executor.submit(fetch_one, code) for code in batch}
+            for code in batch:
+                yield code, futures[code].result()
+
+
+def _canonicalize_municipalities(
+    requested: dict[str, str],
+    catalog: MunicipalityCatalog,
+) -> dict[str, str]:
+    """Resolve um mapa legado contra a identidade canônica da release IBGE."""
+    canonical: dict[str, str] = {}
+    for code7, supplied_name in requested.items():
+        result = catalog.resolve(code7)
+        if result.status is not ResolutionStatus.VALID or result.municipality is None:
+            raise ValueError(f"município CNES inválido no catálogo: {code7}")
+        if supplied_name and supplied_name != result.municipality.name:
+            raise ValueError(
+                "nome municipal diverge do catálogo IBGE: "
+                f"{code7} ({supplied_name!r} != {result.municipality.name!r})"
+            )
+        canonical[result.municipality.code7] = result.municipality.name
+    return canonical
+
+
+def _validate_cnes_municipality_resolution(
+    silver: pd.DataFrame, *, catalog: MunicipalityCatalog | None, municipality_code7: str,
+) -> None:
+    """Impede que qualquer identidade municipal não resolvida entre no lote."""
+    if catalog is None:
+        return
+    column = "municipality_resolution_status"
+    if column not in silver.columns:
+        raise ValueError(
+            f"CNES sem status de resolução municipal para {municipality_code7}"
+        )
+    statuses_series = silver[column].astype("string").fillna("MISSING")
+    invalid = statuses_series.ne("VALID")
+    if invalid.any():
+        statuses = sorted(set(statuses_series[invalid]))
+        if "OUT_OF_SCOPE" in statuses:
+            raise ValueError(
+                f"CNES retornou estabelecimento fora do município solicitado: {municipality_code7}"
+            )
+        raise ValueError(
+            f"CNES retornou códigos municipais não resolvidos para {municipality_code7}: {statuses}"
+        )
+
+
+def _write_cnes_consolidated(
+    silver_paths: list[Path], destination: Path,
+) -> int:
+    """Consolida Silver CNES sem materializar o lote nacional em pandas."""
+    if not silver_paths:
+        raise RuntimeError("CNES não produziu nenhum município com dados")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = destination.with_name(f".{destination.name}.lock")
+    temporary_handle = tempfile.NamedTemporaryFile(
+        prefix=f".{destination.name}.", suffix=".streaming.tmp",
+        dir=destination.parent, delete=False,
+    )
+    temporary = Path(temporary_handle.name)
+    temporary_handle.close()
+    escaped_paths = [str(path).replace("'", "''") for path in silver_paths]
+    paths_sql = "[" + ", ".join(f"'{path}'" for path in escaped_paths) + "]"
+    query = f"""
+        COPY (
+            SELECT * EXCLUDE (_part_order, _row_number)
+            FROM (
+                SELECT *,
+                    row_number() OVER (
+                        PARTITION BY cd_unidade ORDER BY _part_order DESC
+                    ) AS _row_number
+                FROM read_parquet({paths_sql}, union_by_name = true)
+            )
+            WHERE _row_number = 1
+        ) TO '{str(temporary).replace("'", "''")}' (FORMAT PARQUET)
+    """
+    try:
+        with lock_path.open("w", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            connection = duckdb.connect()
+            try:
+                connection.execute(query)
+            finally:
+                connection.close()
+            os.replace(temporary, destination)
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return int(pq.ParquetFile(destination).metadata.num_rows)
+
+
+def _run_cnes(
+    municipios: dict[str, str] | None = None,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+    geographic_scope: GeographicScope | None = None,
+    page_size: int = DEFAULT_CNES_PAGE_SIZE,
+    session=None,
+    request_timeout: float = DEFAULT_CNES_REQUEST_TIMEOUT,
+    checkpoint_path: Path | None = None,
+    continue_on_error: bool = False,
+    workers: int = 1,
+) -> Path:
+    stage_started = monotonic()
+    if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
+        raise ValueError("page_size CNES deve ser um inteiro maior que zero")
+    if not isinstance(request_timeout, (int, float)) or isinstance(request_timeout, bool) or request_timeout <= 0:
+        raise ValueError("request_timeout CNES deve ser maior que zero")
+    if not isinstance(workers, int) or isinstance(workers, bool) or workers <= 0:
+        raise ValueError("workers CNES deve ser um inteiro maior que zero")
+    if workers > 1 and session is not None:
+        raise ValueError("workers CNES maior que um não aceita sessão compartilhada")
+    if catalog is not None and geographic_scope is not None:
+        validate_scope_catalog(catalog, geographic_scope)
+    if geographic_scope is not None:
+        municipios = {item.code7: item.name for item in geographic_scope.municipalities}
+    elif catalog is not None:
+        if municipios is not None:
+            municipios = _canonicalize_municipalities(municipios, catalog)
+        else:
+            municipios = {item.code7: item.name for item in select_scope(catalog).municipalities}
+    else:
+        municipios = municipios if municipios is not None else legacy_rj_mapping()
     if not municipios:
         raise ValueError("Informe ao menos um município para a carga CNES")
-    run_at = datetime.now(UTC)
+    checkpoint = None
+    if checkpoint_path is not None and checkpoint_path.exists():
+        try:
+            checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ValueError(f"checkpoint CNES inválido: {checkpoint_path}") from exc
+        if not isinstance(checkpoint, dict):
+            raise ValueError(f"checkpoint CNES inválido: {checkpoint_path}")
+        expected = {
+            "municipios": list(municipios),
+            "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+            "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+            "cnes_page_size": page_size,
+            "cnes_request_timeout": request_timeout,
+            "continue_on_error": continue_on_error,
+            "cnes_workers": workers,
+        }
+        actual = {
+            key: (
+                checkpoint.get(key, False)
+                if key == "continue_on_error"
+                else checkpoint.get(key, 1)
+                if key == "cnes_workers"
+                else checkpoint.get(key)
+            )
+            for key in expected
+        }
+        if actual != expected:
+            raise ValueError("checkpoint CNES não corresponde ao escopo ou parâmetros solicitados")
+        try:
+            run_at = datetime.fromisoformat(checkpoint["ingested_at"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError("checkpoint CNES sem ingested_at válido") from exc
+    else:
+        run_at = datetime.now(UTC)
+    completed = _validate_checkpoint_completed((checkpoint or {}).get("completed", {}), municipios)
+    failed = _validate_checkpoint_failed((checkpoint or {}).get("failed", {}), municipios)
+    if set(completed).intersection(failed):
+        raise ValueError("checkpoint CNES classifica município como completed e failed")
     logger.info("Iniciando CNES municipios=%s", len(municipios))
-
-    silvers = []
-    for cod_municipio in municipios:
-        logger.info("Processando CNES municipio=%s", cod_municipio)
-        bronze_df = fetch_estabelecimentos(cod_municipio)
-        if bronze_df.empty:
-            raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
-
-        write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
-        silver = transform_cnes(bronze_df)
-        if cod_municipio == "3301009":
-            silver = enrich_cnes_territories(silver, TERRITORY_ASSETS_DIR)
-        else:
-            silver["notification_district_id"] = pd.NA
-            silver["notification_neighborhood_id"] = pd.NA
-            silver["notification_territory_status"] = "UNAVAILABLE"
-        silvers.append(silver)
-
-    consolidated = pd.concat(silvers, ignore_index=True).drop_duplicates(
-        subset=["cd_unidade"], keep="last"
-    )
 
     batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
     directory = BASE_DIR / "silver" / "cnes" / f"batch_id={batch_id}"
+    silver_paths: list[Path] = []
+    parts_directory_handle = tempfile.TemporaryDirectory(
+        prefix=f".cnes-parts-{batch_id}-",
+    )
+    parts_directory = Path(parts_directory_handle.name)
+    request_session = session or (session_with_retries() if workers == 1 else None)
+    owns_session = session is None and request_session is not None
+    pending_codes = [code for code in municipios if code not in completed]
+    parallel_results = (
+        iter(_parallel_fetch_batches(
+            pending_codes,
+            page_size=page_size,
+            catalog=catalog,
+            request_timeout=request_timeout,
+            workers=workers,
+        ))
+        if workers > 1
+        else None
+    )
+    try:
+        for cod_municipio in municipios:
+            logger.info("Processando CNES municipio=%s", cod_municipio)
+            if cod_municipio in failed:
+                logger.info("Retentando município previamente classificado como falho: %s", cod_municipio)
+                failed.pop(cod_municipio)
+            checkpoint_entry = completed.get(cod_municipio)
+            try:
+                if checkpoint_entry is not None:
+                    bronze_path = Path(checkpoint_entry.get("bronze_path", ""))
+                    if not bronze_path.is_file():
+                        raise ValueError(f"checkpoint CNES aponta para Bronze ausente: {bronze_path}")
+                    expected_sha256 = checkpoint_entry.get("bronze_sha256")
+                    actual_sha256 = hashlib.sha256(bronze_path.read_bytes()).hexdigest()
+                    if expected_sha256 != actual_sha256:
+                        raise ValueError(f"Bronze CNES adulterada ou incompatível: {bronze_path}")
+                    bronze_df = pd.read_parquet(bronze_path)
+                else:
+                    if parallel_results is not None:
+                        fetched_code, fetched = next(parallel_results)
+                        if fetched_code != cod_municipio:
+                            raise RuntimeError("resultado CNES paralelo fora de ordem")
+                        if isinstance(fetched, Exception):
+                            raise fetched
+                        bronze_df = fetched
+                    else:
+                        bronze_df = fetch_estabelecimentos(
+                            cod_municipio,
+                            limit=page_size,
+                            catalog=catalog,
+                            session=request_session,
+                            timeout=request_timeout,
+                        )
+                if bronze_df.empty:
+                    raise RuntimeError(f"API CNES retornou vazio para município {cod_municipio}")
+
+                bronze_path = (
+                    Path(checkpoint_entry["bronze_path"])
+                    if checkpoint_entry is not None
+                    else write_bronze_cnes(bronze_df, cod_municipio, run_at=run_at)
+                )
+                silver = (
+                    transform_cnes(bronze_df, catalog=catalog, municipality_code7=cod_municipio)
+                    if catalog is not None
+                    else transform_cnes(bronze_df, municipality_code7=cod_municipio)
+                )
+                _validate_cnes_municipality_resolution(
+                    silver, catalog=catalog, municipality_code7=cod_municipio,
+                )
+                territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
+                if territory_assets is not None:
+                    silver = enrich_cnes_territories(silver, territory_assets)
+                else:
+                    silver["notification_district_id"] = pd.NA
+                    silver["notification_neighborhood_id"] = pd.NA
+                    silver["notification_territory_status"] = "UNAVAILABLE"
+                silver["_part_order"] = len(silver_paths)
+                silver_path = parts_directory / f"part-{len(silver_paths):06d}.parquet"
+                silver.to_parquet(silver_path, index=False)
+                silver_paths.append(silver_path)
+                if checkpoint_path is not None and checkpoint_entry is None:
+                    completed[cod_municipio] = {
+                        "bronze_path": str(bronze_path),
+                        "rows": len(bronze_df),
+                        "bronze_sha256": hashlib.sha256(bronze_path.read_bytes()).hexdigest(),
+                    }
+            except Exception as error:
+                if not continue_on_error:
+                    raise
+                failed[cod_municipio] = {
+                    "error_type": _classify_cnes_error(error),
+                    "error_message": str(error),
+                }
+                logger.exception("Falha classificada no município CNES=%s", cod_municipio)
+            if checkpoint_path is not None:
+                write_json_atomic(
+                    {
+                        "status": "IN_PROGRESS",
+                        "ingested_at": run_at.isoformat(),
+                        "municipios": list(municipios),
+                        "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+                        "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+                        "cnes_page_size": page_size,
+                        "cnes_request_timeout": request_timeout,
+                        "continue_on_error": continue_on_error,
+                        "cnes_workers": workers,
+                        "completed": completed,
+                        "failed": failed,
+                    },
+                    checkpoint_path,
+                )
+    finally:
+        if owns_session and request_session is not None:
+            request_session.close()
+
     parquet = directory / "data.parquet"
-    write_parquet_atomic(consolidated, parquet)
+    try:
+        rows = _write_cnes_consolidated(silver_paths, parquet)
+    finally:
+        parts_directory_handle.cleanup()
 
     metadata = {
+        "manifest_version": 2,
+        "status": "COMPLETED" if not failed else "PARTIAL",
         "batch_id": batch_id,
         "ingested_at": run_at.isoformat(),
-        "rows": len(consolidated),
+        "rows": rows,
         "municipios": list(municipios),
-        "columns": list(consolidated.columns),
+        "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+        "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+        "cnes_page_size": page_size,
+        "cnes_request_timeout": request_timeout,
+        "continue_on_error": continue_on_error,
+        "cnes_workers": workers,
+        "failed_municipalities": failed,
+        "columns": pq.ParquetFile(parquet).schema.names,
+        "parquet_sha256": _sha256_file(parquet),
+        "municipios_com_registros": _consolidated_municipalities(parquet),
     }
+    metadata["municipios_sem_registros"] = sorted(
+        set(municipios) - set(metadata["municipios_com_registros"])
+    )
     write_json_atomic(metadata, directory / "metadata.json")
-    logger.info("CNES concluído: %s (linhas=%s)", parquet, len(consolidated))
+    export_stage_metrics(
+        pipeline="cnes",
+        layer="silver",
+        disease="CNES",
+        year=run_at.year,
+        rows=rows,
+        duration_seconds=monotonic() - stage_started,
+        status="success" if metadata["status"] == "COMPLETED" else "failure",
+        dropped_rows=len(failed),
+        extra={
+            "scope": "CATALOG" if catalog is not None else "LEGACY",
+            "batch_status": metadata["status"],
+        },
+    )
+    if checkpoint_path is not None:
+        write_json_atomic(
+            {
+                "status": "COMPLETED" if not failed else "PARTIAL",
+                "ingested_at": run_at.isoformat(),
+                "municipios": list(municipios),
+                "ibge_catalog_id": catalog.metadata.catalog_id if catalog else None,
+                "ibge_catalog_sha256": catalog.metadata.sha256 if catalog else None,
+                "cnes_page_size": page_size,
+                "cnes_request_timeout": request_timeout,
+                "continue_on_error": continue_on_error,
+                "cnes_workers": workers,
+                "completed": completed,
+                "failed": failed,
+                "output_path": str(parquet),
+            },
+            checkpoint_path,
+        )
+    logger.info("CNES concluído: %s (linhas=%s)", parquet, rows)
     return parquet
 
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+def run_cnes(
+    municipios: dict[str, str] | None = None,
+    *,
+    catalog: MunicipalityCatalog | None = None,
+    geographic_scope: GeographicScope | None = None,
+    page_size: int = DEFAULT_CNES_PAGE_SIZE,
+    session=None,
+    request_timeout: float = DEFAULT_CNES_REQUEST_TIMEOUT,
+    checkpoint_path: Path | None = None,
+    continue_on_error: bool = False,
+    workers: int = 1,
+) -> Path:
+    """Executa CNES e publica falha fatal no Pushgateway quando necessário."""
+    stage_started = monotonic()
+    scope = (
+        geographic_scope.kind
+        if geographic_scope is not None
+        else "CATALOG" if catalog is not None else "LEGACY"
+    )
     try:
-        run_cnes()
+        return _run_cnes(
+            municipios,
+            catalog=catalog,
+            geographic_scope=geographic_scope,
+            page_size=page_size,
+            session=session,
+            request_timeout=request_timeout,
+            checkpoint_path=checkpoint_path,
+            continue_on_error=continue_on_error,
+            workers=workers,
+        )
+    except Exception:
+        try:
+            export_stage_metrics(
+                pipeline="cnes",
+                layer="silver",
+                disease="CNES",
+                year=datetime.now(UTC).year,
+                rows=0,
+                duration_seconds=monotonic() - stage_started,
+                status="failure",
+                extra={"scope": scope, "batch_status": "FATAL"},
+            )
+        except Exception:  # noqa: BLE001 - nunca mascarar a falha original
+            logger.warning("Falha ao registrar erro fatal do CNES", exc_info=True)
+        raise
+
+
+def main() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    parser = argparse.ArgumentParser(
+        description="Ingere estabelecimentos CNES para um escopo geográfico"
+    )
+    parser.add_argument("--catalog-root", type=Path, help="Diretório local de releases IBGE")
+    scope = parser.add_mutually_exclusive_group()
+    scope.add_argument("--municipios", help="Códigos municipais separados por vírgula")
+    scope.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
+    scope.add_argument("--all-brazil", action="store_true", help="Seleciona todos os municípios da release IBGE")
+    parser.add_argument(
+        "--page-size", type=int, default=DEFAULT_CNES_PAGE_SIZE,
+        help=f"Quantidade de registros por página da API CNES (padrão: {DEFAULT_CNES_PAGE_SIZE})",
+    )
+    parser.add_argument(
+        "--request-timeout", type=float, default=DEFAULT_CNES_REQUEST_TIMEOUT,
+        help=f"Timeout de cada requisição CNES em segundos (padrão: {DEFAULT_CNES_REQUEST_TIMEOUT:g})",
+    )
+    parser.add_argument(
+        "--checkpoint", type=Path,
+        help="Arquivo JSON para retomar a ingestão CNES após falha ou interrupção",
+    )
+    parser.add_argument(
+        "--continue-on-error", action="store_true",
+        help="Processa o lote inteiro e registra erros por município no checkpoint",
+    )
+    parser.add_argument(
+        "--workers", type=int, default=1,
+        help="Requisições CNES simultâneas; padrão 1 para preservar o modo legado",
+    )
+    args = parser.parse_args()
+    try:
+        catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
+        if (args.municipios or args.ufs or args.all_brazil) and catalog is None:
+            raise ValueError("seleção geográfica exige --catalog-root")
+        geographic_scope = None
+        if catalog is not None:
+            scope_kwargs = {
+                "municipalities": args.municipios.split(",") if args.municipios else None,
+                "ufs": args.ufs.split(",") if args.ufs else None,
+                "all_brazil": args.all_brazil,
+            }
+            if args.all_brazil:
+                scope_kwargs["require_national"] = True
+            geographic_scope = select_scope(catalog, **scope_kwargs)
+        run_kwargs = dict(
+            catalog=catalog,
+            geographic_scope=geographic_scope,
+            page_size=args.page_size,
+            request_timeout=args.request_timeout,
+            continue_on_error=args.continue_on_error,
+            workers=args.workers,
+        )
+        if args.checkpoint is not None:
+            run_kwargs["checkpoint_path"] = args.checkpoint
+        run_cnes(**run_kwargs)
     except Exception:
         logger.exception("Falha na pipeline CNES")
         raise SystemExit(1) from None
+
+
+if __name__ == "__main__":
+    main()

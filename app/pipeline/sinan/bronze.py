@@ -12,7 +12,7 @@ import pyarrow.parquet as pq
 from ..atomic_io import write_json_atomic
 from .source import download_remote_file, inspect_remote_file
  
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
  
  
 def fetch_sinan(disease: str, year: int) -> Path:
@@ -23,12 +23,19 @@ def fetch_sinan(disease: str, year: int) -> Path:
         raise RuntimeError(f"Erro ao baixar SINAN via PySUS (disease={disease}, year={year})") from e
  
  
-def write_bronze(source: Path, disease: str, year: int, run_at: datetime | None = None) -> Path:
+def write_bronze(
+    source: Path,
+    disease: str,
+    year: int,
+    run_at: datetime | None = None,
+    *,
+    allow_empty: bool = False,
+) -> Path:
     source = Path(source)
     with pq.ParquetFile(source) as original:
         rows = original.metadata.num_rows
         columns = original.schema_arrow.names
-    if rows == 0:
+    if rows == 0 and not allow_empty:
         raise RuntimeError("SINAN retornou um Parquet vazio")
 
     now = run_at or datetime.now(UTC)

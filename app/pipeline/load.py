@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import os
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
 import pandas as pd
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Connection, Engine
+
+from .observability.metrics import export_publication_metadata_metrics
+from .scope import scope_sha256
 
 DISEASE_NAMES: dict[str, str] = {
     "DENG": "Dengue",
@@ -23,6 +26,45 @@ DISEASE_NAMES: dict[str, str] = {
     "FMAC": "Febre maculosa",
     "TOXC": "Toxoplasmose congênita",
     "TOXG": "Toxoplasmose gestacional",
+    # Grupos SINAN disponíveis no PySUS 2.11.x. Mantemos o código do grupo
+    # como identidade operacional para que novas doenças não caiam no nome
+    # técnico do arquivo nem sejam confundidas no PostgreSQL.
+    "ACBI": "Acidente de trabalho com material biológico",
+    "ACGR": "Acidente de trabalho",
+    "ANIM": "Acidente por animais peçonhentos",
+    "ANTR": "Atendimento antirrábico",
+    "BOTU": "Botulismo",
+    "CANC": "Câncer relacionado ao trabalho",
+    "CHAG": "Doença de Chagas aguda",
+    "ESQU": "Esquistossomose",
+    "COLE": "Cólera",
+    "COQU": "Coqueluche",
+    "DERM": "Dermatoses ocupacionais",
+    "DIFT": "Difteria",
+    "EXAN": "Doenças exantemáticas",
+    "FTIF": "Febre tifoide",
+    "HANT": "Hantavirose",
+    "IEXO": "Intoxicação exógena",
+    "INFL": "Influenza pandêmica",
+    "LEIV": "Leishmaniose visceral",
+    "LTAN": "Leishmaniose tegumentar americana",
+    "LERD": "LER/Dort",
+    "MALA": "Malária",
+    "MENT": "Transtornos mentais relacionados ao trabalho",
+    "NTRA": "Notificação de tracoma",
+    "PAIR": "Perda auditiva por ruído relacionada ao trabalho",
+    "PFAN": "Paralisia flácida aguda",
+    "PNEU": "Pneumoconioses relacionadas ao trabalho",
+    "PEST": "Peste",
+    "RAIV": "Raiva",
+    "SDTA": "Surto de doenças transmitidas por alimentos",
+    "SRC": "Síndrome da rubéola congênita",
+    "SIFG": "Sífilis em gestante",
+    "TETA": "Tétano acidental",
+    "TETN": "Tétano neonatal",
+    "TRAC": "Inquérito de tracoma",
+    "VARC": "Varicela",
+    "VIOL": "Violência doméstica, sexual ou outras violências",
 }
 
 UNIDADE_NAO_IDENTIFICADA = "0000000"
@@ -37,6 +79,18 @@ FACT_KEY_COLUMNS = [
     "notification_territory_status",
 ]
 
+QUALITY_METRIC_COLUMNS = (
+    "source_rows",
+    "resolved_rows",
+    "discarded_rows",
+    "aggregation_reduction",
+    "invalid_municipality_rows",
+    "out_of_scope_rows",
+    "uf_mismatch_rows",
+)
+
+FACT_INSERT_BATCH_SIZE = 10_000
+
 
 def get_engine() -> Engine:
     url = os.environ.get("DATABASE_URL")
@@ -48,7 +102,14 @@ def get_engine() -> Engine:
     return create_engine(url)
 
 
-def _upsert(conn: Connection, table: str, rows: list[dict], conflict_cols: list[str]) -> None:
+def _upsert(
+    conn: Connection,
+    table: str,
+    rows: list[dict],
+    conflict_cols: list[str],
+    *,
+    preserve_existing_on_null: bool = False,
+) -> None:
     if not rows:
         return
 
@@ -57,7 +118,12 @@ def _upsert(conn: Connection, table: str, rows: list[dict], conflict_cols: list[
     update_cols = [c for c in cols if c not in conflict_cols]
 
     if update_cols:
-        set_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
+        if preserve_existing_on_null:
+            set_clause = ", ".join(
+                f"{c} = COALESCE(EXCLUDED.{c}, {table}.{c})" for c in update_cols
+            )
+        else:
+            set_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols)
         conflict_clause = f"DO UPDATE SET {set_clause}"
     else:
         conflict_clause = "DO NOTHING"
@@ -87,6 +153,22 @@ def _integer_series(series: pd.Series, column: str, minimum: int, maximum: int) 
     return numbers.astype("int64")
 
 
+def _normalize_sem_not(series: pd.Series, year: pd.Series | int) -> pd.Series:
+    """Normaliza SEM_NOT no formato AASS ou AAAASS para AAAASS.
+
+    Alguns arquivos SINAN misturam ``2601``/``2553`` com o formato completo;
+    ambos representam 2026/semana 01 e 2025/semana 53, respectivamente. A
+    validação continua restrita a semanas epidemiológicas entre 01 e 53.
+    """
+    numbers = _integer_series(series, "SEM_NOT", 0, 999953)
+    years = pd.Series(year, index=series.index) if isinstance(year, int) else year
+    years = _integer_series(years, "year", 1, 9999)
+    aass = numbers.between(1000, 9999) & numbers.mod(100).between(1, 53)
+    normalized = numbers.copy()
+    normalized.loc[aass] = (2000 + numbers.loc[aass] // 100) * 100 + numbers.loc[aass] % 100
+    return normalized
+
+
 def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: str) -> pd.DataFrame:
     df = gold_df.copy()
     df["disease_codigo"] = disease_codigo
@@ -112,7 +194,7 @@ def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: st
     df["cd_sexo"] = _clean_code_series(df[sex_column], "I") if sex_column in df.columns else "I"
     week_column = "SEM_NOT" if "SEM_NOT" in df.columns else "not_week"
     df["semana_notif"] = (
-        _integer_series(df[week_column], week_column, 0, 999953).astype("int32")
+        _normalize_sem_not(df[week_column], df["year"]).astype("int32")
         if week_column in df.columns else 0
     )
     weeks = df["semana_notif"]
@@ -144,7 +226,13 @@ def upsert_dim_doenca(conn: Connection, disease_codigo: str) -> None:
     )
 
 
-def upsert_dim_municipio(conn: Connection, fact_df: pd.DataFrame) -> None:
+def upsert_dim_municipio(
+    conn: Connection,
+    fact_df: pd.DataFrame,
+    *,
+    catalog=None,
+    require_unit_municipalities: bool = False,
+) -> None:
     required = {"cd_mun", "nm_mun", "cd_uf", "nm_uf"}
     if not required.issubset(fact_df.columns):
         return
@@ -155,6 +243,32 @@ def upsert_dim_municipio(conn: Connection, fact_df: pd.DataFrame) -> None:
         .drop_duplicates(subset=["cd_mun"])
         .to_dict(orient="records")
     )
+    notification_codes = {row["cd_mun"] for row in rows}
+    unit_codes = set(
+        fact_df.get("cd_mun_unidade", pd.Series(dtype="string"))
+        .dropna()
+        .astype("string")
+    )
+    missing_unit_codes = unit_codes - notification_codes
+    if missing_unit_codes and catalog is not None:
+        for code in sorted(missing_unit_codes):
+            municipality = catalog.get_municipality(code)
+            if municipality is None:
+                raise ValueError(
+                    f"município da unidade CNES ausente no catálogo IBGE: {code}"
+                )
+            rows.append({
+                "cd_mun": municipality.code7,
+                "nm_mun": municipality.name,
+                "cd_uf": municipality.uf_code,
+                "nm_uf": municipality.uf_name,
+            })
+    elif missing_unit_codes and require_unit_municipalities:
+        raise ValueError(
+            "Gold referencia municípios CNES fora do recorte de notificações; "
+            "publique com uma release IBGE para cadastrar a dimensão canônica"
+        )
+    rows = list({row["cd_mun"]: row for row in rows}.values())
     _upsert(conn, "analytics.dim_municipio", rows, conflict_cols=["cd_mun"])
 
 
@@ -167,16 +281,23 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     foi seedado com descrição curada pela migration e não deve ser
     sobrescrito com nomes nulos.
     """
+    # O município da notificação e o município cadastrado da unidade são
+    # identidades distintas. Somente o segundo pode alimentar a FK da unidade;
+    # sem ele, a dimensão permanece sem município.
+    if "cd_mun_unidade" in fact_df.columns:
+        fact_df = fact_df.drop(columns=["cd_mun"], errors="ignore").rename(
+            columns={"cd_mun_unidade": "cd_mun"}
+        )
+    else:
+        fact_df = fact_df.drop(columns=["cd_mun"], errors="ignore")
     # Nomes aqui devem bater EXATAMENTE com as colunas de
     # analytics.dim_unidade_saude (migration 0001) — "razao_social",
     # não "razao_social_unidade" (esse é o nome vindo do silver_cnes.py).
     #
-    # cd_mun (FK para dim_municipio) NÃO é populado aqui de propósito:
-    # o "codigo_municipio" retornado pela API do CNES tem 6 dígitos,
-    # enquanto dim_municipio.cd_mun usa o padrão IBGE de 7 dígitos do
-    # SINAN. Converter exigiria calcular o dígito verificador — não é
-    # um simples zero à esquerda. Até isso ser implementado com cuidado,
-    # cd_mun de dim_unidade_saude fica nulo (coluna é opcional no schema).
+    # cd_mun (FK para dim_municipio) é utilizado quando a Silver CNES foi
+    # produzida com um MunicipalityCatalog IBGE. Sem esse catálogo, o caminho
+    # legado mantém a FK nula: o código CNES de seis dígitos não deve ser
+    # convertido por preenchimento ou cálculo heurístico do dígito verificador.
     source_to_db = {
         "nm_unidade": "nm_unidade",
         "razao_social_unidade": "razao_social",
@@ -185,14 +306,36 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     present_source_cols = [c for c in source_to_db if c in fact_df.columns]
 
     subset = (
-        fact_df[["cd_unidade", *present_source_cols]]
-        .drop_duplicates(subset=["cd_unidade"])
+        fact_df[["cd_unidade", *present_source_cols, *(["cd_mun"] if "cd_mun" in fact_df.columns else [])]]
         .copy()
         .rename(columns=source_to_db)
     )
     subset = subset[~subset["cd_unidade"].isin(_SENTINELAS)]
 
-    db_cols = ["nm_unidade", "razao_social", "tp_unidade"]
+    if "cd_mun" in subset.columns:
+        municipality_counts = (
+            subset.dropna(subset=["cd_mun"])
+            .groupby("cd_unidade")["cd_mun"]
+            .nunique()
+        )
+        conflicting = sorted(municipality_counts[municipality_counts > 1].index.tolist())
+        if conflicting:
+            raise ValueError(
+                "unidade CNES associada a municípios distintos: "
+                f"{', '.join(map(str, conflicting))}"
+            )
+        # Uma linha sem município não deve apagar uma associação válida da
+        # mesma unidade apenas por aparecer primeiro no DataFrame.
+        subset["_cd_mun_present"] = subset["cd_mun"].notna()
+        subset = subset.sort_values(
+            ["cd_unidade", "_cd_mun_present"],
+            ascending=[True, False],
+            kind="stable",
+        ).drop_duplicates(subset=["cd_unidade"]).drop(columns=["_cd_mun_present"])
+    else:
+        subset = subset.drop_duplicates(subset=["cd_unidade"])
+
+    db_cols = ["nm_unidade", "razao_social", "tp_unidade", "cd_mun"]
     for col in db_cols:
         if col not in subset.columns:
             subset[col] = None
@@ -219,7 +362,73 @@ def upsert_dim_unidade_saude(conn: Connection, fact_df: pd.DataFrame) -> None:
     )
 
     rows = subset[["cd_unidade", *db_cols]].to_dict(orient="records")
-    _upsert(conn, "analytics.dim_unidade_saude", rows, conflict_cols=["cd_unidade"])
+    if len(rows) > 10_000:
+        # SQLAlchemy's default psycopg2 executemany issues one round trip per
+        # row for this dimension.  CNES national snapshots can exceed 600k
+        # units, so use PostgreSQL's multi-values executor in bounded pages.
+        from psycopg2.extras import execute_values
+
+        columns = ["cd_unidade", *db_cols]
+        update_columns = [column for column in columns if column != "cd_unidade"]
+        update_clause = ", ".join(
+            f"{column} = COALESCE(EXCLUDED.{column}, analytics.dim_unidade_saude.{column})"
+            for column in update_columns
+        )
+        statement = f"""
+            INSERT INTO analytics.dim_unidade_saude ({', '.join(columns)})
+            VALUES %s
+            ON CONFLICT (cd_unidade) DO UPDATE SET {update_clause}
+        """
+        values = [tuple(row.get(column) for column in columns) for row in rows]
+        raw = conn.connection.driver_connection
+        with raw.cursor() as cursor:
+            execute_values(cursor, statement, values, page_size=10_000)
+        return
+    _upsert(
+        conn,
+        "analytics.dim_unidade_saude",
+        rows,
+        conflict_cols=["cd_unidade"],
+        preserve_existing_on_null=True,
+    )
+
+
+def load_cnes_to_postgres(
+    engine: Engine, cnes_df: pd.DataFrame, *, catalog=None,
+) -> None:
+    """Publica o snapshot Silver CNES na dimensão de unidades.
+
+    A carga é separada da Gold do SINAN para que o catálogo nacional de
+    estabelecimentos chegue ao PostgreSQL mesmo quando uma doença não possui
+    notificações no recorte publicado.
+    """
+    required = {"cd_unidade", "cd_mun"}
+    missing = required - set(cnes_df.columns)
+    if missing:
+        raise ValueError(f"Silver CNES sem colunas obrigatórias: {sorted(missing)}")
+    if cnes_df.empty:
+        raise ValueError("Silver CNES vazia: publicação bloqueada")
+    if catalog is None:
+        raise ValueError("carga CNES nacional exige o catálogo IBGE ativo")
+
+    cnes_codes = set(cnes_df["cd_mun"].dropna().astype("string").str.strip())
+    catalog_municipalities = catalog.municipalities()
+    catalog_codes = {municipality.code7 for municipality in catalog_municipalities}
+    missing_codes = sorted(cnes_codes - catalog_codes)
+    if missing_codes:
+        raise ValueError(f"CNES referencia município ausente no catálogo IBGE: {missing_codes[:5]}")
+    municipalities = [
+        {
+            "cd_mun": municipality.code7,
+            "nm_mun": municipality.name,
+            "cd_uf": municipality.uf_code,
+            "nm_uf": municipality.uf_name,
+        }
+        for municipality in catalog_municipalities
+    ]
+    with engine.begin() as conn:
+        _upsert(conn, "analytics.dim_municipio", municipalities, conflict_cols=["cd_mun"])
+        upsert_dim_unidade_saude(conn, cnes_df)
 
 
 def upsert_dim_classificacao(conn: Connection, fact_df: pd.DataFrame) -> None:
@@ -241,10 +450,31 @@ def insert_fato_casos(conn: Connection, fact_df: pd.DataFrame) -> None:
         columns={"year": "ano", "month": "mes"}
     )
     columns = list(frame.columns)
-    conn.execute(text(
+    if len(frame) > FACT_INSERT_BATCH_SIZE:
+        raw = conn.connection.driver_connection
+        from psycopg2.extensions import connection as PsycopgConnection
+        if isinstance(raw, PsycopgConnection):
+            from psycopg2.extras import execute_values
+
+            statement = (
+                f"INSERT INTO analytics.fato_casos ({', '.join(columns)}) VALUES %s"
+            )
+            values = frame.astype(object).where(pd.notna(frame), None)
+            with raw.cursor() as cursor:
+                execute_values(
+                    cursor,
+                    statement,
+                    values.itertuples(index=False, name=None),
+                    page_size=FACT_INSERT_BATCH_SIZE,
+                )
+            return
+    statement = text(
         f"INSERT INTO analytics.fato_casos ({', '.join(columns)}) "
         f"VALUES ({', '.join(':' + column for column in columns)})"
-    ), frame.to_dict(orient="records"))
+    )
+    for start in range(0, len(frame), FACT_INSERT_BATCH_SIZE):
+        batch = frame.iloc[start:start + FACT_INSERT_BATCH_SIZE]
+        conn.execute(statement, batch.to_dict(orient="records"))
 
 
 def _validate_snapshot(
@@ -313,10 +543,51 @@ def _scope_statement(sql: str):
     return text(sql).bindparams(bindparam("municipios", expanding=True))
 
 
+def _register_catalog_release(conn: Connection, catalog) -> None:
+    if catalog is None:
+        return
+    metadata = catalog.metadata
+    if metadata.validation_status != "VALIDATED":
+        raise ValueError("release IBGE não validada não pode ser publicada")
+    if not re.fullmatch(r"[0-9a-fA-F]{64}", metadata.sha256):
+        raise ValueError("release IBGE sem SHA-256 válido não pode ser publicada")
+    conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {
+        "key": f"nss:ibge-release:{metadata.catalog_id}",
+    })
+    existing = conn.execute(text("""
+        SELECT sha256, content_sha256
+        FROM analytics.reference_catalog_releases
+        WHERE catalog_id = :catalog_id
+        FOR UPDATE
+    """), {"catalog_id": metadata.catalog_id}).one_or_none()
+    if existing is not None:
+        if existing.sha256 != metadata.sha256 or existing.content_sha256 != metadata.content_sha256:
+            raise ValueError(
+                "catalog_id IBGE imutável já associado a outro SHA-256"
+            )
+        return
+    conn.execute(text("""
+        INSERT INTO analytics.reference_catalog_releases
+            (catalog_id, sha256, content_sha256, reference_year, source_name, source_url, retrieved_at)
+        VALUES (:catalog_id, :sha256, :content_sha256, :reference_year, :source_name, :source_url, :retrieved_at)
+    """), {
+        "catalog_id": metadata.catalog_id,
+        "sha256": metadata.sha256,
+        "content_sha256": metadata.content_sha256,
+        "reference_year": metadata.reference_year,
+        "source_name": metadata.source_name,
+        "source_url": metadata.source_url,
+        "retrieved_at": metadata.retrieved_at,
+    })
+
+
 def load_gold_to_postgres(
     engine: Engine, gold_df: pd.DataFrame, disease_codigo: str, batch_id: str, *,
     year: int, municipios: Sequence[str], expected_cases_total: int,
     snapshot_complete: bool, source_extracted_at: datetime, allow_empty: bool = False,
+    ibge_catalog=None, geographic_scope_type: str = "MUNICIPALITIES",
+    geographic_scope_sha256: str | None = None,
+    quality_metrics: Mapping[str, int] | None = None,
 ) -> None:
     """Publica o snapshot completo somente no recorte declarado.
 
@@ -330,6 +601,24 @@ def load_gold_to_postgres(
         source_extracted_at=source_extracted_at, allow_empty=allow_empty,
     )
     params = {"disease": disease_codigo, "year": year, "municipios": scope}
+    if geographic_scope_type not in {"MUNICIPALITIES", "UFs", "BRAZIL"}:
+        raise ValueError("tipo de escopo geográfico inválido")
+    expected_scope_sha256 = scope_sha256(scope)
+    if geographic_scope_sha256 is not None and geographic_scope_sha256 != expected_scope_sha256:
+        raise ValueError("hash do escopo geográfico diverge dos municípios publicados")
+    geographic_scope_sha256 = expected_scope_sha256
+    quality = {column: 0 for column in QUALITY_METRIC_COLUMNS}
+    if quality_metrics is not None:
+        if not isinstance(quality_metrics, Mapping):
+            raise ValueError("quality_metrics deve ser um mapeamento")
+        unknown = set(quality_metrics) - set(QUALITY_METRIC_COLUMNS)
+        if unknown:
+            raise ValueError(f"métricas Gold desconhecidas: {sorted(unknown)}")
+        for column, value in quality_metrics.items():
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"métrica Gold inválida: {column}")
+            quality[column] = value
+    publication_added_at = datetime.now(UTC)
     with engine.begin() as conn:
         # Serializa também recortes parcialmente sobrepostos da mesma doença/ano.
         conn.execute(text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
@@ -341,7 +630,13 @@ def load_gold_to_postgres(
         if newest is not None and source_extracted_at < newest:
             raise ValueError("Snapshot antigo: já existe publicação mais recente no recorte")
         upsert_dim_doenca(conn, disease_codigo)
-        upsert_dim_municipio(conn, fact_df)
+        _register_catalog_release(conn, ibge_catalog)
+        upsert_dim_municipio(
+            conn,
+            fact_df,
+            catalog=ibge_catalog,
+            require_unit_municipalities=True,
+        )
         upsert_dim_unidade_saude(conn, fact_df)
         upsert_dim_classificacao(conn, fact_df)
         upsert_dim_evolucao(conn, fact_df)
@@ -361,9 +656,50 @@ def load_gold_to_postgres(
         rows = [{
             "disease_codigo": disease_codigo, "ano": year, "cd_mun": code,
             "batch_id": batch_id, "source_extracted_at": source_extracted_at,
-            "published_at": datetime.now(UTC),
+            "published_at": publication_added_at,
             "groups_total": int(totals.loc[code, "size"]) if code in totals.index else 0,
             "cases_total": int(totals.loc[code, "sum"]) if code in totals.index else 0,
+            "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
+            "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
+            "geographic_scope_type": geographic_scope_type,
+            "geographic_scope_sha256": geographic_scope_sha256,
+            # As métricas globais vivem em pipeline_execution_metrics. As
+            # colunas legadas por município permanecem zeradas para impedir
+            # que uma soma municipal conte a mesma execução repetidamente.
         } for code in scope]
         _upsert(conn, "analytics.pipeline_publications", rows,
                 conflict_cols=["disease_codigo", "ano", "cd_mun", "batch_id"])
+        _upsert(
+            conn,
+            "analytics.pipeline_current_publication",
+            [{
+                "disease_codigo": disease_codigo,
+                "ano": year,
+                "cd_mun": code,
+                "batch_id": batch_id,
+                "source_extracted_timestamp": source_extracted_at,
+                "added_at": publication_added_at,
+            } for code in scope],
+            conflict_cols=["disease_codigo", "ano", "cd_mun"],
+        )
+        _upsert(
+            conn,
+            "analytics.pipeline_execution_metrics",
+            [{
+                "disease_codigo": disease_codigo,
+                "ano": year,
+                "batch_id": batch_id,
+                "source_extracted_at": source_extracted_at,
+                "published_at": publication_added_at,
+                "geographic_scope_type": geographic_scope_type,
+                "geographic_scope_sha256": geographic_scope_sha256,
+                "ibge_catalog_id": ibge_catalog.metadata.catalog_id if ibge_catalog else None,
+                "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
+                **quality,
+            }],
+            conflict_cols=["disease_codigo", "ano", "batch_id"],
+        )
+    export_publication_metadata_metrics(
+        pipeline="sinan", disease=disease_codigo, year=year,
+        source_extracted_at=source_extracted_at, added_at=publication_added_at,
+    )

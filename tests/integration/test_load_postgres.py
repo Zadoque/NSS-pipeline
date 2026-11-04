@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from dataclasses import replace
 from threading import Event
 
 import pandas as pd
@@ -21,6 +22,8 @@ from app.pipeline.load import load_gold_to_postgres
 from app.pipeline.sinan.columns import CANONICAL_GOLD_COLUMNS
 from app.pipeline.sinan.gold import aggregate
 from app.pipeline.sinan.silver import transform
+from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 
 pytestmark = pytest.mark.integration
 
@@ -71,7 +74,7 @@ def _limpar_fato_entre_testes(postgres_engine):
     sem precisar recriar o schema inteiro a cada um (lento)."""
     yield
     with postgres_engine.begin() as conn:
-        conn.execute(text("TRUNCATE analytics.fato_casos, analytics.pipeline_publications"))
+        conn.execute(text("TRUNCATE analytics.fato_casos, analytics.pipeline_publications, analytics.pipeline_current_publication"))
 
 
 def _gold_exemplo(cases_total: int = 5) -> pd.DataFrame:
@@ -94,6 +97,16 @@ def _publish(engine, gold_df, disease_codigo="DENG", batch_id="b1", **overrides)
     return load_gold_to_postgres(engine, gold_df, disease_codigo, batch_id, **options)
 
 
+def _catalog():
+    return InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata(
+            "ibge-dtb-test", 2025, "fixture", "fixture://dtb",
+            "2026-01-01T00:00:00Z", "a" * 64, content_sha256="c" * 64,
+        ),
+    )
+
+
 def test_load_gold_to_postgres_cria_linha_no_fato(postgres_engine):
     gold_df = _gold_exemplo(cases_total=5)
     _publish(postgres_engine, gold_df, disease_codigo="DENG", batch_id="b1")
@@ -105,6 +118,135 @@ def test_load_gold_to_postgres_cria_linha_no_fato(postgres_engine):
 
     assert row is not None
     assert row.cases_total == 5
+
+
+def test_publicacao_registra_release_ibge_e_tipo_de_escopo(postgres_engine):
+    _publish(
+        postgres_engine,
+        _gold_exemplo(),
+        "DENG",
+        "ibge-b1",
+        ibge_catalog=_catalog(),
+        geographic_scope_type="UFs",
+    )
+    with postgres_engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT p.ibge_catalog_id, p.ibge_catalog_sha256, p.geographic_scope_type,
+                   p.geographic_scope_sha256,
+                   r.reference_year, r.content_sha256
+            FROM analytics.pipeline_publications p
+            JOIN analytics.reference_catalog_releases r
+              ON r.catalog_id = p.ibge_catalog_id
+            WHERE p.batch_id = 'ibge-b1'
+        """)).one()
+    assert row.ibge_catalog_id == "ibge-dtb-test"
+    assert row.ibge_catalog_sha256 == "a" * 64
+    assert row.geographic_scope_type == "UFs"
+    assert row.geographic_scope_sha256 is not None
+    assert len(row.geographic_scope_sha256) == 64
+    assert row.reference_year == 2025
+    assert row.content_sha256 == "c" * 64
+
+
+def test_publicacao_multi_uf_preserva_catalogo_e_fks_municipais(postgres_engine):
+    municipalities = [
+        Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata(
+            "ibge-dtb-multi-uf", 2025, "fixture", "fixture://dtb-multi-uf",
+            "2026-01-01T00:00:00Z", "d" * 64, content_sha256="e" * 64,
+        ),
+    )
+    gold = pd.DataFrame({
+        "year": [2026, 2026],
+        "month": [1, 1],
+        "cd_mun": [item.code7 for item in municipalities],
+        "nm_mun": [item.name for item in municipalities],
+        "cd_uf": [item.uf_code for item in municipalities],
+        "nm_uf": [item.uf_name for item in municipalities],
+        "cases_total": [2, 3],
+    })
+
+    _publish(
+        postgres_engine, gold, "DENG", "multi-uf-b1",
+        municipios=[item.code7 for item in municipalities],
+        ibge_catalog=catalog, geographic_scope_type="UFs",
+    )
+
+    with postgres_engine.connect() as conn:
+        facts = conn.execute(text(
+            "SELECT cd_mun, cases_total FROM analytics.fato_casos "
+            "WHERE batch_id = 'multi-uf-b1' ORDER BY cd_mun"
+        )).all()
+        publications = conn.execute(text(
+            "SELECT cd_mun, ibge_catalog_id, geographic_scope_type "
+            "FROM analytics.pipeline_publications "
+            "WHERE batch_id = 'multi-uf-b1' ORDER BY cd_mun"
+        )).all()
+        dimensions = conn.execute(text(
+            "SELECT cd_mun, cd_uf FROM analytics.dim_municipio "
+            "WHERE cd_mun IN ('3301009', '3550308') ORDER BY cd_mun"
+        )).all()
+
+    assert [tuple(row) for row in facts] == [("3301009", 2), ("3550308", 3)]
+    assert all(row.ibge_catalog_id == "ibge-dtb-multi-uf" for row in publications)
+    assert all(row.geographic_scope_type == "UFs" for row in publications)
+    assert [tuple(row) for row in dimensions] == [("3301009", "33"), ("3550308", "35")]
+
+
+def test_publicacao_rejeita_reuso_de_catalog_id_com_hash_diferente(postgres_engine):
+    catalog = _catalog()
+    _publish(postgres_engine, _gold_exemplo(), "DENG", "immutable-1", ibge_catalog=catalog)
+    changed_metadata = replace(catalog.metadata, sha256="b" * 64)
+    changed_catalog = InMemoryMunicipalityCatalog(catalog.municipalities(), changed_metadata)
+
+    with pytest.raises(ValueError, match="imutável"):
+        _publish(
+            postgres_engine, _gold_exemplo(), "DENG", "immutable-2",
+            ibge_catalog=changed_catalog,
+        )
+
+    with postgres_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT sha256 FROM analytics.reference_catalog_releases "
+            "WHERE catalog_id = 'ibge-dtb-test'"
+        )).scalar_one() == "a" * 64
+
+
+def test_publicacao_registra_metricas_de_reconciliacao(postgres_engine):
+    _publish(
+        postgres_engine,
+        _gold_exemplo(),
+        "DENG",
+        "metrics-b1",
+        quality_metrics={
+            "source_rows": 10,
+            "resolved_rows": 6,
+            "discarded_rows": 4,
+            "aggregation_reduction": 1,
+            "invalid_municipality_rows": 0,
+            "out_of_scope_rows": 4,
+            "uf_mismatch_rows": 0,
+        },
+    )
+    with postgres_engine.connect() as conn:
+        row = conn.execute(text("""
+            SELECT source_rows, resolved_rows, discarded_rows, aggregation_reduction,
+                   invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows
+            FROM analytics.pipeline_publications
+            WHERE batch_id = 'metrics-b1'
+        """)).one()
+        execution = conn.execute(text("""
+            SELECT source_rows, resolved_rows, discarded_rows, aggregation_reduction,
+                   invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows
+            FROM analytics.pipeline_execution_metrics
+            WHERE batch_id = 'metrics-b1'
+        """)).one()
+    assert tuple(row) == (0, 0, 0, 0, 0, 0, 0)
+    assert tuple(execution) == (10, 6, 4, 1, 0, 4, 0)
 
 
 def test_snapshot_substitui_contagem_em_vez_de_duplicar(postgres_engine):
@@ -141,6 +283,75 @@ def test_load_gold_to_postgres_popula_unidade_saude_quando_presente(postgres_eng
 
     assert row is not None
     assert row.nm_unidade == "BEDALAB"
+
+
+def test_publicacao_cadastra_municipio_da_unidade_fora_da_notificacao(postgres_engine):
+    municipalities = [
+        Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio de Janeiro", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata(
+            "ibge-dtb-cnes-fk", 2025, "fixture", "fixture://dtb-cnes-fk",
+            "2026-01-01T00:00:00Z", "f" * 64, content_sha256="e" * 64,
+        ),
+    )
+    gold = _gold_exemplo()
+    gold["ID_UNIDADE"] = "0729884"
+    gold["cd_mun_unidade"] = "3302403"
+    gold["nm_unidade"] = "Unidade de Macaé"
+
+    _publish(
+        postgres_engine, gold, batch_id="cnes-fk-b1", ibge_catalog=catalog,
+    )
+
+    with postgres_engine.connect() as conn:
+        unit = conn.execute(text(
+            "SELECT cd_mun FROM analytics.dim_unidade_saude "
+            "WHERE cd_unidade = '0729884'"
+        )).scalar_one()
+        municipality = conn.execute(text(
+            "SELECT nm_mun FROM analytics.dim_municipio WHERE cd_mun = '3302403'"
+        )).scalar_one()
+
+    assert unit == "3302403"
+    assert municipality == "Macaé"
+
+
+def test_carga_sem_enriquecimento_nao_apaga_municipio_da_unidade(postgres_engine):
+    municipalities = [
+        Municipality("3301009", "330100", "Campos dos Goytacazes", "33", "RJ", "Rio de Janeiro", 2025),
+        Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio de Janeiro", 2025),
+    ]
+    catalog = InMemoryMunicipalityCatalog(
+        municipalities,
+        CatalogMetadata(
+            "ibge-dtb-cnes-preserve", 2025, "fixture", "fixture://dtb-cnes-preserve",
+            "2026-01-01T00:00:00Z", "1" * 64, content_sha256="2" * 64,
+        ),
+    )
+    first = _gold_exemplo()
+    first["ID_UNIDADE"] = "0729884"
+    first["cd_mun_unidade"] = "3302403"
+    first["nm_unidade"] = "Unidade de Macaé"
+    _publish(postgres_engine, first, batch_id="cnes-preserve-b1", ibge_catalog=catalog)
+
+    second = _gold_exemplo()
+    second["ID_UNIDADE"] = "0729884"
+    second["nm_unidade"] = None
+    _publish(
+        postgres_engine, second, batch_id="cnes-preserve-b2", ibge_catalog=catalog,
+        source_extracted_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+
+    with postgres_engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT cd_mun, nm_unidade FROM analytics.dim_unidade_saude "
+            "WHERE cd_unidade = '0729884'"
+        )).one()
+
+    assert tuple(row) == ("3302403", "Unidade de Macaé")
 
 
 def test_sentinela_unidade_nao_identificada_preserva_descricao_curada(postgres_engine):
@@ -202,6 +413,37 @@ def test_snapshot_preserva_outros_anos_doencas_e_municipios(postgres_engine):
         ("DENG", 2026, "3301009", 2), ("CHIK", 2026, "3301009", 7),
         ("DENG", 2025, "3301009", 8), ("DENG", 2026, "3302403", 9),
     }
+
+
+def test_snapshot_sobreposto_substitui_apenas_municipios_do_recorte(postgres_engine):
+    first = pd.concat([_gold_exemplo(5), pd.DataFrame({
+        "year": [2026], "month": [1], "cd_mun": ["3302403"],
+        "nm_mun": ["Macaé"], "cd_uf": ["33"],
+        "nm_uf": ["Rio de Janeiro"], "cases_total": [7],
+    })], ignore_index=True)
+    _publish(
+        postgres_engine, first, municipios=["3301009", "3302403"],
+        expected_cases_total=12,
+    )
+
+    second = pd.concat([_gold_exemplo(11), pd.DataFrame({
+        "year": [2026], "month": [1], "cd_mun": ["3302502"],
+        "nm_mun": ["Niterói"], "cd_uf": ["33"],
+        "nm_uf": ["Rio de Janeiro"], "cases_total": [13],
+    })], ignore_index=True)
+    _publish(
+        postgres_engine, second, batch_id="b2",
+        municipios=["3301009", "3302502"], expected_cases_total=24,
+    )
+
+    with postgres_engine.connect() as conn:
+        rows = conn.execute(text(
+            "SELECT cd_mun, cases_total FROM analytics.fato_casos ORDER BY cd_mun"
+        )).all()
+
+    assert [tuple(row) for row in rows] == [
+        ("3301009", 11), ("3302403", 7), ("3302502", 13),
+    ]
 
 
 def test_snapshot_remove_municipio_que_passou_a_zero(postgres_engine):

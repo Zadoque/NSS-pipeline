@@ -51,6 +51,29 @@ def test_separa_nome_preservando_original(original, nome, numero, ano):
     assert entrada.columns.tolist() == ["Nome do animal:"]
 
 
+@pytest.mark.parametrize(
+    "valor,esperado",
+    [
+        ("  Gato   X (SES/1)", ("Gato X", 1, pd.NA)),
+        ("F X(SES/2)", ("F X", 2, pd.NA)),
+    ],
+)
+def test_separar_nome_preserva_normalizacao_e_caracteres_do_nome(valor, esperado):
+    resultado = silver._separar_nome(valor)
+
+    assert resultado[0] == esperado[0]
+    assert resultado[1] == esperado[1]
+    assert resultado[2] is esperado[2] or resultado[2] == esperado[2]
+
+
+def test_separar_nome_preserva_notificacao_unica_e_ausencia_de_ano():
+    nome, numero, ano = silver._separar_nome("SES/1")
+
+    assert nome is pd.NA
+    assert numero == 1
+    assert ano is pd.NA
+
+
 @pytest.mark.parametrize("vazio", [False, True])
 def test_transform_file_grava_colunas_sem_perder_registros(tmp_path, monkeypatch, vazio):
     nomes = ["GARFIELD (SES 126/25)", "SHAYERA ( SES 126/25)"]
