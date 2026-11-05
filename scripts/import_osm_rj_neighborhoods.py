@@ -114,6 +114,22 @@ def import_osm(payload: dict, *, root: Path) -> dict[str, int]:
             json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False),
             encoding="utf-8",
         )
+    (root / "rj-osm").mkdir(parents=True, exist_ok=True)
+    (root / "rj-osm" / "manifest.json").write_text(
+        json.dumps(
+            {
+                "source": "OpenStreetMap",
+                "license": "ODbL-1.0",
+                "overpassTimestamp": payload.get("osm3s", {}).get("timestamp_osm_base"),
+                "queryTags": ["place=neighbourhood|suburb|quarter", "boundary=administrative/admin_level=10"],
+                "municipalities": len(output),
+                "neighborhoodFeatures": sum(len(features) for features in output.values()),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     return {municipality: len(features) for municipality, features in sorted(output.items())}
 
 
