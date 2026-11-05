@@ -28,6 +28,31 @@ CNES/API ──────> Bronze ──> Silver ──────┘  dimens
 Cada execução recebe `batch_id`, grava `metadata.json` e escreve artefatos
 atomicamente. Uma carga inválida não deve substituir uma publicação válida.
 
+### Hierarquia das geometrias territoriais
+
+Para classificar notificações por bairro/distrito, a pipeline usa esta ordem:
+
+1. `territories/rj/<codigo>/`: malha oficial do IBGE;
+2. `territories/rj-official/<codigo>/`: fonte municipal ou estadual oficial;
+3. `territories/rj-osm/<codigo>/`: OpenStreetMap, somente como último fallback.
+
+O importador OSM é executado explicitamente, pois os dados devem ser
+versionados e auditáveis:
+
+```bash
+python scripts/import_osm_rj_neighborhoods.py \
+  --url https://overpass-api.de/api/interpreter
+```
+
+Ele consulta polígonos OSM marcados como `neighbourhood`, `suburb`, `quarter`
+ou relações administrativas de nível 10, mantém apenas geometrias dentro dos
+municípios do RJ e grava `geometryStatus=POLYGON_OSM`, o identificador do
+elemento e `sourceLicense=ODbL-1.0`. O OSM não substitui uma geometria oficial;
+por isso o fallback só é usado quando IBGE e prefeitura/órgão estadual não
+possuem os dois arquivos (`districts.geojson` e `neighborhoods.geojson`).
+
+O resultado precisa ser atribuído conforme a licença ODbL do OpenStreetMap.
+
 ## Estrutura
 
 ```text

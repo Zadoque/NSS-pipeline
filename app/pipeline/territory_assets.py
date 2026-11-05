@@ -8,7 +8,8 @@ def asset_directory(cod_municipio: str, *, root: Path) -> Path | None:
 
     1. IBGE: malha intramunicipal oficial versionada em ``rj/<codigo>``;
     2. Prefeitura/órgão estadual: fallback versionado em
-       ``rj-official/<codigo>``.
+       ``rj-official/<codigo>``;
+    3. OpenStreetMap: último fallback versionado em ``rj-osm/<codigo>``.
 
     O fallback precisa conter os dois arquivos GeoJSON (distritos e bairros).
     Isso evita combinar bairros de uma fonte com distritos de outra sem uma
@@ -23,7 +24,11 @@ def asset_directory(cod_municipio: str, *, root: Path) -> Path | None:
         return ibge
 
     official = root / "rj-official" / municipality
-    return official if _has_complete_assets(official) else None
+    if _has_complete_assets(official):
+        return official
+
+    osm = root / "rj-osm" / municipality
+    return osm if _has_complete_assets(osm) else None
 
 
 def _has_complete_assets(directory: Path) -> bool:
