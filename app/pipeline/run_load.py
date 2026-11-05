@@ -231,13 +231,10 @@ def run_load(
                     "Publicação bloqueada: escopo geográfico da Gold diverge do escopo "
                     "selecionado"
                 )
-            invalid_rows = int(gold_metadata.get("invalid_municipality_rows", 0))
-            uf_mismatch_rows = int(gold_metadata.get("uf_mismatch_rows", 0))
-            if invalid_rows or (uf_mismatch_rows and not allow_uf_mismatch):
-                raise ValueError(
-                    "Publicação bloqueada: Gold contém resoluções municipais inválidas "
-                    f"(invalid={invalid_rows}, uf_mismatch={uf_mismatch_rows})"
-                )
+            # Linhas territoriais inconsistentes são descartadas pela Gold e
+            # contabilizadas nas métricas. Uma anomalia não deve interromper a
+            # publicação do snapshot restante.
+            expected_cases_total = int(gold_metadata["resolved_rows"])
     except Exception:
         _export_stage_failure(
             layer="gold", disease=disease, year=year, started=stage_started,

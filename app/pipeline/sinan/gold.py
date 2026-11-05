@@ -110,6 +110,24 @@ def resolve_catalog_municipality_codes(
         )
     return pd.Series(resolved_codes, index=series.index, dtype="string")
 
+
+def _normalize_unit_codes(series: pd.Series) -> pd.Series:
+    return series.astype("string").str.extract(r"(\d+)")[0].str.zfill(7)
+
+
+def _cnes_municipality_map(cnes_lookup: pd.DataFrame | None) -> dict[str, str]:
+    if cnes_lookup is None or "cd_unidade" not in cnes_lookup or "cd_mun" not in cnes_lookup:
+        return {}
+    lookup = cnes_lookup[["cd_unidade", "cd_mun"]].copy()
+    lookup["cd_unidade"] = _normalize_unit_codes(lookup["cd_unidade"])
+    lookup["cd_mun"] = _normalize_unit_codes(lookup["cd_mun"])
+    return (
+        lookup.dropna(subset=["cd_unidade", "cd_mun"])
+        .drop_duplicates("cd_unidade", keep="last")
+        .set_index("cd_unidade")["cd_mun"]
+        .to_dict()
+    )
+
 def gold_root(target: GoldTarget) -> Path:
     if target not in {"ad_hoc", "serving"}:
         raise ValueError(f"Destino Gold inválido: {target!r}")
@@ -145,7 +163,7 @@ def aggregate(
     if catalog is not None:
         work["cd_mun"] = resolve_catalog_municipality_codes(
             work["ID_MUNICIP"], catalog, work.get("SG_UF_NOT"),
-            allow_uf_mismatch=allow_uf_mismatch,
+            allow_uf_mismatch=allow_uf_mismatch or cnes_lookup is not None,
         )
     else:
         work["cd_mun"] = normalize_municipality_codes(work["ID_MUNICIP"], municipios)
@@ -186,6 +204,22 @@ def aggregate(
         if "_mapped_cd_mun" in work:
             work = work.drop(columns=["_mapped_cd_mun"])
         work["notification_territory_status"] = work["notification_territory_status"].fillna("UNMAPPED_NOTIFICATION_UNIT")
+        if catalog is not None and not work.empty and "cd_mun_unidade" in work:
+            # CNES is a corroborating source for the notification municipality.
+            # A municipality/CNES mismatch is discarded. A declared UF mismatch
+            # is publishable only when the municipality and the CNES unit agree.
+            cnes_mismatch = (
+                work["cd_mun_unidade"].notna()
+                & work["cd_mun"].notna()
+                & work["cd_mun_unidade"].ne(work["cd_mun"])
+            )
+            declared_uf = work["SG_UF_NOT"].astype("string").str.zfill(2)
+            uf_mismatch_without_cnes_confirmation = (
+                declared_uf.ne(work["_ibge_uf_code"].astype("string"))
+                & work["cd_mun"].notna()
+                & work["cd_mun_unidade"].ne(work["cd_mun"])
+            )
+            work = work.loc[~(cnes_mismatch | uf_mismatch_without_cnes_confirmation)].copy()
         if "ID_UNIDADE" in work:
             work["ID_UNIDADE"] = work["_cd_unidade"]
         work = work.drop(columns=["_cd_unidade", "cd_unidade"])
@@ -268,12 +302,16 @@ def _resolution_metrics(
     municipios: dict[str, str],
     catalog: MunicipalityCatalog | None,
     declared_ufs: pd.Series | None = None,
+    notification_units: pd.Series | None = None,
+    cnes_lookup: pd.DataFrame | None = None,
+    allow_uf_mismatch: bool = False,
 ) -> dict[str, int]:
     metrics = {
         "scope_matched_rows": 0,
         "invalid_municipality_rows": 0,
         "out_of_scope_rows": 0,
         "uf_mismatch_rows": 0,
+        "cnes_mismatch_rows": 0,
     }
     if catalog is None:
         normalized = normalize_municipality_codes(series, municipios)
@@ -281,17 +319,44 @@ def _resolution_metrics(
         return metrics
     values = series.tolist()
     ufs = declared_ufs.tolist() if declared_ufs is not None else [None] * len(values)
-    for value, declared_uf in zip(values, ufs):
+    units = (
+        _normalize_unit_codes(notification_units).tolist()
+        if notification_units is not None
+        else [None] * len(values)
+    )
+    cnes_by_unit = _cnes_municipality_map(cnes_lookup)
+    for value, declared_uf, unit in zip(values, ufs, units):
         if declared_uf is not None and pd.isna(declared_uf):
             declared_uf = None
         resolution = catalog.resolve(value, declared_uf=declared_uf)
-        if resolution.status.value == "VALID" and resolution.municipality is not None:
-            if resolution.municipality.code7 in municipios:
-                metrics["scope_matched_rows"] += 1
-            else:
+        if resolution.status.value in {"VALID", "UF_MISMATCH"} and resolution.municipality is not None:
+            if resolution.municipality.code7 not in municipios:
                 metrics["out_of_scope_rows"] += 1
+                continue
+            cnes_municipality = cnes_by_unit.get(unit)
+            cnes_mismatch = (
+                cnes_municipality is not None
+                and cnes_municipality != resolution.municipality.code7
+            )
+            if resolution.status.value == "UF_MISMATCH":
+                metrics["uf_mismatch_rows"] += 1
+            uf_without_cnes_confirmation = (
+                resolution.status.value == "UF_MISMATCH"
+                and cnes_lookup is not None
+                and cnes_municipality != resolution.municipality.code7
+            )
+            if cnes_mismatch or uf_without_cnes_confirmation or (
+                resolution.status.value == "UF_MISMATCH"
+                and cnes_lookup is None
+                and not allow_uf_mismatch
+            ):
+                metrics["cnes_mismatch_rows"] += 1
+                metrics["invalid_municipality_rows"] += 1
+                continue
+            metrics["scope_matched_rows"] += 1
         elif resolution.status.value == "UF_MISMATCH":
             metrics["uf_mismatch_rows"] += 1
+            metrics["invalid_municipality_rows"] += 1
         else:
             metrics["invalid_municipality_rows"] += 1
     return metrics
@@ -540,6 +605,7 @@ def aggregate_file(
         "invalid_municipality_rows": 0,
         "out_of_scope_rows": 0,
         "uf_mismatch_rows": 0,
+        "cnes_mismatch_rows": 0,
     }
     with pq.ParquetFile(source) as original:
         schema = _gold_input_schema(original.schema_arrow, selected_columns)
@@ -554,6 +620,7 @@ def aggregate_file(
             current_metrics = _resolution_metrics(
                 batch_frame["ID_MUNICIP"], municipios or legacy_rj_mapping(), catalog,
                 batch_frame.get("SG_UF_NOT"),
+                batch_frame.get("ID_UNIDADE"), cnes_lookup, allow_uf_mismatch,
             )
             for key, value in current_metrics.items():
                 resolution_metrics[key] += value

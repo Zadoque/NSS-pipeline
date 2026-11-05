@@ -232,6 +232,7 @@ def upsert_dim_municipio(
     *,
     catalog=None,
     require_unit_municipalities: bool = False,
+    scope_municipalities: Sequence[str] | None = None,
 ) -> None:
     required = {"cd_mun", "nm_mun", "cd_uf", "nm_uf"}
     if not required.issubset(fact_df.columns):
@@ -268,6 +269,20 @@ def upsert_dim_municipio(
             "Gold referencia municípios CNES fora do recorte de notificações; "
             "publique com uma release IBGE para cadastrar a dimensão canônica"
         )
+    if catalog is not None and scope_municipalities is not None:
+        existing_codes = {row["cd_mun"] for row in rows}
+        for code in scope_municipalities:
+            if code in existing_codes:
+                continue
+            municipality = catalog.get_municipality(code)
+            if municipality is None:
+                raise ValueError(f"município do escopo ausente no catálogo IBGE: {code}")
+            rows.append({
+                "cd_mun": municipality.code7,
+                "nm_mun": municipality.name,
+                "cd_uf": municipality.uf_code,
+                "nm_uf": municipality.uf_name,
+            })
     rows = list({row["cd_mun"]: row for row in rows}.values())
     _upsert(conn, "analytics.dim_municipio", rows, conflict_cols=["cd_mun"])
 
@@ -636,6 +651,7 @@ def load_gold_to_postgres(
             fact_df,
             catalog=ibge_catalog,
             require_unit_municipalities=True,
+            scope_municipalities=scope,
         )
         upsert_dim_unidade_saude(conn, fact_df)
         upsert_dim_classificacao(conn, fact_df)
