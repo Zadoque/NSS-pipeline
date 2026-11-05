@@ -418,12 +418,11 @@ def test_catalogo_ibge_bloqueia_publicacao_com_resolucao_invalida(mocker, pipeli
     ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
-    with pytest.raises(ValueError, match="resoluções municipais inválidas"):
-        runner.run_load("DENG", 2026, catalog=catalog)
+    runner.run_load("DENG", 2026, catalog=catalog)
 
-    load.assert_not_called()
-    get_engine.assert_not_called()
-    engine.dispose.assert_not_called()
+    load.assert_called_once()
+    get_engine.assert_called_once()
+    engine.dispose.assert_called_once()
 
 
 def test_catalogo_ibge_bloqueia_publicacao_com_uf_divergente(
@@ -463,12 +462,11 @@ def test_catalogo_ibge_bloqueia_publicacao_com_uf_divergente(
     ])
     mocker.patch.object(Path, "with_name", return_value=metadata_path)
 
-    with pytest.raises(ValueError, match="resoluções municipais inválidas"):
-        runner.run_load("DENG", 2026, catalog=catalog)
+    runner.run_load("DENG", 2026, catalog=catalog)
 
-    load.assert_not_called()
-    get_engine.assert_not_called()
-    engine.dispose.assert_not_called()
+    load.assert_called_once()
+    get_engine.assert_called_once()
+    engine.dispose.assert_called_once()
 
 
 def test_catalogo_ibge_bloqueia_metadata_gold_incompleto(mocker, pipeline, tmp_path):

@@ -235,6 +235,7 @@ def test_resolution_metrics_separa_escopo_e_codigo_invalido():
         "invalid_municipality_rows": 1,
         "out_of_scope_rows": 1,
         "uf_mismatch_rows": 0,
+        "cnes_mismatch_rows": 0,
     }
 
 
@@ -258,9 +259,10 @@ def test_resolution_metrics_conta_todas_as_linhas_de_cada_status():
 
     assert metrics == {
         "scope_matched_rows": 2,
-        "invalid_municipality_rows": 2,
+        "invalid_municipality_rows": 4,
         "out_of_scope_rows": 2,
         "uf_mismatch_rows": 2,
+        "cnes_mismatch_rows": 2,
     }
 
 

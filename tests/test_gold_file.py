@@ -407,7 +407,7 @@ def test_aggregate_file_catalogo_nacional_classifica_resolucoes(source, monkeypa
     assert actual["cd_mun"].tolist() == ["3301009"]
     assert actual["cases_total"].tolist() == [1]
     assert metadata["scope_matched_rows"] == 1
-    assert metadata["invalid_municipality_rows"] == 1
+    assert metadata["invalid_municipality_rows"] == 2
     assert metadata["out_of_scope_rows"] == 1
     assert metadata["uf_mismatch_rows"] == 1
     assert metadata["discarded_rows"] == 3

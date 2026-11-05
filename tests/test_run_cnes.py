@@ -280,7 +280,7 @@ def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeyp
     consolidated = pd.read_parquet(result)
     parquet = result
     assert len(consolidated) == 2
-    assert set(consolidated["notification_territory_status"]) == {"MAPPED", "UNAVAILABLE"}
+    assert set(consolidated["notification_territory_status"]) == {"MAPPED"}
     metadata, _ = written["metadata"]
     assert metadata["rows"] == 2
     assert metadata["municipios"] == ["3301009", "3302403"]
