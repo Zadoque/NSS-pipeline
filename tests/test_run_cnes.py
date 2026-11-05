@@ -659,15 +659,15 @@ def test_territory_asset_registry_prefers_ibge_and_falls_back_to_official_rj(tmp
     root = tmp_path / "territories"
     fallback = root / "rj-official" / "3301009"
     fallback.mkdir(parents=True)
-    for filename in ("districts.geojson", "neighborhoods.geojson"):
-        (fallback / filename).write_text("{}", encoding="utf-8")
+    (fallback / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
+    (fallback / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
 
     assert asset_directory("3301009", root=root) == fallback
 
     ibge = root / "rj" / "3301009"
     ibge.mkdir(parents=True)
-    for filename in ("districts.geojson", "neighborhoods.geojson"):
-        (ibge / filename).write_text("{}", encoding="utf-8")
+    (ibge / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
+    (ibge / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
     assert asset_directory("3301009", root=root) == ibge
 
 
