@@ -22,8 +22,8 @@ NEIGHBORHOOD = "NOTIFICATION_NEIGHBORHOOD"
 class TerritoryMapper:
     def __init__(self, assets_dir: Path) -> None:
         self.assets_dir = Path(assets_dir)
-        self.districts = self._load("campos-districts.geojson")
-        self.neighborhoods = self._load("campos-neighborhoods.geojson")
+        self.districts = self._load("districts.geojson")
+        self.neighborhoods = self._load("neighborhoods.geojson")
 
     def _load(self, filename: str) -> list[tuple[dict, object]]:
         payload = json.loads((self.assets_dir / filename).read_text(encoding="utf-8"))

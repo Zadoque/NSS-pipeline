@@ -49,10 +49,10 @@ def _feature(territory_id, coordinates, **properties):
 def test_territory_mapper_classifies_neighborhood_district_and_invalid_point(tmp_path):
     square = [(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)]
     inner = [(1, 1), (4, 1), (4, 4), (1, 4), (1, 1)]
-    (tmp_path / "campos-districts.geojson").write_text(
+    (tmp_path / "districts.geojson").write_text(
         json.dumps(_geojson([_feature("D1", square)])), encoding="utf-8"
     )
-    (tmp_path / "campos-neighborhoods.geojson").write_text(
+    (tmp_path / "neighborhoods.geojson").write_text(
         json.dumps(_geojson([_feature("N1", inner, parentDistrictId="D1")])),
         encoding="utf-8",
     )
@@ -67,16 +67,16 @@ def test_territory_mapper_classifies_neighborhood_district_and_invalid_point(tmp
 
 def test_territory_mapper_load_preserva_propriedades_e_geometrias(tmp_path):
     square = [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]
-    (tmp_path / "campos-districts.geojson").write_text(
+    (tmp_path / "districts.geojson").write_text(
         json.dumps(_geojson([_feature("D1", square, name="Centro")])),
         encoding="utf-8",
     )
-    (tmp_path / "campos-neighborhoods.geojson").write_text(
+    (tmp_path / "neighborhoods.geojson").write_text(
         json.dumps(_geojson([])), encoding="utf-8"
     )
 
     mapper = TerritoryMapper(tmp_path)
-    properties, geometry = mapper._load("campos-districts.geojson")[0]
+    properties, geometry = mapper._load("districts.geojson")[0]
 
     assert properties == {"territoryId": "D1", "name": "Centro"}
     assert geometry.covers(Point(0.5, 0.5))
@@ -100,8 +100,8 @@ def test_territory_mapper_load_explicita_utf8(monkeypatch, tmp_path):
 def test_enrich_cnes_territories_preserves_index_and_adds_contract_columns(tmp_path):
     square = [(0, 0), (2, 0), (2, 2), (0, 2), (0, 0)]
     for filename, features in (
-        ("campos-districts.geojson", [_feature("D1", square)]),
-        ("campos-neighborhoods.geojson", []),
+        ("districts.geojson", [_feature("D1", square)]),
+        ("neighborhoods.geojson", []),
     ):
         (tmp_path / filename).write_text(
             json.dumps(_geojson(features)), encoding="utf-8"

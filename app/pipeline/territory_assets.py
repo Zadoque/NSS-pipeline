@@ -2,14 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-TERRITORY_ASSETS: dict[str, Path] = {
-    "3301009": Path("territories"),
-}
-
 
 def asset_directory(cod_municipio: str, *, root: Path) -> Path | None:
-    relative = TERRITORY_ASSETS.get(cod_municipio)
-    if relative is None:
+    # Os arquivos são separados por município para impedir que uma coordenada
+    # limítrofe seja classificada no município vizinho.
+    if not str(cod_municipio).startswith("33"):
         return None
-    candidate = root.parent / relative if relative.parts[0] != root.name else root / Path(*relative.parts[1:])
+    candidate = root / "rj" / str(cod_municipio)
     return candidate if candidate.exists() else None
