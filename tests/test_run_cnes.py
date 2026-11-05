@@ -653,6 +653,24 @@ def test_territory_asset_registry_only_maps_configured_municipalities(tmp_path):
     assert asset_directory("9999999", root=tmp_path / "territories") is None
 
 
+def test_territory_asset_registry_prefers_ibge_and_falls_back_to_official_rj(tmp_path):
+    from app.pipeline.territory_assets import asset_directory
+
+    root = tmp_path / "territories"
+    fallback = root / "rj-official" / "3301009"
+    fallback.mkdir(parents=True)
+    for filename in ("districts.geojson", "neighborhoods.geojson"):
+        (fallback / filename).write_text("{}", encoding="utf-8")
+
+    assert asset_directory("3301009", root=root) == fallback
+
+    ibge = root / "rj" / "3301009"
+    ibge.mkdir(parents=True)
+    for filename in ("districts.geojson", "neighborhoods.geojson"):
+        (ibge / filename).write_text("{}", encoding="utf-8")
+    assert asset_directory("3301009", root=root) == ibge
+
+
 def test_run_cnes_rejects_empty_api_response(monkeypatch):
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: pd.DataFrame())
 
