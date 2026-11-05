@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import fcntl
+import hashlib
 import os
 import tempfile
 from contextlib import contextmanager
@@ -48,6 +49,7 @@ class RemoteSinanFile:
     year: int
     path: str
     size_bytes: int
+    sha256: str | None = None
 
     @property
     def local_path(self) -> Path:
@@ -76,12 +78,32 @@ def inspect_remote_file(disease: str, year: int) -> RemoteSinanFile:
     item = parquet_files[0]
     if item.size is None or int(item.size) < 0:
         raise RuntimeError(f"Tamanho remoto inválido para {item.path}: {item.size!r}")
-    return RemoteSinanFile(disease, year, str(item.path), int(item.size))
+    sha256 = getattr(item, "sha256", None)
+    if sha256 is not None:
+        sha256 = str(sha256).strip().lower() or None
+        if sha256 is not None and len(sha256) != 64:
+            raise RuntimeError(f"Checksum SHA-256 remoto inválido para {item.path}")
+        if sha256 is not None:
+            try:
+                int(sha256, 16)
+            except ValueError as exc:
+                raise RuntimeError(f"Checksum SHA-256 remoto inválido para {item.path}") from exc
+    return RemoteSinanFile(disease, year, str(item.path), int(item.size), sha256)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def is_changed(remote: RemoteSinanFile) -> bool:
     try:
-        return remote.local_path.stat().st_size != remote.size_bytes
+        if remote.local_path.stat().st_size != remote.size_bytes:
+            return True
+        return remote.sha256 is not None and sha256_file(remote.local_path) != remote.sha256
     except FileNotFoundError:
         return True
 
@@ -105,6 +127,12 @@ def download_remote_file(remote: RemoteSinanFile) -> Path:
             raise RuntimeError(
                 f"Tamanho baixado divergente para {remote.path}: "
                 f"esperado={remote.size_bytes}, obtido={downloaded_size}"
+            )
+        downloaded_sha256 = sha256_file(temporary_path)
+        if remote.sha256 is not None and downloaded_sha256 != remote.sha256:
+            raise RuntimeError(
+                f"Checksum SHA-256 baixado divergente para {remote.path}: "
+                f"esperado={remote.sha256}, obtido={downloaded_sha256}"
             )
         os.replace(temporary_path, destination)
         return destination

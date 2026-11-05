@@ -9,6 +9,7 @@ from app.pipeline.sinan.source import (
     SinanSourceUnavailable,
     _pysus_cache_lock,
     is_changed,
+    sha256_file,
 )
 from app.pipeline.sinan import source
 
@@ -23,6 +24,24 @@ def test_remote_file_detects_missing_or_different_local_size(tmp_path, monkeypat
     assert is_changed(remote) is False
     remote.local_path.write_bytes(b"different")
     assert is_changed(remote) is True
+
+
+def test_remote_file_detects_conteudo_diferente_com_mesmo_tamanho(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
+    payload = b"1234"
+    remote = RemoteSinanFile(
+        "FMAC", 2026, "FMACBR26.parquet", len(payload), sha256_file_from_bytes(payload)
+    )
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"5678")
+
+    assert is_changed(remote) is True
+
+
+def sha256_file_from_bytes(payload: bytes) -> str:
+    import hashlib
+
+    return hashlib.sha256(payload).hexdigest()
 
 
 def test_remote_file_path_is_stable():
@@ -48,6 +67,19 @@ def test_inspect_remote_file_normaliza_doenca_e_ignora_nao_parquet(mocker):
 
     assert result == RemoteSinanFile("DENG", 2026, "DENG.parquet", 42)
     mocked.assert_called_once_with(disease="DENG", year=2026, download=False)
+
+
+def test_inspect_remote_file_preserva_sha256_do_catalogo(mocker):
+    checksum = "A" * 64
+    mocker.patch.object(
+        source.pysus.ftp,
+        "sinan",
+        return_value=[SimpleNamespace(path="DENG.parquet", size=42, sha256=checksum)],
+    )
+
+    result = source.inspect_remote_file("deng", 2026)
+
+    assert result.sha256 == checksum.lower()
 
 
 @pytest.mark.parametrize("catalog", [[], [SimpleNamespace(path="a.parquet", size=1), SimpleNamespace(path="b.parquet", size=2)]])
@@ -98,6 +130,28 @@ def test_download_remote_file_valida_tamanho_e_remove_temporario(tmp_path, monke
 
     assert not remote.local_path.exists()
     assert not list(remote.local_path.parent.glob(".download-*.parquet"))
+
+
+def test_download_remote_file_valida_sha256(tmp_path, monkeypatch):
+    monkeypatch.setattr(source, "SOURCE_DIR", tmp_path / "cache")
+    payload = b"payload"
+    remote = RemoteSinanFile(
+        "DENG", 2026, "DENG.parquet", len(payload), sha256_file_from_bytes(b"other")
+    )
+
+    async def download(*, output):
+        output.write_bytes(payload)
+
+    monkeypatch.setattr(
+        source.pysus.ftp,
+        "sinan",
+        lambda **kwargs: [SimpleNamespace(path="DENG.parquet", download=download)],
+    )
+
+    with pytest.raises(RuntimeError, match="Checksum SHA-256 baixado divergente"):
+        source.download_remote_file(remote)
+
+    assert not remote.local_path.exists()
 
 
 def test_download_remote_file_pode_ser_repetido_no_mesmo_diretorio(tmp_path, monkeypatch):

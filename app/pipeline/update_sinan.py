@@ -21,6 +21,7 @@ from .sinan.source import (
     download_remote_file,
     inspect_remote_file,
     is_changed,
+    sha256_file,
 )
 
 # O catálogo operacional acompanha todos os grupos SINAN publicados pelo
@@ -86,7 +87,11 @@ def update_one(
     key = f"{remote.disease}:{remote.year}"
     catalog_id = catalog.metadata.catalog_id if catalog else None
     catalog_sha256 = catalog.metadata.sha256 if catalog else None
-    known_snapshot = manifest.get(key, {}).get("remoteSizeBytes") == remote.size_bytes
+    previous = manifest.get(key, {})
+    if remote.sha256 is not None:
+        known_snapshot = previous.get("remoteSha256") == remote.sha256
+    else:
+        known_snapshot = previous.get("remoteSizeBytes") == remote.size_bytes
     if catalog is not None:
         known_snapshot = known_snapshot and (
             manifest.get(key, {}).get("ibgeCatalogId") == catalog_id
@@ -96,8 +101,10 @@ def update_one(
         manifest[key] = {
             "remotePath": remote.path,
             "remoteSizeBytes": remote.size_bytes,
+            "remoteSha256": remote.sha256,
             "localPath": str(remote.local_path),
             "localSizeBytes": remote.local_path.stat().st_size,
+            "localSha256": sha256_file(remote.local_path),
             "checkedAt": datetime.now(UTC).isoformat(),
             "status": "UNCHANGED",
             "ibgeCatalogId": catalog_id,
@@ -119,8 +126,10 @@ def update_one(
     manifest[key] = {
         "remotePath": remote.path,
         "remoteSizeBytes": remote.size_bytes,
+        "remoteSha256": remote.sha256,
         "localPath": str(local_path),
         "localSizeBytes": local_path.stat().st_size,
+        "localSha256": sha256_file(local_path),
         "updatedAt": datetime.now(UTC).isoformat(),
         "status": "UPDATED",
         "ibgeCatalogId": catalog_id,
