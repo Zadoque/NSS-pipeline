@@ -5,35 +5,42 @@ from pathlib import Path
 
 
 def asset_directory(cod_municipio: str, *, root: Path) -> Path | None:
-    """Resolve a malha territorial seguindo a precedência institucional.
+    """Resolve a malha pela precedência IBGE -> oficial -> OpenStreetMap.
 
-    1. IBGE: malha intramunicipal oficial versionada em ``rj/<codigo>``;
-    2. Prefeitura/órgão estadual: fallback versionado em
-       ``rj-official/<codigo>``;
-    3. OpenStreetMap: último fallback versionado em ``rj-osm/<codigo>``.
-
-    O fallback precisa conter os dois arquivos GeoJSON (distritos e bairros).
-    Isso evita combinar bairros de uma fonte com distritos de outra sem uma
-    validação explícita dos identificadores dos distritos.
+    O layout nacional usa ``ibge/<codigo>``, ``official/<codigo>`` e
+    ``osm/<codigo>``. Os diretórios legados ``rj``, ``rj-official`` e
+    ``rj-osm`` continuam sendo aceitos para os ativos RJ já versionados.
+    A camada de bairros só é selecionada quando existe junto com a camada de
+    distritos; assim nunca combinamos bairros e distritos de fontes distintas.
     """
-    if not str(cod_municipio).startswith("33"):
+    municipality = str(cod_municipio)
+    if len(municipality) != 7 or not municipality.isdigit():
         return None
 
-    municipality = str(cod_municipio)
-    ibge = root / "rj" / municipality
-    if _has_complete_assets(ibge, require_neighborhoods=True):
-        return ibge
+    candidates = [
+        root / "ibge" / municipality,
+        root / "official" / municipality,
+        root / "osm" / municipality,
+    ]
+    if municipality.startswith("33"):
+        candidates.extend(
+            [
+                root / "rj" / municipality,
+                root / "rj-official" / municipality,
+                root / "rj-osm" / municipality,
+            ]
+        )
 
-    official = root / "rj-official" / municipality
-    if _has_complete_assets(official, require_neighborhoods=True):
-        return official
+    for candidate in candidates:
+        if _has_complete_assets(candidate, require_neighborhoods=True):
+            return candidate
 
-    osm = root / "rj-osm" / municipality
-    if _has_complete_assets(osm, require_neighborhoods=True):
-        return osm
-
-    # Mesmo sem bairros, o IBGE ainda permite classificar o distrito.
-    return ibge if _has_complete_assets(ibge) else None
+    # Mesmo sem bairros, a malha de distritos permite a classificação
+    # distrital e torna explícita a ausência de uma camada intramunicipal.
+    for candidate in candidates:
+        if _has_complete_assets(candidate):
+            return candidate
+    return None
 
 
 def _has_complete_assets(directory: Path, *, require_neighborhoods: bool = False) -> bool:

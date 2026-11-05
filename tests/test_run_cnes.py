@@ -671,6 +671,25 @@ def test_territory_asset_registry_prefers_ibge_and_falls_back_to_official_rj(tmp
     assert asset_directory("3301009", root=root) == ibge
 
 
+def test_territory_asset_registry_supports_national_precedence(tmp_path):
+    from app.pipeline.territory_assets import asset_directory
+
+    root = tmp_path / "territories"
+    osm = root / "osm" / "3550308"
+    official = root / "official" / "3550308"
+    ibge = root / "ibge" / "3550308"
+    for directory in (osm, official, ibge):
+        directory.mkdir(parents=True)
+        (directory / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
+        (directory / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+
+    assert asset_directory("3550308", root=root) == ibge
+    (ibge / "neighborhoods.geojson").write_text('{"features": []}', encoding="utf-8")
+    assert asset_directory("3550308", root=root) == official
+    (official / "neighborhoods.geojson").write_text('{"features": []}', encoding="utf-8")
+    assert asset_directory("3550308", root=root) == osm
+
+
 def test_run_cnes_rejects_empty_api_response(monkeypatch):
     monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: pd.DataFrame())
 
