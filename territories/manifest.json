@@ -1,7 +1,7 @@
 {
   "source": "NSS-front-end public/maps/national",
   "ibgeMunicipalities": 5571,
-  "osmMunicipalities": 20,
+  "osmMunicipalities": 1324,
   "precedence": [
     "ibge",
     "official",
