@@ -7,8 +7,8 @@ from typing import Sequence, Union
 
 from alembic import op
 
-revision: str = "0001"
-down_revision: Union[str, None] = None
+revision: str = "0017"
+down_revision: Union[str, None] = "0016"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -22,7 +22,7 @@ def upgrade() -> None:
             especie                 VARCHAR(20)     NOT NULL,
             sexo_animal             VARCHAR(20)     NOT NULL,
             idade_animal            VARCHAR(20)     NOT NULL,
-            castrado                VARCHAR(20)     NOT NULL,
+            castrado                VARCHAR(20)     NOT NULL
         )
     """)
 
