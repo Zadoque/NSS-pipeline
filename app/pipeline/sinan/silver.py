@@ -14,7 +14,7 @@ import pyarrow.parquet as pq
 from ..atomic_io import write_json_atomic
 from .columns import CATALOG, present_keys, required_keys, resolve_dedup_strategy
 
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 DEFAULT_BATCH_SIZE = 50_000
 DEFAULT_MEMORY_LIMIT = "512MB"
 SOURCE_ROW_COLUMN = "_source_row"

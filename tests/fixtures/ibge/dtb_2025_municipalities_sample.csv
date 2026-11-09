@@ -1,0 +1,13 @@
+TÍTULO : BET - BANCO DE ESTRUTURAS TERRITORIAIS,,,,,,,,
+RELATÓRIO DE DIVISÃO TERRITORIAL BRASILEIRA,,,,,,,,
+UF: 99 - BRASIL,,,,,,,,
+DATA BASE: 31/12/2025,,,,,,,,
+,,,,,,,,
+,,,,,,,,
+UF,Nome_UF,Região Geográfica Intermediária,Nome Região Geográfica Intermediária,Região Geográfica Imediata,Nome Região Geográfica Imediata,Município,Código Município Completo,Nome_Município
+33,Rio de Janeiro,3306,Região Norte Fluminense,330005,Campos dos Goytacazes,00100,3301009,Campos dos Goytacazes
+33,Rio de Janeiro,3306,Região Norte Fluminense,330006,Itaperuna,00220,3302205,Itaperuna
+35,São Paulo,3501,São Paulo,350001,São Paulo,03080,3550308,São Paulo
+13,Amazonas,1301,Manaus,130001,Manaus,00160,1302603,Manaus
+24,Rio Grande do Norte,2401,Natal,240001,Natal,00170,2401701,Bom Jesus
+25,Paraíba,2501,João Pessoa,250001,João Pessoa,00220,2502201,Bom Jesus

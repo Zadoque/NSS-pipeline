@@ -1,0 +1,965 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from unittest.mock import Mock
+
+import pandas as pd
+import pytest
+import requests
+
+from app.pipeline import run_cnes as pipeline
+from app.pipeline.run_cnes import (
+    _canonicalize_municipalities,
+    _classify_cnes_error,
+    _parallel_fetch_batches,
+    _validate_checkpoint_completed,
+    _validate_checkpoint_failed,
+    _validate_cnes_municipality_resolution,
+)
+from app.pipeline.reference.ibge.models import Municipality, ResolutionResult, ResolutionStatus
+
+
+def _bronze(code: str, municipality_code: str = "3301009") -> pd.DataFrame:
+    return pd.DataFrame({"codigo_cnes": [code], "codigo_municipio": [municipality_code]})
+
+
+def _silver(code: str) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "cd_unidade": [code],
+            "nm_unidade": [f"Unidade {code}"],
+            "municipality_resolution_status": ["VALID"],
+        }
+    )
+
+
+def test_run_cnes_publica_falha_fatal_sem_substituir_excecao(mocker):
+    mocker.patch.object(pipeline, "_run_cnes", side_effect=RuntimeError("CNES indisponível"))
+    export = mocker.patch.object(pipeline, "export_stage_metrics")
+
+    with pytest.raises(RuntimeError, match="CNES indisponível"):
+        pipeline.run_cnes({"3301009": "Campos"})
+
+    export.assert_called_once()
+    assert export.call_args.kwargs["pipeline"] == "cnes"
+    assert export.call_args.kwargs["layer"] == "silver"
+    assert export.call_args.kwargs["status"] == "failure"
+    assert export.call_args.kwargs["extra"] == {"scope": "LEGACY", "batch_status": "FATAL"}
+
+
+def test_validate_checkpoint_completed_rejeita_tipo_com_mensagem_exata():
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_completed([], {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_validate_checkpoint_completed_aceita_entrada_completa():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "a" * 64,
+            "rows": 0,
+        },
+    }
+    assert _validate_checkpoint_completed(completed, {"3301009": "Campos"}) == completed
+
+
+@pytest.mark.parametrize("status", ["UNKNOWN_CODE", "INVALID_FORMAT", "OUT_OF_SCOPE", None])
+def test_validate_cnes_municipality_resolution_rejeita_status_nao_resolvido(status):
+    silver = pd.DataFrame({"municipality_resolution_status": [status]})
+    with pytest.raises(ValueError, match="CNES retornou"):
+        _validate_cnes_municipality_resolution(
+            silver, catalog=Mock(), municipality_code7="3301009",
+        )
+
+
+def test_validate_cnes_municipality_resolution_nomeia_status_ausente():
+    silver = pd.DataFrame({"municipality_resolution_status": [None]})
+
+    with pytest.raises(ValueError, match=r"\['MISSING'\]"):
+        _validate_cnes_municipality_resolution(
+            silver, catalog=Mock(), municipality_code7="3301009",
+        )
+
+
+def test_validate_cnes_municipality_resolution_rejeita_coluna_ausente_com_codigo():
+    with pytest.raises(ValueError, match="CNES sem status.*3301009"):
+        _validate_cnes_municipality_resolution(
+            pd.DataFrame({"cd_unidade": ["1"]}),
+            catalog=Mock(),
+            municipality_code7="3301009",
+        )
+
+
+def test_canonicalize_municipalities_rejeita_status_invalido_mesmo_com_municipio():
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = Mock()
+    catalog.resolve.return_value = ResolutionResult(
+        original_code="3301009",
+        input_format="CODE7",
+        status=ResolutionStatus.UNKNOWN_CODE,
+        municipality=municipality,
+    )
+
+    with pytest.raises(ValueError, match="município CNES inválido"):
+        _canonicalize_municipalities({"3301009": "Campos"}, catalog)
+
+
+def test_canonicalize_municipalities_devolve_identidade_canonica():
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = Mock()
+    catalog.resolve.return_value = ResolutionResult(
+        original_code="330100",
+        input_format="CODE6",
+        status=ResolutionStatus.VALID,
+        municipality=municipality,
+    )
+
+    assert _canonicalize_municipalities({"330100": "Campos"}, catalog) == {
+        "3301009": "Campos",
+    }
+
+def test_validate_checkpoint_completed_rejeita_entrada_nao_objeto():
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_completed({"3301009": []}, {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+@pytest.mark.parametrize("bronze_path", [123, ""])
+def test_validate_checkpoint_completed_rejeita_caminho_bronze_invalido(bronze_path):
+    completed = {
+        "3301009": {
+            "bronze_path": bronze_path,
+            "bronze_sha256": "a" * 64,
+            "rows": 0,
+        },
+    }
+
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+
+@pytest.mark.parametrize("rows", [True, -1])
+def test_validate_checkpoint_completed_rejeita_rows_nao_validos(rows):
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "a" * 64,
+            "rows": rows,
+        },
+    }
+
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+
+def test_validate_checkpoint_completed_nao_aceita_hash_invalido_com_rows_validos():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "x" * 64,
+            "rows": 0,
+        },
+    }
+
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_validate_checkpoint_completed_aceita_hash_hexadecimal_maiusculo():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "ABCDEF" * 10 + "ABCD",
+            "rows": 0,
+        },
+    }
+
+    assert _validate_checkpoint_completed(completed, {"3301009": "Campos"}) == completed
+
+
+def test_validate_checkpoint_completed_rejeita_caractere_fora_do_hexadecimal():
+    completed = {
+        "3301009": {
+            "bronze_path": "bronze.parquet",
+            "bronze_sha256": "X" * 64,
+            "rows": 0,
+        },
+    }
+
+    with pytest.raises(ValueError, match="completed inválido"):
+        _validate_checkpoint_completed(completed, {"3301009": "Campos"})
+
+
+@pytest.mark.parametrize(
+    "failed",
+    [
+        [],
+        {"3301009": []},
+        {"3301009": {"error_type": "", "error_message": "falha"}},
+        {"3301009": {"error_type": "API_ERROR", "error_message": ""}},
+        {"3301009": {"error_type": None, "error_message": "falha"}},
+        {"3301009": {"error_type": "API_ERROR", "error_message": None}},
+    ],
+)
+def test_validate_checkpoint_failed_rejeita_entradas_invalidas(failed):
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_failed(failed, {"3301009": "Campos"})
+
+    assert str(error.value) == "checkpoint CNES com failed inválido"
+
+
+def test_validate_checkpoint_failed_rejeita_falha_fora_do_escopo_com_mensagem_exata():
+    with pytest.raises(ValueError) as error:
+        _validate_checkpoint_failed(
+            {"3302403": {"error_type": "API_ERROR", "error_message": "falha"}},
+            {"3301009": "Campos"},
+        )
+
+    assert str(error.value) == "checkpoint CNES contém falha fora do escopo"
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (requests.exceptions.Timeout(), "NETWORK_ERROR"),
+        (requests.exceptions.ConnectionError(), "NETWORK_ERROR"),
+        (requests.exceptions.HTTPError(), "HTTP_ERROR"),
+        (ValueError("schema"), "VALIDATION_ERROR"),
+        (RuntimeError("API"), "API_ERROR"),
+        (Exception("inesperado"), "PROCESSING_ERROR"),
+    ],
+)
+def test_classify_cnes_error_preserva_contrato_de_observabilidade(error, expected):
+    assert _classify_cnes_error(error) == expected
+
+
+def test_run_cnes_publishes_consolidated_snapshot_and_metadata(tmp_path, monkeypatch):
+    calls: list[tuple[str, object]] = []
+    fetch_calls: list[tuple[str, dict]] = []
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: fetch_calls.append((code, kwargs)) or _bronze(code),
+    )
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda df, code, run_at: calls.append(("bronze", code)))
+    monkeypatch.setattr(
+        pipeline,
+        "transform_cnes",
+        lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "enrich_cnes_territories", lambda df, assets: df.assign(notification_territory_status="MAPPED"))
+    monkeypatch.setattr(
+        pipeline.pd,
+        "concat",
+        lambda *args, **kwargs: pytest.fail("consolidação CNES não deve usar pd.concat"),
+    )
+
+    written: dict[str, object] = {}
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda df, path: written.update(parquet=(df.copy(), path)))
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda data, path: written.update(metadata=(data, path)))
+
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"},
+        page_size=1,
+        request_timeout=1,
+    )
+
+    assert isinstance(result, Path)
+    assert [kind for kind, _ in calls] == ["bronze", "bronze"]
+    assert [code for code, _ in fetch_calls] == ["3301009", "3302403"]
+    assert all(kwargs["limit"] == 1 for _, kwargs in fetch_calls)
+    assert all(kwargs["timeout"] == 1 for _, kwargs in fetch_calls)
+    assert fetch_calls[0][1]["session"] is fetch_calls[1][1]["session"]
+    consolidated = pd.read_parquet(result)
+    parquet = result
+    assert len(consolidated) == 2
+    assert set(consolidated["notification_territory_status"]) == {"MAPPED"}
+    metadata, _ = written["metadata"]
+    assert metadata["rows"] == 2
+    assert metadata["municipios"] == ["3301009", "3302403"]
+    assert metadata["cnes_page_size"] == 1
+    assert metadata["cnes_request_timeout"] == 1
+    assert metadata["ingested_at"].endswith("+00:00")
+    assert parquet == result
+
+
+def test_run_cnes_uses_explicit_geographic_scope_without_catalog(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.models import Municipality
+    from app.pipeline.scope import GeographicScope
+
+    scope = GeographicScope((
+        Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+    ))
+    calls: list[str] = []
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: calls.append(code) or _bronze(code))
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes(geographic_scope=scope)
+
+    assert calls == ["3301009"]
+
+
+def test_run_cnes_respeita_municipios_explicitos_com_catalogo(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: calls.append(code) or _bronze(code),
+    )
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes({"3302403": "Macaé"}, catalog=catalog)
+
+    assert calls == ["3302403"]
+
+
+def test_run_cnes_rejeita_nome_explicito_divergente_do_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+
+    with pytest.raises(ValueError, match="nome municipal diverge"):
+        pipeline.run_cnes({"3301009": "Nome incorreto"}, catalog=catalog)
+
+
+def test_run_cnes_rejeita_escopo_de_catalogo_diferente():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    stale_scope = GeographicScope((Municipality(
+        "3301009", "330100", "Nome antigo", "33", "RJ", "Rio", 2024,
+    ),))
+
+    with pytest.raises(ValueError, match="não corresponde"):
+        pipeline.run_cnes(catalog=catalog, geographic_scope=stale_scope)
+
+
+def test_run_cnes_bloqueia_estabelecimento_de_municipio_diferente(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = InMemoryMunicipalityCatalog(
+        [municipality, Municipality("3305000", "330500", "São João da Barra", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope((municipality,))
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: pd.DataFrame({
+            "codigo_cnes": [12], "codigo_municipio": ["330500"],
+        }),
+    )
+
+    with pytest.raises(ValueError, match="fora do município solicitado"):
+        pipeline.run_cnes(catalog=catalog, geographic_scope=scope)
+
+
+def test_run_cnes_checkpoint_binds_ibge_release_identity(tmp_path, monkeypatch, mocker):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.scope import GeographicScope
+
+    municipality = Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)
+    catalog = InMemoryMunicipalityCatalog(
+        [municipality],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "a" * 64),
+    )
+    scope = GeographicScope((municipality,))
+    checkpoint = tmp_path / "catalog-checkpoint.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": "ibge-dtb-2025",
+            "ibge_catalog_sha256": "a" * 64,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {},
+        }),
+        encoding="utf-8",
+    )
+    request_session = mocker.Mock()
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "session_with_retries", lambda: request_session)
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code, **kwargs: _bronze(code),
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "transform_cnes",
+        lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes(
+        catalog=catalog,
+        geographic_scope=scope,
+        checkpoint_path=checkpoint,
+    )
+
+    request_session.close.assert_called_once()
+
+
+def test_run_cnes_rejects_empty_scope():
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({})
+    assert str(error.value) == "Informe ao menos um município para a carga CNES"
+
+
+@pytest.mark.parametrize("page_size", [0, -1, True, 1.0])
+def test_run_cnes_rejects_invalid_page_size(page_size, monkeypatch):
+    def unexpected_network_call(code):
+        raise AssertionError(f"a validação deveria bloquear antes da rede: {code}")
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", unexpected_network_call)
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, page_size=page_size)
+    assert str(error.value) == "page_size CNES deve ser um inteiro maior que zero"
+
+
+@pytest.mark.parametrize("timeout", [0, -1])
+def test_run_cnes_rejects_non_positive_timeout(timeout, monkeypatch):
+    def unexpected_network_call(code):
+        raise AssertionError(f"a validação deveria bloquear antes da rede: {code}")
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", unexpected_network_call)
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, request_timeout=timeout)
+    assert str(error.value) == "request_timeout CNES deve ser maior que zero"
+
+
+@pytest.mark.parametrize("timeout", [True, "60"])
+def test_run_cnes_rejects_invalid_timeout_type(timeout, monkeypatch):
+    monkeypatch.setattr(
+        pipeline,
+        "fetch_estabelecimentos",
+        lambda code: (_ for _ in ()).throw(AssertionError(f"rede inesperada: {code}")),
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, request_timeout=timeout)
+    assert str(error.value) == "request_timeout CNES deve ser maior que zero"
+
+
+def test_run_cnes_cli_requires_catalog_for_explicit_scope(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["run_cnes", "--ufs", "SP"])
+    with pytest.raises(SystemExit, match="1"):
+        pipeline.main()
+
+
+def test_run_cnes_cli_passes_selected_ufs_and_page_size(mocker, monkeypatch, tmp_path):
+    catalog = mocker.Mock()
+    selected = mocker.Mock()
+    mocker.patch.object(pipeline, "load_active_catalog", return_value=catalog)
+    select = mocker.patch.object(pipeline, "select_scope", return_value=selected)
+    runner = mocker.patch.object(pipeline, "run_cnes")
+    monkeypatch.setattr(
+        sys, "argv", [
+            "run_cnes", "--catalog-root", str(tmp_path), "--ufs", "SP,MG",
+        "--page-size", "250", "--request-timeout", "12",
+        ],
+    )
+
+    pipeline.main()
+
+    select.assert_called_once_with(catalog, municipalities=None, ufs=["SP", "MG"], all_brazil=False)
+    runner.assert_called_once_with(
+        catalog=catalog, geographic_scope=selected, page_size=250, request_timeout=12.0,
+        continue_on_error=False, workers=1,
+    )
+
+
+def test_run_cnes_cli_exige_catalogo_nacional_para_all_brazil(mocker, monkeypatch, tmp_path):
+    catalog = mocker.Mock()
+    selected = mocker.Mock()
+    mocker.patch.object(pipeline, "load_active_catalog", return_value=catalog)
+    select = mocker.patch.object(pipeline, "select_scope", return_value=selected)
+    runner = mocker.patch.object(pipeline, "run_cnes")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["run_cnes", "--catalog-root", str(tmp_path), "--all-brazil"],
+    )
+
+    pipeline.main()
+
+    select.assert_called_once_with(
+        catalog,
+        municipalities=None,
+        ufs=None,
+        all_brazil=True,
+        require_national=True,
+    )
+    runner.assert_called_once()
+
+
+def test_run_cnes_paralleliza_buscas_em_janelas_limitadas(tmp_path, monkeypatch, mocker):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    sessions = []
+    calls = []
+
+    def make_session():
+        session = mocker.Mock()
+        sessions.append(session)
+        return session
+
+    monkeypatch.setattr(pipeline, "session_with_retries", make_session)
+    monkeypatch.setattr(
+        pipeline, "fetch_estabelecimentos",
+        lambda code, **kwargs: calls.append((code, kwargs["session"])) or _bronze(code),
+    )
+    monkeypatch.setattr(
+        pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé", "3302205": "Itaperuna"},
+        workers=2,
+    )
+
+    assert result.exists()
+    assert [code for code, _ in calls] == ["3301009", "3302403", "3302205"]
+    assert len(sessions) == 3
+    assert {session.close.call_count for session in sessions} == {1}
+
+
+def test_parallel_fetch_batches_encaminha_parametros_a_cada_worker(mocker):
+    catalog = Mock()
+    sessions = []
+    calls = []
+
+    def make_session():
+        session = mocker.Mock()
+        sessions.append(session)
+        return session
+
+    monkeypatch = mocker.patch.object(pipeline, "session_with_retries", side_effect=make_session)
+    fetch = mocker.patch.object(
+        pipeline,
+        "fetch_estabelecimentos",
+        side_effect=lambda code, **kwargs: calls.append((code, kwargs)) or _bronze(code),
+    )
+
+    result = list(_parallel_fetch_batches(
+        ["M1", "M2"], page_size=17, catalog=catalog,
+        request_timeout=3.5, workers=2,
+    ))
+
+    assert [code for code, _ in result] == ["M1", "M2"]
+    assert [code for code, _ in calls] == ["M1", "M2"]
+    assert all(call["limit"] == 17 for _, call in calls)
+    assert all(call["catalog"] is catalog for _, call in calls)
+    assert all(call["timeout"] == 3.5 for _, call in calls)
+    assert {call["session"] for _, call in calls} == set(sessions)
+    assert fetch.call_count == 2
+    assert {session.close.call_count for session in sessions} == {1}
+    assert monkeypatch.call_count == 2
+
+
+def test_run_cnes_workers_rejeita_sessao_compartilhada(mocker):
+    with pytest.raises(ValueError, match="sessão compartilhada"):
+        pipeline.run_cnes(
+            {"3301009": "Campos"}, workers=2, session=mocker.Mock(),
+        )
+
+
+def test_run_cnes_uses_configured_page_size_with_catalog(mocker, tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025),
+            Municipality("3305000", "330500", "São João da Barra", "33", "RJ", "Rio", 2025),
+            Municipality("3302205", "330220", "Itaperuna", "33", "RJ", "Rio", 2025),
+            Municipality("3302403", "330240", "Macaé", "33", "RJ", "Rio", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    calls = []
+    request_session = mocker.Mock()
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(pipeline, "session_with_retries", lambda: request_session)
+    monkeypatch.setattr(pipeline, "write_bronze_cnes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_parquet_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pipeline, "write_json_atomic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        pipeline, "fetch_estabelecimentos",
+        lambda code, **kwargs: calls.append((code, kwargs)) or _bronze(code, code),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    pipeline.run_cnes(catalog=catalog, page_size=250)
+
+    assert calls == [
+        (code, {"limit": 250, "catalog": catalog, "session": request_session, "timeout": 60.0})
+        for code in ("3301009", "3305000", "3302205", "3302403")
+    ]
+
+
+def test_territory_asset_registry_only_maps_configured_municipalities(tmp_path):
+    from app.pipeline.territory_assets import asset_directory
+
+    assert asset_directory("3301009", root=tmp_path / "territories") is None
+    assert asset_directory("9999999", root=tmp_path / "territories") is None
+
+
+def test_territory_asset_registry_prefers_ibge_and_falls_back_to_official_rj(tmp_path):
+    from app.pipeline.territory_assets import asset_directory
+
+    root = tmp_path / "territories"
+    fallback = root / "rj-official" / "3301009"
+    fallback.mkdir(parents=True)
+    (fallback / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
+    (fallback / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+
+    assert asset_directory("3301009", root=root) == fallback
+
+    ibge = root / "rj" / "3301009"
+    ibge.mkdir(parents=True)
+    (ibge / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
+    (ibge / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+    assert asset_directory("3301009", root=root) == ibge
+
+
+def test_territory_asset_registry_supports_national_precedence(tmp_path):
+    from app.pipeline.territory_assets import asset_directory
+
+    root = tmp_path / "territories"
+    osm = root / "osm" / "3550308"
+    official = root / "official" / "3550308"
+    ibge = root / "ibge" / "3550308"
+    for directory in (osm, official, ibge):
+        directory.mkdir(parents=True)
+        (directory / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
+        (directory / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+
+    assert asset_directory("3550308", root=root) == ibge
+    (ibge / "neighborhoods.geojson").write_text('{"features": []}', encoding="utf-8")
+    assert asset_directory("3550308", root=root) == official
+    (official / "neighborhoods.geojson").write_text('{"features": []}', encoding="utf-8")
+    assert asset_directory("3550308", root=root) == osm
+
+
+def test_run_cnes_rejects_empty_api_response(monkeypatch):
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", lambda code, **kwargs: pd.DataFrame())
+
+    with pytest.raises(RuntimeError, match="retornou vazio"):
+        pipeline.run_cnes({"3301009": "Campos"})
+
+
+def test_validate_checkpoint_failed_rejeita_falha_fora_do_escopo():
+    with pytest.raises(ValueError, match="falha fora do escopo"):
+        _validate_checkpoint_failed(
+            {"3302403": {"error_type": "API_ERROR", "error_message": "falha"}},
+            {"3301009": "Campos"},
+        )
+
+
+def test_run_cnes_rejeita_municipio_em_completed_e_failed(tmp_path):
+    checkpoint = tmp_path / "overlap.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "continue_on_error": True,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {
+                "3301009": {
+                    "bronze_path": "data.parquet",
+                    "bronze_sha256": "a" * 64,
+                    "rows": 1,
+                },
+            },
+            "failed": {
+                "3301009": {"error_type": "API_ERROR", "error_message": "falha"},
+            },
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="completed e failed"):
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint, continue_on_error=True)
+
+
+def test_run_cnes_continue_on_error_classifica_municipio_e_publica_lote_parcial(
+    tmp_path, monkeypatch,
+):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    checkpoint = tmp_path / "cnes-partial.json"
+    fail_second = {"value": True}
+
+    def fetch(code, **kwargs):
+        if code == "3302403" and fail_second["value"]:
+            raise RuntimeError("API temporariamente indisponível")
+        return _bronze(code)
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
+    monkeypatch.setattr(
+        pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])),
+    )
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"},
+        checkpoint_path=checkpoint,
+        continue_on_error=True,
+    )
+
+    assert result.exists()
+    state = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))
+    assert state["status"] == "PARTIAL"
+    assert list(state["completed"]) == ["3301009"]
+    assert state["failed"] == {
+        "3302403": {
+            "error_type": "API_ERROR",
+            "error_message": "API temporariamente indisponível",
+        },
+    }
+    metadata = __import__("json").loads((result.parent / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["status"] == "PARTIAL"
+    assert metadata["failed_municipalities"] == state["failed"]
+
+    fail_second["value"] = False
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"},
+        checkpoint_path=checkpoint,
+        continue_on_error=True,
+    )
+    final_state = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))
+    assert final_state["status"] == "COMPLETED"
+    assert final_state["failed"] == {}
+    assert set(final_state["completed"]) == {"3301009", "3302403"}
+    assert len(__import__("pandas").read_parquet(result)) == 2
+
+
+def test_run_cnes_checkpoint_resumes_after_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    checkpoint = tmp_path / "cnes-checkpoint.json"
+    calls: list[str] = []
+    fail_second = {"value": True}
+
+    def fetch(code, **kwargs):
+        calls.append(code)
+        if code == "3302403" and fail_second["value"]:
+            raise TimeoutError("simulated interruption")
+        return _bronze(code)
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    with pytest.raises(TimeoutError):
+        pipeline.run_cnes(
+            {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+        )
+
+    state = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))
+    assert state["status"] == "IN_PROGRESS"
+    assert list(state["completed"]) == ["3301009"]
+
+    fail_second["value"] = False
+    result = pipeline.run_cnes(
+        {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+    )
+
+    assert calls == ["3301009", "3302403", "3302403"]
+    assert result.exists()
+    assert __import__("json").loads(checkpoint.read_text(encoding="utf-8"))["status"] == "COMPLETED"
+
+
+def test_run_cnes_checkpoint_rejects_changed_parameters(tmp_path, monkeypatch):
+    checkpoint = tmp_path / "checkpoint.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes(
+            {"3301009": "Campos"}, checkpoint_path=checkpoint, page_size=250,
+        )
+    assert str(error.value) == "checkpoint CNES não corresponde ao escopo ou parâmetros solicitados"
+
+
+def test_run_cnes_checkpoint_rejects_invalid_completed_shape(tmp_path):
+    checkpoint = tmp_path / "checkpoint.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": [],
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_run_cnes_checkpoint_rejects_completed_municipio_fora_do_escopo(tmp_path):
+    checkpoint = tmp_path / "checkpoint-extra.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {"3302403": {}},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES contém município fora do escopo"
+
+
+def test_run_cnes_checkpoint_rejects_completed_entry_invalida(tmp_path):
+    checkpoint = tmp_path / "checkpoint-entry.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "2026-01-01T00:00:00+00:00",
+            "completed": {"3301009": {"bronze_path": "data.parquet"}},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES com completed inválido"
+
+
+def test_run_cnes_checkpoint_rejects_invalid_json_with_context(tmp_path):
+    checkpoint = tmp_path / "broken.json"
+    checkpoint.write_text("{not-json", encoding="utf-8")
+
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == f"checkpoint CNES inválido: {checkpoint}"
+
+
+def test_run_cnes_checkpoint_rejects_non_object_json_with_context(tmp_path):
+    checkpoint = tmp_path / "list.json"
+    checkpoint.write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == f"checkpoint CNES inválido: {checkpoint}"
+
+
+def test_run_cnes_checkpoint_rejects_invalid_timestamp(tmp_path):
+    checkpoint = tmp_path / "bad-time.json"
+    checkpoint.write_text(
+        __import__("json").dumps({
+            "municipios": ["3301009"],
+            "ibge_catalog_id": None,
+            "ibge_catalog_sha256": None,
+            "cnes_page_size": 100,
+            "cnes_request_timeout": 60.0,
+            "ingested_at": "not-a-date",
+            "completed": {},
+        }),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError) as error:
+        pipeline.run_cnes({"3301009": "Campos"}, checkpoint_path=checkpoint)
+    assert str(error.value) == "checkpoint CNES sem ingested_at válido"
+
+
+def test_run_cnes_checkpoint_rejects_tampered_bronze(tmp_path, monkeypatch):
+    monkeypatch.setattr(pipeline, "BASE_DIR", tmp_path)
+    from app.pipeline.cnes import bronze as bronze_module
+    monkeypatch.setattr(bronze_module, "BASE_DIR", tmp_path)
+    checkpoint = tmp_path / "cnes-checkpoint.json"
+    def fetch(code, **kwargs):
+        if code == "3302403":
+            raise RuntimeError("parada")
+        return _bronze(code)
+
+    monkeypatch.setattr(pipeline, "fetch_estabelecimentos", fetch)
+    monkeypatch.setattr(pipeline, "transform_cnes", lambda df, **kwargs: _silver(str(df.iloc[0]["codigo_cnes"])))
+    monkeypatch.setattr(pipeline, "asset_directory", lambda *args, **kwargs: None)
+
+    with pytest.raises(RuntimeError, match="parada"):
+        pipeline.run_cnes(
+            {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+        )
+    bronze_path = __import__("json").loads(checkpoint.read_text(encoding="utf-8"))["completed"]["3301009"]["bronze_path"]
+    with open(bronze_path, "ab") as handle:
+        handle.write(b"tampered")
+    with pytest.raises(ValueError, match="adulterada"):
+        pipeline.run_cnes(
+            {"3301009": "Campos", "3302403": "Macaé"}, checkpoint_path=checkpoint,
+        )

@@ -1,9 +1,13 @@
 pandas>=2.0
 pyarrow
 duckdb>=1.5,<2
-PySUS
+PySUS==2.11.7
+xlrd>=2.0
+odfpy>=1.4
 requests
 shapely
+pyshp
 alembic
 psycopg2-binary
 sqlalchemy
+prometheus-client>=0.20,<1

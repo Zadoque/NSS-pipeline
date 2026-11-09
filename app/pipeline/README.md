@@ -1,507 +1,310 @@
-# Pipeline SINAN — Núcleo de Situação de Saúde
+# Pipeline SINAN/CNES/IBGE
 
-Pipeline de dados em Python responsável por ingerir, limpar e agregar dados de
-notificação compulsória do **SINAN** (Sistema de Informação de Agravos de
-Notificação), via [PySUS](https://pysus.readthedocs.io/), seguindo a
-arquitetura **Medallion (Bronze → Silver → Gold)**. Os casos são enriquecidos
-com o cadastro de unidades de saúde do **CNES**, obtido via
-[API de Dados Abertos do Ministério da Saúde](https://apidadosabertos.saude.gov.br).
-O resultado alimenta um dashboard de sala de situação de saúde.
-
-Este repositório cobre **apenas a pipeline**.
-
----
-
-## Sumário
-
-- [Arquitetura](#arquitetura)
-- [Fonte de dados e doenças suportadas](#fonte-de-dados-e-doenças-suportadas)
-- [Estrutura de diretórios e partições](#estrutura-de-diretórios-e-partições)
-- [Catálogo de colunas](#catálogo-de-colunas)
-- [Enriquecimento com CNES (unidades de saúde)](#enriquecimento-com-cnes-unidades-de-saúde)
-- [Como rodar](#como-rodar)
-- [Metadata e auditoria de execução](#metadata-e-auditoria-de-execução)
-- [Limitações conhecidas e roadmap](#limitações-conhecidas-e-roadmap)
-- [Estrutura do código](#estrutura-do-código)
-
----
+Esta pasta contém o domínio e os executores da pipeline. O README da raiz
+explica instalação e operação geral; este documento explica os contratos das
+camadas, o layout dos artefatos, o comportamento dos módulos e a sequência de
+execução.
 
 ## Arquitetura
 
-```
-PySUS (SINAN) ─▶ Bronze ─▶ Silver ─▶ Gold ─▶ (planejado) PostgreSQL ─▶ Backend Java
-                 (cru)     (limpo)     ▲
-                                       │ join (unidade de notificação)
-                                       │
-API Dados Abertos (CNES) ─▶ Bronze ─▶ Silver
-                             (cru)    (lookup de unidades)
+```text
+                         catálogo IBGE versionado
+                        /          |             \
+SINAN/PySUS ──> Bronze ──> Silver ──> Gold ad hoc
+                                      │
+CNES/API ──────> Bronze ──> Silver ───┘
+                                      │
+                                      └──> Gold serving ──> PostgreSQL
 ```
 
-| Camada | O que contém | Formato | Idempotência |
+### SINAN
+
+1. `sinan.bronze` baixa o Parquet original do PySUS e registra a origem.
+2. `sinan.silver` lê em lotes, aplica o schema canônico, normaliza tipos,
+   filtra `DT_NOTIFIC` pelo ano solicitado e deduplica.
+3. `sinan.gold` resolve municípios contra o IBGE, filtra o escopo, agrega
+   casos e faz o join CNES quando solicitado.
+4. `run.py` produz Gold `ad_hoc`; `run_load.py` produz Gold `serving` e
+   publica no PostgreSQL.
+
+### CNES
+
+1. `run_cnes.py` percorre o escopo e consulta a API CNES.
+2. Cada resposta é preservada na Bronze por município.
+3. `cnes.silver` valida formato, UF e município da própria unidade.
+4. DuckDB consolida o lookup em um Parquet Silver por `batch_id`.
+5. A Gold aceita somente batch `COMPLETED`, manifesto íntegro e release IBGE
+   compatível. `PARTIAL` nunca é fonte de serving.
+
+O município da unidade CNES vem de `cd_mun_unidade` do próprio registro. O
+município epidemiológico da notificação não é fallback da FK da unidade.
+
+## Contratos das camadas
+
+| Camada | Entrada | Saída | Regra |
 |---|---|---|---|
-| **Bronze** | Dado bruto retornado pela fonte (PySUS ou API do CNES), sem nenhuma transformação | Parquet | Append-only — cada execução gera um novo `batch_id`, nada é sobrescrito |
-| **Silver** | Dado limpo, tipado, deduplicado e filtrado pelo ano de referência (SINAN) ou consolidado por município (CNES) | Parquet | Reprocessável a qualquer momento a partir da Bronze |
-| **Gold** | Casos agregados por doença/ano/mês/UF/município (+ dimensões opcionais, incluindo unidade de notificação enriquecida via CNES) | Parquet | Reprocessável a qualquer momento a partir da Silver |
+| Bronze SINAN | PySUS/Parquet | Parquet + metadata | preservar fonte |
+| Silver SINAN | Bronze | Parquet canônico | validar, normalizar, filtrar e deduplicar |
+| Gold SINAN | Silver + IBGE + CNES opcional | Parquet agregado | rejeitar códigos/escopos incompatíveis |
+| Bronze CNES | API por município | Parquet + metadata | preservar resposta e município consultado |
+| Silver CNES | Bronze CNES | lookup consolidado | validar unidade e cobertura |
+| PostgreSQL | Gold serving | fatos, dimensões e métricas | transação, FK e reconciliação |
 
-Cada camada só lê da camada imediatamente anterior — nenhuma etapa pula ou
-acessa uma camada não adjacente. O CNES é uma **dimensão** com ciclo de vida
-próprio (ingerido separadamente do fluxo por doença) — a Gold apenas lê o
-lookup mais recente da Silver do CNES no momento da agregação.
+As escritas são atômicas. Cada execução SINAN propaga um `batch_id` UTC por
+Bronze, Silver e Gold; CNES possui ciclo de ingestão independente.
 
-### Por que Medallion?
+## Fontes e doenças
 
-- **Bronze** preserva o dado exatamente como veio da fonte, permitindo
-  reprocessar tudo do zero se uma regra de limpeza mudar, sem precisar baixar
-  de novo.
-- **Silver** já resolve problemas de qualidade e schema variável entre anos
-  do SINAN, mas ainda é granular (uma linha por notificação) — útil para
-  análises que não cabem nos agregados da Gold.
-- **Gold** é o formato pronto para consumo do dashboard: pequeno, agregado,
-  autodescritivo (contém `disease`, `year`, etc. como colunas, não só no
-  caminho do arquivo).
+O código de doença segue `SINAN.group_definitions` do PySUS 2.11.7. Os 49
+grupos homologados são:
 
-### Rastreabilidade de execução (`batch_id` compartilhado)
-
-Em cada execução de `run.py`, um único timestamp (`run_at`) é gerado uma vez
-e propagado para Bronze, Silver e Gold do SINAN. Isso garante que os três
-artefatos de uma mesma execução compartilhem o mesmo `batch_id`, facilitando
-correlacionar rapidamente "essa Gold veio dessa Silver, que veio dessa
-Bronze" sem precisar comparar timestamps próximos.
-
----
-
-## Fonte de dados e doenças suportadas
-
-Os dados vêm do SINAN via [PySUS](https://github.com/AlertaDengue/PySUS). O
-código da doença é passado como está definido pelo próprio SINAN/PySUS:
-
-| Código | Doença |
-|---|---|
-| `DENG` | Dengue |
-| `CHIK` | Chikungunya |
-| `ZIKA` | Zika |
-| `FMAC` | Febre maculosa |
-| `TOXC` | Toxoplasmose congênita |
-| `TOXG` | Toxoplasmose gestacional |
-| `TUBE` | Tuberculose |
-| `HANS` | Hanseníase |
-| `HEPA` | Hepatites virais |
-| `SIFA` | Sífilis adquirida |
-| `SIFC` | Sífilis congênita |
-| `LEPT` | Leptospirose |
-| `MENI` | Meningite |
-
-> Esta lista não é exaustiva — qualquer código de doença aceito pelo PySUS
-> pode ser usado. Nem todas as doenças compartilham o mesmo schema de campos
-> (ex.: campos de sintomas de arboviroses não existem na ficha de
-> tuberculose); veja [Limitações conhecidas](#limitações-conhecidas-e-roadmap).
-
----
-
-## Estrutura de diretórios e partições
-
-Cada execução grava um `batch_id` (timestamp `%Y%m%dT%H%M%SZ`) particionado
-no estilo Hive:
-
-```
-/data
-├── bronze/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
-│   ├── data.parquet
-│   └── metadata.json
-├── silver/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
-│   ├── data.parquet
-│   └── metadata.json
-├── gold/
-│   ├── ad_hoc/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
-│   │   ├── data.parquet
-│   │   └── metadata.json
-│   └── serving/sinan/disease={doenca}/source_year={ano}/ingestion_date={data}/batch_id={batch}/
-│       ├── data.parquet
-│       └── metadata.json
-├── bronze/cnes/municipio={codigo_ibge}/ingestion_date={data}/batch_id={batch}/
-│   ├── data.parquet
-│   └── metadata.json
-└── silver/cnes/batch_id={batch}/
-    ├── data.parquet          # lookup consolidado de todos os municípios de interesse
-    └── metadata.json
+```text
+DENG CHIK ZIKA TUBE HANS HEPA SIFA SIFC LEPT MENI FMAC TOXC TOXG
+ACBI ACGR ANIM ANTR BOTU CANC CHAG ESQU COLE COQU DERM DIFT EXAN FTIF
+HANT IEXO INFL LEIV LTAN LERD MALA MENT NTRA PAIR PFAN PNEU PEST RAIV
+SDTA SRC SIFG TETA TETN TRAC VARC VIOL
 ```
 
-Bronze e Silver do SINAN compartilham o mesmo `batch_id` de uma execução
-(veja [Rastreabilidade de execução](#rastreabilidade-de-execução-batch_id-compartilhado)).
-O CNES tem ciclo de ingestão independente, sem `source_year`/`disease`, já
-que o cadastro de unidades não varia por doença nem por ano de notificação.
+Campos específicos variam por ficha. A Bronze preserva colunas de origem; só
+as chaves registradas em `sinan/columns.py` podem virar dimensões da Gold.
 
-Todo `data.parquet` é gravado de forma atômica (escrita em arquivo temporário
-+ `os.replace`), evitando arquivos parciais/corrompidos em caso de falha no
-meio da escrita.
+## Território IBGE
 
-### Atualizador diário SINAN
-
-O executor [`update_sinan.py`](./update_sinan.py) consulta o catálogo
-`pysus.ftp.sinan(..., download=False)` para cada série acompanhada, compara o
-tamanho em bytes do Parquet remoto com o cache em `source/sinan` e só baixa e
-executa Bronze → Silver → Gold Serving → PostgreSQL quando o arquivo mudou.
-O `manifest.json` registra o caminho remoto, os tamanhos, a data e o estado
-`UPDATED`/`UNCHANGED`.
-
-Para execução diária via cron ou scheduler externo:
+Uma release IBGE local contém municípios, 27 UFs, crosswalk de seis para sete
+dígitos, manifesto, SHA-256 e hash lógico. Seleções são mutuamente exclusivas:
 
 ```bash
-docker compose run --rm --entrypoint python pipeline \
-  -m app.pipeline.update_sinan --years 2026
+--municipios 3301009,3550308
+--ufs RJ,SP
+--all-brazil
 ```
 
-Por padrão são acompanhados `DENG`, `CHIK`, `ZIKA`, `FMAC`, `TOXC` e `TOXG`.
-É possível restringir o recorte:
+Toda seleção explícita exige `--catalog-root`. Sem catálogo, permanece o
+recorte RJ legado. A promoção da release é feita por:
 
 ```bash
-docker compose run --rm --entrypoint python pipeline \
-  -m app.pipeline.update_sinan --diseases DENG,FMAC,TOXC --years 2026
+python -m app.pipeline.reference.ibge.refresh \
+  --root /data/reference/ibge --catalog-id ibge-dtb-2025 \
+  --reference-year 2025 \
+  --dtb-url 'https://geoftp.ibge.gov.br/organizacao_do_territorio/estrutura_territorial/divisao_territorial/2025/DTB_2025.zip' \
+  --expected-sha256 <SHA256_OFICIAL>
 ```
 
-O tamanho é o detector solicitado; uma alteração de conteúdo que preserve
-exatamente o mesmo tamanho não é detectada por essa política e deve ser
-tratada por uma auditoria/hash posterior.
+A candidata é validada antes de `active.json` mudar. Uma release já promovida
+é imutável por identidade e hash.
 
----
+## Layout dos artefatos
 
-## Catálogo de colunas
+Com `DATA_ROOT=/data` no container ou `data/` no host:
 
-As colunas do SINAN utilizadas pela pipeline são centralizadas em
-[`columns.py`](./columns.py), em um catálogo declarativo (`CATALOG`). Cada
-entrada define:
+```text
+data/
+├── bronze/sinan/disease=DENG/source_year=2026/ingestion_date=.../batch_id=...
+│   ├── data.parquet
+│   └── metadata.json
+├── silver/sinan/disease=DENG/source_year=2026/ingestion_date=.../batch_id=...
+│   ├── data.parquet
+│   └── metadata.json
+├── gold/ad_hoc/sinan/disease=DENG/source_year=2026/ingestion_date=.../batch_id=...
+├── gold/serving/sinan/disease=DENG/source_year=2026/ingestion_date=.../batch_id=...
+├── bronze/cnes/municipio=3301009/ingestion_date=.../batch_id=...
+└── silver/cnes/batch_id=.../data.parquet + metadata.json
+```
 
-- `label`: nome amigável da coluna.
-- `source_column`: nome real da coluna no SINAN.
-- `required`: se ausente, a Silver falha com erro explícito.
-- `groupable`: se pode ser usada como dimensão extra na agregação da Gold.
-- `dedup_key`: se faz parte da chave de deduplicação de notificações.
-- `transform`: função de limpeza/normalização aplicada à coluna.
+Bronze é append-only por batch. Não edite Parquets ou manifests manualmente;
+gere um novo batch para corrigir uma execução.
 
-| Chave | Coluna SINAN | Obrigatória | Agrupável |
+## Catálogo de colunas SINAN
+
+O catálogo em `sinan/columns.py` define origem, limpeza, obrigatoriedade,
+deduplicação e agrupamento:
+
+| Chave CLI | Coluna | Obrigatória | Dimensão Gold |
 |---|---|:---:|:---:|
-| `data_notificacao` | `DT_NOTIFIC` | ✅ | |
-| `municipio` | `ID_MUNICIP` | ✅ | |
-| `uf` | `SG_UF_NOT` | ✅ | |
-| `notificacao_id` | `NU_NOTIFIC` | | |
-| `semana_notificacao` | `SEM_NOT` | | ✅ |
-| `ano_notificacao` | `NU_ANO` | | ✅ |
-| `classificacao_final` | `CLASSI_FIN` | | ✅ |
-| `evolucao` | `EVOLUCAO` | | ✅ |
-| `sexo` | `CS_SEXO` | | ✅ |
-| `ano_nascimento` | `ANO_NASC` | | ✅ |
-| `unidade_notificacao` | `ID_UNIDADE` | | ✅ |
+| `data_notificacao` | `DT_NOTIFIC` | sim | não |
+| `municipio` | `ID_MUNICIP` | sim | não |
+| `uf` | `SG_UF_NOT` | sim | não |
+| `notificacao_id` | `NU_NOTIFIC` | não | não |
+| `semana_notificacao` | `SEM_NOT` | não | sim |
+| `ano_notificacao` | `NU_ANO` | não | sim |
+| `classificacao_final` | `CLASSI_FIN` | não | sim |
+| `evolucao` | `EVOLUCAO` | não | sim |
+| `sexo` | `CS_SEXO` | não | sim |
+| `ano_nascimento` | `ANO_NASC` | não | sim |
+| `idade_sinan` / `tipo_idade` | derivados | não | sim |
+| `unidade_notificacao` | `ID_UNIDADE` | não | sim/CNES |
 
-Colunas marcadas como `groupable` podem ser passadas via `--columns` na CLI
-para virarem dimensões extras na Gold (além de doença/ano/mês/UF/município,
-que já são sempre incluídas). `unidade_notificacao` é especial: quando
-selecionada, a Gold também tenta enriquecer o resultado com nome/tipo da
-unidade via join com o CNES (veja a seção seguinte).
+Quando `NU_NOTIFIC` não existe, a Silver usa a combinação exata das colunas
+disponíveis e emite aviso de que a deduplicação é menos forte.
 
-**Deduplicação de notificações**: a chave primária ideal é `NU_NOTIFIC`
-(`notificacao_id`). Como esse campo não existe em todos os anos/datasets do
-SINAN, a pipeline cai automaticamente em um fallback de deduplicação por
-correspondência exata entre todas as colunas presentes — e emite um
-`UserWarning` avisando disso, já que essa estratégia é mais fraca (duas
-notificações distintas, porém idênticas em todos os campos capturados, seriam
-tratadas como duplicata).
+## Execução dos módulos
 
----
-
-## Enriquecimento com CNES (unidades de saúde)
-
-O SINAN registra a unidade de notificação (`ID_UNIDADE`) apenas como código
-— o **CNES** (Cadastro Nacional de Estabelecimentos de Saúde). Nome, razão
-social e tipo do estabelecimento não vêm do SINAN nem dos arquivos
-históricos de CNES disponíveis via PySUS (que trazem apenas dados
-operacionais/estruturais, sem nome ou endereço). Essas informações são
-obtidas separadamente, via a
-[API de Dados Abertos do Ministério da Saúde](https://apidadosabertos.saude.gov.br/cnes/estabelecimentos).
-
-### Por que é uma ingestão separada
-
-O CNES é tratado como uma **dimensão** com ciclo de vida próprio, não como
-parte do fluxo por doença/ano:
-
-- O cadastro de estabelecimentos muda devagar (mês a mês, no máximo), ao
-  contrário dos dados de notificação, que são reprocessados com frequência.
-- Acoplar essa chamada de API externa (que já se mostrou instável em
-  algumas execuções) dentro do fluxo crítico do SINAN arriscaria travar uma
-  execução de doença por uma falha momentânea numa fonte não relacionada.
-- Várias Golds de doenças diferentes podem reaproveitar o mesmo lookup do
-  CNES sem reingeri-lo a cada execução.
-
-### Como rodar a ingestão do CNES
+### SINAN ad hoc: `run.py`
 
 ```bash
-docker compose run --rm --entrypoint python pipeline -m app.pipeline.run_cnes
+python -m app.pipeline.run --disease DENG --year 2026 --columns ""
+python -m app.pipeline.run --disease CHIK --year 2026 \
+  --catalog-root data/reference/ibge --ufs RJ --columns "sexo,evolucao"
 ```
 
-Isso itera sobre os municípios definidos em `MUNICIPIOS_RJ` (`gold.py`),
-busca os estabelecimentos de cada um via API, grava a Bronze por município e
-consolida tudo em uma única Silver de lookup
-(`silver/cnes/batch_id={batch}/data.parquet`), sem duplicatas de `cd_unidade`.
+A saída é `gold/ad_hoc`. `--columns` recebe chaves separadas por vírgula.
 
-Essa ingestão é **manual e independente** do `run.py` principal — não há
-agendamento automático definido ainda (veja
-[Limitações conhecidas](#limitações-conhecidas-e-roadmap)).
-
-### Como o join acontece na Gold
-
-Quando `unidade_notificacao` é passada em `--columns`, `aggregate_file` lê o
-**Silver do CNES mais recente disponível** (`_latest_cnes_lookup()`, que
-escolhe o `batch_id` mais alto por ordenação lexicográfica do timestamp) e
-faz um `left join` entre `ID_UNIDADE` (SINAN) e `cd_unidade` (CNES),
-trazendo `nm_unidade`, `razao_social_unidade` e `tp_unidade` para a Gold.
+### Serving/PostgreSQL: `run_load.py`
 
 ```bash
-docker compose run --rm pipeline --disease DENG --year 2026 --columns="unidade_notificacao"
+python -m app.pipeline.run_load --disease DENG --year 2026 \
+  --catalog-root data/reference/ibge --all-brazil \
+  --cnes-batch-id <BATCH_CNES_COMPLETED>
 ```
 
-Se nenhuma Silver do CNES existir ainda (`run_cnes.py` nunca foi executado),
-`_latest_cnes_lookup()` retorna `None` e a Gold é gerada normalmente, apenas
-sem as colunas de enriquecimento — a pipeline do SINAN nunca falha por
-ausência da dimensão do CNES.
+O comando valida linhagem IBGE, escopo, métricas da Gold, FKs e total
+esperado, então substitui transacionalmente o recorte doença/ano/municípios.
+Resultados vazios são bloqueados, salvo `--allow-empty` explícito.
 
-**Cuidados conhecidos:**
-- **Nem todo `ID_UNIDADE` vai casar** com o CNES (unidade desativada, código
-  incorreto na notificação, notificação fora de estabelecimento formal). O
-  `left join` garante que isso vira nulo, não quebra o pipeline — mas o
-  consumidor final (dashboard) precisa tratar essa ausência.
-- **O lookup é um snapshot**: uma unidade muito recente pode não aparecer
-  ainda se o CNES não tiver sido reingerido desde sua criação.
-
----
-
-## Como rodar
-
-### Via Docker Compose
+### CNES: `run_cnes.py`
 
 ```bash
-docker compose run --rm pipeline --disease DENG --year 2026 --columns=""
+python -m app.pipeline.run_cnes --catalog-root data/reference/ibge \
+  --all-brazil --page-size 100 --request-timeout 60 \
+  --workers 8 --continue-on-error \
+  --checkpoint data/reference/cnes-checkpoint.json
 ```
 
-> **Atenção (PowerShell/Windows):** ao passar `--columns` com valor vazio ou
-> contendo vírgulas, prefira a forma `--columns="valor"` (com `=`) em vez de
-> `--columns "valor"` (com espaço). O PowerShell pode descartar strings
-> vazias/quebrar argumentos ao repassá-los para o `docker compose run`,
-> resultando em `error: argument --columns: expected one argument`.
+`--continue-on-error` termina como `PARTIAL` quando há falhas. A retomada
+rejeita mudança no escopo, release, page size, timeout ou workers. Sem opção,
+a primeira falha aborta. Municípios concluídos não são consultados novamente.
 
-Com dimensões extras selecionadas:
+### Atualização incremental: `update_sinan.py`
 
 ```bash
-docker compose run --rm pipeline --disease CHIK --year 2026 --columns="sexo,evolucao"
+python -m app.pipeline.update_sinan --years 2026
+python -m app.pipeline.update_sinan --diseases DENG,FMAC,TOXC \
+  --years 2026 --catalog-root data/reference/ibge
 ```
 
-Com enriquecimento de unidade de saúde (requer ter rodado `run_cnes.py`
-pelo menos uma vez antes):
+O manifest registra `UPDATED`, `UNCHANGED` ou `UNAVAILABLE`. Indisponibilidade
+de fonte não é convertida em lote vazio ou zeros falsos; `--allow-unavailable`
+é reservado para descoberta aceita.
+
+### Camadas isoladas
 
 ```bash
-docker compose run --rm pipeline --disease DENG --year 2026 --columns="unidade_notificacao"
+python -m app.pipeline.sinan.bronze --disease DENG --year 2024
+python -m app.pipeline.sinan.silver --source <bronze.parquet> \
+  --disease DENG --year 2024 --batch-size 50000 --memory-limit 512MB
+python -m app.pipeline.cnes.silver --source <bronze.parquet> \
+  --municipio <CODIGO_IBGE>
 ```
 
-### CLI (`run.py`)
+Silver lê em lotes de 50 mil e usa DuckDB para deduplicação global, com limite
+de 512 MB e temporários em disco por padrão. Esse limite não inclui pandas,
+Arrow e o processo Python. Gold agrega os grupos consolidados em memória.
 
-```bash
-python -m app.pipeline.run --disease <CODIGO_SINAN> --year <ANO> [--columns "chave1,chave2"]
+## CNES na Gold
+
+Quando `unidade_notificacao` está em `--columns`, o join é:
+
+```text
+SINAN.ID_UNIDADE ──left join──> CNES.cd_unidade
+                               └─ nm_unidade, razao_social_unidade, tp_unidade
 ```
 
-| Argumento | Obrigatório | Descrição |
-|---|:---:|---|
-| `--disease` | ✅ | Código SINAN da doença (ex.: `DENG`, `ZIKA`, `TUBE`) |
-| `--year` | ✅ | Ano de referência (filtra por `DT_NOTIFIC`) |
-| `--columns` | | Chaves do catálogo separadas por vírgula, usadas como dimensões extras na Gold |
+Uma unidade não encontrada vira nulo e não interrompe a Gold. Para serving,
+informe sempre `--cnes-batch-id`; o batch deve existir exatamente em
+`silver/cnes/batch_id=<id>`, estar `COMPLETED` e ser compatível com a release
+IBGE.
 
-O comando `run.py` executa Bronze → Silver → Gold no destino `ad_hoc`, usado
-para análise ou reprocessamento exploratório. O comando `run_load.py` escreve
-no destino `serving`, que é a Gold canônica lida para publicação no PostgreSQL.
-Os dois destinos têm o mesmo contrato de colunas, mas nunca compartilham a
-árvore de saída; uma execução exploratória não pode sobrescrever ou ser
-confundida com um snapshot de serving.
+## Metadados e PostgreSQL
 
-### CLI (`run_cnes.py`)
-
-```bash
-python -m app.pipeline.run_cnes
-```
-
-Sem argumentos — usa `MUNICIPIOS_RJ` como escopo padrão. Ingere a Bronze por
-município e consolida a Silver de lookup do CNES.
-
-### Executando camadas isoladamente
-
-A Bronze do SINAN baixa o Parquet original para o cache em `source/sinan`
-e o copia atomicamente para o lote em `bronze/sinan`, sem criar um DataFrame.
-O total de registros e as colunas do `metadata.json` vêm do footer do Parquet.
-Os códigos e demais valores são preservados como recebidos da fonte.
-
-Para executar somente a Bronze:
-
-```bash
-docker compose run --rm --no-deps --entrypoint python pipeline -m app.pipeline.sinan.bronze --disease DENG --year 2024
-```
-
-Essa execução não processa a Silver nem a Gold.
-
-A Silver do SINAN lê apenas as colunas do catálogo, em lotes de 50 mil
-registros, e grava um Parquet intermediário. A deduplicação global usa DuckDB,
-com uma thread, limite padrão de `512MB` e diretório temporário para uso de
-disco. A última ocorrência de cada chave é mantida conforme a ordem original,
-inclusive quando as ocorrências estão em lotes diferentes. A regra de escolha
-da chave e seu fallback continuam sendo os definidos em `columns.py`.
-
-O limite se aplica ao DuckDB; pandas, Arrow e o processo Python também usam
-memória. Os temporários são removidos ao concluir ou falhar. A saída continua
-sendo um único `data.parquet`, publicado atomicamente após a conclusão.
-
-Depois de atualizar as dependências, reconstrua a imagem:
-
-```bash
-docker compose build pipeline
-```
-
-`sinan/silver.py` também pode ser chamado de forma isolada, útil para
-reprocessar uma Silver a partir de uma Bronze já existente:
-
-```bash
-python -m app.pipeline.sinan.silver --source <bronze.parquet> --disease DENG --year 2024 --batch-size 50000 --memory-limit 512MB
-```
-
-`--batch-size` e `--memory-limit` são opcionais. No Docker, use o caminho da
-Bronze dentro de `/data` e execute com `--entrypoint python` e
-`-m app.pipeline.sinan.silver`. O fluxo completo mantém os comandos existentes.
-As datas são interpretadas por registro para que sua conversão não dependa
-de qual registro aparece primeiro em cada lote.
-
-A Gold também lê a Silver em lotes de 50 mil linhas, projetando somente as
-colunas necessárias. Cada lote é agregado pelas mesmas dimensões e seus
-`cases_total` são somados aos grupos já consolidados, incluindo grupos com
-valores nulos e o vínculo territorial do CNES. Somente combinações observadas
-de dimensões categóricas geram grupos. O resultado consolidado permanece em
-memória, por isso o consumo ainda depende da quantidade de grupos distintos.
-A gravação final continua atômica. `aggregate_file(..., batch_size=...)`
-permite ajustar o tamanho dos lotes; os comandos existentes usam o padrão.
-Os metadados da Gold registram `source_rows`, `batch_size` e `batches_processed`.
-
-`silver_cnes.py` também pode transformar uma Bronze do CNES isoladamente:
-
-```bash
-python -m app.pipeline.silver_cnes --source <bronze_cnes.parquet> --municipio <codigo_ibge>
-```
-
----
-
-## Metadata e auditoria de execução
-
-Cada camada grava um `metadata.json` ao lado do `data.parquet`, contendo:
+Um `metadata.json` registra, conforme a camada:
 
 ```json
 {
   "disease": "DENG",
   "source_year": 2026,
-  "batch_id": "20260914T123721Z",
-  "ingested_at": "2026-09-14T12:37:21+00:00",
+  "batch_id": "20261103T120000Z",
   "rows": 1234,
   "dropped_rows": 56,
-  "columns": ["DT_NOTIFIC", "ID_MUNICIP", "..."],
-  "gold_target": "ad_hoc"
+  "gold_target": "serving"
 }
 ```
 
-Isso serve tanto como log de execução quanto como **checagem de sanidade**:
-antes de agregar uma Silver para Gold, a pipeline lê o `metadata.json` de
-origem e valida que `disease`/`year` batem com o que foi solicitado,
-abortando com erro claro em caso de inconsistência (por exemplo, se um
-caminho estiver apontando para o batch errado).
+Silver acrescenta `source_rows`, `invalid_date_rows`, `outside_year_rows`,
+`duplicate_rows`, `batch_size` e `batches_processed`. Gold acrescenta métricas
+de resolução, escopo e agregação. CNES registra status, release, cobertura e
+checksum.
 
-Na Silver SINAN, `source_rows`, `invalid_date_rows`, `outside_year_rows` e
-`duplicate_rows` discriminam o total de entrada e os motivos de descarte.
-`dropped_rows` continua sendo a soma dos descartes. `batch_size` e
-`batches_processed` registram como a leitura foi dividida.
+Tabelas principais:
 
----
+- `analytics.fato_casos`: fatos agregados;
+- `analytics.dim_municipio`: municípios IBGE;
+- `analytics.dim_unidade_saude`: unidades CNES;
+- `analytics.pipeline_publications`: snapshot por município;
+- `analytics.pipeline_execution_metrics`: métricas globais;
+- `analytics.reference_catalog_releases`: releases usadas.
 
-## Limitações conhecidas e roadmap
+`pipeline_publications` é controle/métrica por município, não o histórico
+completo de fatos. Para rollback, use backup e o procedimento do runbook.
 
-Itens já identificados e ainda não resolvidos, para não serem esquecidos:
-
-- **Carga no PostgreSQL disponível via `run_load.py`.** A publicação substitui
-  transacionalmente o recorte doença/ano/municípios após validar o total contra
-  a Silver. Resultados vazios são bloqueados por padrão. Veja os comandos e
-  cuidados em [`migrations/README.md`](../../migrations/README.md).
-- **`year` filtrado por `DT_NOTIFIC`, não por `NU_ANO`.** O SINAN também
-  expõe um "ano epidemiológico" (`NU_ANO`), que pode divergir do ano
-  calendário perto da virada do ano. Vale confirmar com quem define a regra
-  de negócio qual definição de "ano" a sala de situação espera.
-- **Sem colunas de sintomas no catálogo.** Campos como `FEBRE`, `MIALGIA`,
-  `EXANTEMA` (típicos de arboviroses) ainda não estão mapeados em
-  `columns.py`. Além disso, esses campos não são universais entre doenças —
-  antes de adicioná-los, decidir se o catálogo permanece único e genérico ou
-  se passa a existir um catálogo específico por doença/família de doenças.
-- **Schema do Parquet não é fixado explicitamente.** Como colunas
-  `groupable` selecionadas variam entre execuções, o schema do Parquet pode
-  divergir entre anos/batches. Isso pode ser um problema se o consumidor (ex.:
-  Java lendo múltiplos anos de uma vez) esperar schema uniforme.
-- **Sem política de retenção definida para a Bronze.** Como a Bronze é
-  append-only por natureza da arquitetura Medallion, o volume em disco cresce
-  a cada execução. Ainda não há decisão sobre por quanto tempo manter batches
-  antigos.
-- **Uso de `print()` em vez de `logging`.** Adequado para execução manual,
-  mas deve ser substituído antes de rodar em produção/agendado.
-- **Sem tabela de controle de execuções (`pipeline_runs`).** Hoje a
-  rastreabilidade depende de vasculhar os `metadata.json`. Uma tabela simples
-  de controle (`disease`, `year`, `batch_id`, `layer`, `status`) facilitaria
-  saber o que já foi processado/carregado, especialmente quando a carga no
-  Postgres for implementada.
-- **Ingestão do CNES sem agendamento.** `run_cnes.py` é executado
-  manualmente hoje. Vale definir uma cadência (ex.: mensal) e automatizá-la,
-  já que a Gold sempre usa o lookup mais recente disponível — se ele nunca
-  for atualizado, unidades novas nunca aparecerão no enriquecimento.
-- **Municípios de interesse hardcoded em `gold.py` (`MUNICIPIOS_RJ`)**,
-  reutilizados também pelo `run_cnes.py`. Se a lista de municípios da sala
-  de situação crescer, vale mover para um arquivo de configuração externo.
-- **API do CNES sem SLA conhecido.** Já foram observadas falhas
-  transitórias de DNS/conexão nessa API durante o desenvolvimento. A
-  ingestão usa retry com backoff (`urllib3.util.Retry`, incluindo `connect`)
-  para absorver instabilidades pontuais, mas não há alerta automatizado caso
-  a fonte fique indisponível por mais tempo.
-
----
-
-## Estrutura do código
-
-```
-app/pipeline/
-├── sinan.py        # Ingestão via PySUS -> Bronze (SINAN)
-├── silver.py        # Limpeza, tipagem, deduplicação -> Silver (SINAN)
-├── gold.py           # Agregação por doença/tempo/geografia + join com CNES -> Gold
-├── columns.py        # Catálogo declarativo de colunas do SINAN
-├── bronze_cnes.py    # Ingestão via API de Dados Abertos -> Bronze (CNES)
-├── silver_cnes.py    # Limpeza do cadastro de estabelecimentos -> Silver (CNES)
-├── run_cnes.py        # Orquestrador da ingestão do CNES (todos os municípios)
-├── atomic_io.py       # Escrita atômica de parquet/json
-└── run.py             # Orquestrador da pipeline completa do SINAN (CLI)
-```
+## Código principal
 
 | Módulo | Responsabilidade |
 |---|---|
-| `sinan.py` | Baixa dados via PySUS e grava a camada Bronze com metadata de ingestão |
-| `silver.py` | Valida colunas obrigatórias, aplica transformações, filtra por ano, deduplica e grava a Silver |
-| `columns.py` | Define quais colunas do SINAN existem, como são limpas, e quais podem ser usadas como dimensão |
-| `gold.py` | Filtra por municípios de interesse, agrega casos por período/geografia/dimensões extras, enriquece com o CNES quando aplicável, e grava a Gold |
-| `bronze_cnes.py` | Consulta a API de Dados Abertos por município e grava a Bronze do CNES |
-| `silver_cnes.py` | Limpa e normaliza o cadastro de estabelecimentos (código, nome, tipo, município) |
-| `run_cnes.py` | Itera sobre os municípios de interesse, ingere e consolida a Silver de lookup do CNES |
-| `atomic_io.py` | Utilitário genérico de escrita atômica, usado por todas as camadas |
-| `run.py` | Ponto de entrada CLI que encadeia Bronze → Silver → Gold do SINAN com `batch_id` compartilhado |
+| `sinan/bronze.py` | download e preservação SINAN |
+| `sinan/silver.py` | schema, tipos, ano e deduplicação |
+| `sinan/gold.py` | escopo, agregação e join CNES |
+| `sinan/columns.py` | catálogo de colunas |
+| `cnes/bronze.py` | API CNES por município |
+| `cnes/silver.py` | validação do cadastro |
+| `run.py` | orquestrador ad hoc |
+| `run_load.py` | serving/PostgreSQL |
+| `run_cnes.py` | lote CNES/checkpoint |
+| `update_sinan.py` | atualização incremental |
+| `load.py` | dimensões, FKs e transação |
+| `reference/ibge/` | releases e validação territorial |
+| `observability/` | métricas e role Grafana |
+| `atomic_io.py` | escrita atômica |
 
----
+## Testes e cobertura
 
-## Requisitos
+```bash
+pytest -m "not integration"
+docker compose up -d db
+TEST_DATABASE_URL=postgresql+psycopg2://nss:nss@localhost:5432/situacao_saude_test \
+  pytest -m integration
+pytest -q
+```
 
-- Python 3.12+
-- [PySUS](https://pypi.org/project/PySUS/)
-- pandas / pyarrow (leitura e escrita de Parquet)
-- DuckDB 1.5+ (deduplicação global da Silver SINAN com temporários em disco)
-- requests (consumo da API de Dados Abertos do CNES)
-- Docker + Docker Compose (execução via container)
+Medição de cobertura de linhas em **03/11/2026**, com `--source=app`:
+
+| Tipo | Testes | Cobertura |
+|---|---:|---:|
+| Unitários/nacionais | 742 | **93,81%** |
+| Integração PostgreSQL | 26 | **36,87%** |
+| Compose/observabilidade | validação de infraestrutura | não aplicável à cobertura Python |
+| Mutação (`mutmut`) | métrica de robustez | meta de 95% de mutantes mortos |
+
+São medições independentes sobre todo `app`, não percentuais aditivos. O CI
+também valida Compose, migrations, role Grafana, Pushgateway, restore,
+alertas e provisionamento, mas esses testes de infraestrutura não geram
+cobertura Python. A mutação é uma métrica separada da cobertura de linhas:
+
+```bash
+coverage run --source=app --data-file=.coverage.unit \
+  -m pytest -m "not integration"
+coverage report --data-file=.coverage.unit --precision=2
+mutmut run
+mutmut results
+```
+
+## Limitações conhecidas
+
+- O ano é filtrado por `DT_NOTIFIC`, que pode divergir de `NU_ANO`.
+- Bronze é append-only e ainda não possui retenção automática.
+- CNES é manual; scheduler não está versionado neste repositório.
+- A API CNES pode ficar indisponível; retries não substituem reprocessamento.
+- Gold mantém grupos distintos em memória; capacidade nacional requer ensaio.
+- O alerta de ausência detecta séries que já publicaram métrica. Detectar uma
+  etapa que nunca publicou exige inventário de execuções esperadas.
+- Produção ainda exige dados autorizados, secrets, digest real de registry,
+  contact points e ensaio de desempenho/cutover.

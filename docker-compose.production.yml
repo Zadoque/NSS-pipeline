@@ -1,0 +1,44 @@
+services:
+  db:
+    ports: !reset []
+    volumes: !override
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+
+  migrate:
+    image: ${NSS_PIPELINE_IMAGE:?NSS_PIPELINE_IMAGE is required}
+    build: !reset null
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      GRAFANA_DB_USER: ${GRAFANA_DB_USER:?GRAFANA_DB_USER is required}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:?GRAFANA_DB_PASSWORD is required}
+
+  pipeline:
+    image: ${NSS_PIPELINE_IMAGE:?NSS_PIPELINE_IMAGE is required}
+    build: !reset null
+    volumes: !override
+      - pipeline_data:/data
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:?POSTGRES_USER is required}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:?POSTGRES_DB is required}
+      PROMETHEUS_PUSHGATEWAY_URL: ${PROMETHEUS_PUSHGATEWAY_URL:?PROMETHEUS_PUSHGATEWAY_URL is required}
+
+  prometheus:
+    ports: !reset []
+
+  pushgateway:
+    ports: !reset []
+
+  grafana:
+    ports: !reset []
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER is required}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GRAFANA_DB_USER: ${GRAFANA_DB_USER:?GRAFANA_DB_USER is required}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:?GRAFANA_DB_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+
+volumes:
+  pipeline_data:

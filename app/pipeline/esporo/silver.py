@@ -8,7 +8,14 @@ from ..atomic_io import write_json_atomic, write_parquet_atomic
 
 BASE_DIR = Path("/data")
 
-SELECTED_COLUMNS = ["Data da Notificação", "Espécie do animal", "Sexo do animal", "Idade do Animal", "Castrado"]
+SELECTED_COLUMNS = [
+    "Data da Notificação",
+    "Espécie do animal",
+    "Sexo do animal",
+    "Idade do Animal",
+    "Castrado",
+    "Nome do animal:",
+]
 
 _CODIGO_SES = re.compile(
     r"(?<!\w)SES[\s/-]*(?:CCZ[\s/-]*)?(?P<numero>\d+)"
@@ -53,7 +60,7 @@ def tratamento_nome(df: pd.DataFrame) -> pd.DataFrame:
 def transform(source: Path) -> pd.DataFrame:
     df = pd.read_parquet(source)
     df = df[SELECTED_COLUMNS]
-    #df = tratamento_nome(df)
+    df = tratamento_nome(df)
     
     df[["Sexo do animal", 
     "Idade do Animal", "Castrado"]] = df[[ "Sexo do animal", 

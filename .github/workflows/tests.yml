@@ -2,16 +2,16 @@ name: Testes
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, work/nss-pipeline]
   pull_request:
 
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -39,9 +39,9 @@ jobs:
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -52,3 +52,216 @@ jobs:
         env:
           TEST_DATABASE_URL: postgresql+psycopg2://test_user:test_pass@localhost:5432/situacao_saude_test
         run: pytest -m integration
+
+  compose-validation:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: ci_user
+      POSTGRES_PASSWORD: ci_db_secret_2026
+      POSTGRES_DB: situacao_saude
+      GRAFANA_ADMIN_USER: ci_admin
+      GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
+      GRAFANA_DB_USER: ci_grafana_ro
+      GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
+      PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
+      DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
+      NSS_PIPELINE_IMAGE: nss-pipeline:${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validar configuração do Compose
+        run: docker compose --profile observability config --quiet
+
+      - name: Validar overlay de produção
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_db_secret_2026
+          POSTGRES_DB: situacao_saude
+          GRAFANA_ADMIN_USER: ci_admin
+          GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
+          GRAFANA_DB_USER: ci_grafana_ro
+          GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
+          PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
+        run: |
+          compose_config="$RUNNER_TEMP/production-compose.json"
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            --profile observability config --format json > "$compose_config"
+          jq -e --arg image "$NSS_PIPELINE_IMAGE" '
+            .services.pipeline.image == $image and
+            (.services.pipeline.volumes | length == 1) and
+            .services.pipeline.volumes[0].target == "/data" and
+            (.services.pipeline.volumes[0].source == "pipeline_data") and
+            (.services.db.volumes | length == 1) and
+            (.services.db.volumes[0].target == "/var/lib/postgresql/data") and
+            (.services.db.volumes[0].source == "pgdata") and
+            (.services.prometheus.restart == "unless-stopped") and
+            (.services.pushgateway.restart == "unless-stopped") and
+            (.services.grafana.restart == "unless-stopped")
+          ' "$compose_config" >/dev/null
+
+      - name: Executar preflight de produção
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_db_secret_2026
+          POSTGRES_DB: situacao_saude
+          GRAFANA_ADMIN_USER: ci_admin
+          GRAFANA_ADMIN_PASSWORD: ci_grafana_secret_2026
+          GRAFANA_DB_USER: ci_grafana_ro
+          GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
+          DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
+          PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
+          NSS_PIPELINE_IMAGE: nss-pipeline@sha256:0000000000000000000000000000000000000000000000000000000000000000
+        run: python -m app.pipeline.preflight
+
+      - name: Construir imagens operacionais
+        run: docker build --tag "$NSS_PIPELINE_IMAGE" .
+
+      - name: Subir stack de observabilidade
+        run: docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability up -d db prometheus pushgateway grafana
+
+      - name: Aplicar migrations no banco do smoke test
+        run: docker compose -f docker-compose.yml -f docker-compose.production.yml run --rm migrate
+
+      - name: Validar role somente leitura do Grafana
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT (NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole) AS least_privilege FROM pg_roles WHERE rolname = '$GRAFANA_DB_USER';" \
+            | grep -q t
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c "SELECT (has_schema_privilege('$GRAFANA_DB_USER', 'analytics', 'USAGE') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'SELECT') AND has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_current_publication', 'SELECT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_publications', 'INSERT') AND NOT has_table_privilege('$GRAFANA_DB_USER', 'analytics.pipeline_current_publication', 'INSERT')) AS readonly;" \
+            | grep -q t
+
+      - name: Validar isolamento das séries no Pushgateway
+        run: |
+          compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
+          for attempt in $(seq 1 30); do
+            if $compose exec -T pushgateway wget -qO- http://localhost:9091/-/ready >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then exit 1; fi
+            sleep 2
+          done
+          $compose run --rm --no-deps --entrypoint python pipeline -c '
+          from app.pipeline.observability.metrics import export_stage_metrics
+          for layer in ("bronze", "silver"):
+              assert export_stage_metrics(
+                  pipeline="ci", layer=layer, disease="DENG", year=2099,
+                  rows=1, duration_seconds=0.1,
+              )
+          '
+          pushgateway_metrics="$($compose exec -T pushgateway wget -qO- http://localhost:9091/metrics)"
+          printf '%s\n' "$pushgateway_metrics" | grep 'nss_pipeline_rows{' | grep 'pipeline="ci"' | grep 'layer="bronze"' | grep 'year="2099"' >/dev/null
+          printf '%s\n' "$pushgateway_metrics" | grep 'nss_pipeline_rows{' | grep 'pipeline="ci"' | grep 'layer="silver"' | grep 'year="2099"' >/dev/null
+
+      - name: Validar backup do banco do smoke test
+        run: |
+          backup_path="$RUNNER_TEMP/situacao_saude.dump"
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db pg_dump --format=custom --no-owner --no-acl \
+            -U "$POSTGRES_USER" -d "$POSTGRES_DB" > "$backup_path"
+          test -s "$backup_path"
+          docker run --rm -v "$RUNNER_TEMP:/backup:ro" postgres:16 \
+            pg_restore --list /backup/situacao_saude.dump >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -c 'CREATE DATABASE nss_restore'
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db pg_restore --exit-on-error --no-owner -U "$POSTGRES_USER" \
+            -d nss_restore < "$backup_path"
+          compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
+          restore_container=nss-pipeline-restore-db
+          network="$($compose ps -q db | xargs docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{ $name }}{{end}}')"
+          docker rm -f "$restore_container" >/dev/null 2>&1 || true
+          docker run --detach --name "$restore_container" --network "$network" \
+            -e POSTGRES_USER=restore_admin \
+            -e POSTGRES_PASSWORD=restore_admin_secret \
+            -e POSTGRES_DB=situacao_saude postgres:16
+          for attempt in $(seq 1 30); do
+            if docker exec "$restore_container" pg_isready -U restore_admin -d situacao_saude >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then exit 1; fi
+            sleep 2
+          done
+          docker exec -i "$restore_container" pg_restore --exit-on-error --no-owner \
+            -U restore_admin -d situacao_saude < "$backup_path"
+          special_password='a'\''b\c$$d'
+          docker run --rm --network "$network" \
+            -e DATABASE_URL="postgresql+psycopg2://restore_admin:restore_admin_secret@$restore_container:5432/situacao_saude" \
+            -e GRAFANA_DB_USER=restore_grafana_ro \
+            -e GRAFANA_DB_PASSWORD="$special_password" \
+            --entrypoint python "$NSS_PIPELINE_IMAGE" \
+            -m app.pipeline.observability.provision_grafana_role
+          docker run --rm --network "$network" \
+            -e PGPASSWORD="$special_password" postgres:16 \
+            psql -h "$restore_container" -U restore_grafana_ro -d situacao_saude \
+            -v ON_ERROR_STOP=1 \
+            -c "SELECT has_table_privilege('restore_grafana_ro', 'analytics.pipeline_publications', 'SELECT') AND NOT has_table_privilege('restore_grafana_ro', 'analytics.pipeline_publications', 'INSERT') AS readonly;" \
+            | grep -q t
+          if docker run --rm --network "$network" \
+            -e PGPASSWORD="$special_password" postgres:16 \
+            psql -h "$restore_container" -U restore_grafana_ro -d situacao_saude \
+            -c 'INSERT INTO analytics.pipeline_publications (disease_codigo) VALUES ('"'"'DENG'"'"');' >/dev/null 2>&1; then
+            echo 'role Grafana conseguiu escrever no banco restaurado' >&2
+            exit 1
+          fi
+          docker rm -f "$restore_container" >/dev/null
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d nss_restore \
+            -c 'SELECT version_num FROM alembic_version;' \
+            -c 'SELECT count(*) FROM analytics.dim_municipio;'
+          docker compose -f docker-compose.yml -f docker-compose.production.yml \
+            exec -T db dropdb -U "$POSTGRES_USER" nss_restore
+          sha256sum "$backup_path"
+
+      - name: Validar consultas SQL do dashboard
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.production.yml exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+            -v ON_ERROR_STOP=1 \
+            -c 'SELECT published_at AS time, disease_codigo, ano, batch_id, geographic_scope_type, source_rows, resolved_rows, discarded_rows, aggregation_reduction, invalid_municipality_rows, out_of_scope_rows, uf_mismatch_rows FROM analytics.pipeline_execution_metrics ORDER BY published_at DESC LIMIT 0;' \
+            -c 'SELECT added_at AS time, disease_codigo, ano, batch_id, source_extracted_timestamp FROM analytics.pipeline_current_publication ORDER BY added_at DESC LIMIT 0;' \
+            -c 'SELECT published_at AS time, disease_codigo, ano, batch_id, COUNT(*) AS municipalities_published, SUM(groups_total) AS groups_total, SUM(cases_total) AS cases_total, geographic_scope_type FROM analytics.pipeline_publications GROUP BY published_at, disease_codigo, ano, batch_id, geographic_scope_type ORDER BY published_at DESC LIMIT 0;'
+
+      - name: Verificar provisionamento Grafana e Prometheus
+        run: |
+          compose='docker compose -f docker-compose.yml -f docker-compose.production.yml --profile observability'
+          trap "$compose down -v" EXIT
+          grafana_auth_header="Authorization: Basic $(printf '%s' "$GRAFANA_ADMIN_USER:$GRAFANA_ADMIN_PASSWORD" | base64 -w0)"
+          for service_url in \
+            'prometheus http://localhost:9090/-/ready' \
+            'pushgateway http://localhost:9091/-/ready' \
+            'grafana http://localhost:3000/api/health'; do
+            service="${service_url%% *}"
+            url="${service_url#* }"
+            for attempt in $(seq 1 30); do
+              if [ "$service" = grafana ]; then
+                if $compose exec -T grafana wget -qO- \
+                  --header="$grafana_auth_header" \
+                  "$url" >/dev/null; then break; fi
+              elif $compose exec -T "$service" wget -qO- "$url" >/dev/null; then
+                break
+              fi
+              if [ "$attempt" -eq 30 ]; then exit 1; fi
+              sleep 2
+            done
+          done
+          $compose exec -T grafana wget -qO- \
+            --header="$grafana_auth_header" \
+            http://localhost:3000/api/search \
+            | jq -e 'any(.[]; .uid == "nss-pipeline-overview")' >/dev/null
+          $compose exec -T grafana wget -qO- \
+            --header="$grafana_auth_header" \
+            http://localhost:3000/api/ruler/grafana/api/v1/rules \
+            | jq -e '
+              (."NSS Pipeline"[0].rules) as $rules |
+              ($rules | length == 3) and
+              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-stale")) and
+              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-stale" and (.grafana_alert.data[0].model.expr | contains("max by (pipeline, layer, disease, year)")))) and
+              ($rules | any(.[]; .grafana_alert.uid == "nss-pipeline-dropped-rows" and .grafana_alert.data[0].model.expr == "nss_pipeline_anomalous_dropped_rows > 0"))
+            ' >/dev/null
+          for attempt in $(seq 1 30); do
+            if $compose exec -T grafana wget -qO- \
+              --header="$grafana_auth_header" \
+              http://localhost:3000/api/datasources/uid/nss-postgres/health \
+              | jq -e '.status == "OK"' >/dev/null; then break; fi
+            if [ "$attempt" -eq 30 ]; then exit 1; fi
+            sleep 2
+          done
