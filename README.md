@@ -30,28 +30,37 @@ atomicamente. Uma carga inválida não deve substituir uma publicação válida.
 
 ### Hierarquia das geometrias territoriais
 
-Para classificar notificações por bairro/distrito, a pipeline usa esta ordem:
+Para classificar notificações por bairro/distrito, a pipeline procura um par
+`districts.geojson` e `neighborhoods.geojson` com bairros e vínculos válidos,
+nesta ordem: `territories/ibge/<código>`, `territories/official/<código>` e
+`territories/osm/<código>`. Os diretórios legados do RJ são consultados
+depois dos nacionais. Sem um pacote válido com bairros, a classificação pode
+usar somente os distritos.
 
-1. `territories/rj/<codigo>/`: malha oficial do IBGE;
-2. `territories/rj-official/<codigo>/`: fonte municipal ou estadual oficial;
-3. `territories/rj-osm/<codigo>/`: OpenStreetMap, somente como último fallback.
+A malha nacional de distritos vem do Censo 2022. Boa Esperança do Norte usa
+o contorno municipal da Malha Municipal Digital 2025 até haver uma camada
+distrital no catálogo. O importador OSM usa os distritos já preparados para
+associar cada bairro ou localidade. Ele preserva o identificador original e
+`sourceLicense=ODbL-1.0`, que exige atribuição ao OpenStreetMap.
 
-O importador OSM é executado explicitamente, pois os dados devem ser
-versionados e auditáveis:
+Use `python -m scripts.export_territory_catalog` para exportar o mesmo pacote
+selecionado para o mapa, o TSV da API e o índice de distritos com bairros.
+Depois de alterar a malha, o lote CNES pode ser atualizado sem baixar
+novamente os estabelecimentos:
 
 ```bash
-python scripts/import_osm_rj_neighborhoods.py \
-  --url https://overpass-api.de/api/interpreter
+python -m app.pipeline.reclassify_cnes \
+  --source /data/silver/cnes/batch_id=<lote>/data.parquet \
+  --catalog-root /data/reference/ibge
 ```
 
-Ele consulta polígonos OSM marcados como `neighbourhood`, `suburb`, `quarter`
-ou relações administrativas de nível 10, mantém apenas geometrias dentro dos
-municípios do RJ e grava `geometryStatus=POLYGON_OSM`, o identificador do
-elemento e `sourceLicense=ODbL-1.0`. O OSM não substitui uma geometria oficial;
-por isso o fallback só é usado quando IBGE e prefeitura/órgão estadual não
-possuem os dois arquivos (`districts.geojson` e `neighborhoods.geojson`).
-
-O resultado precisa ser atribuído conforme a licença ODbL do OpenStreetMap.
+A Gold do SINAN deve usar o novo lote para refletir os vínculos corrigidos.
+Para testes de visualização, `python -m app.pipeline.seed_territory_validation`
+publica o agravo sintético `TST` em um banco vazio chamado
+`nss_coverage_stage` com as migrações analíticas aplicadas. A fixture gera
+uma linha por bairro mais uma por distrito sem bairros. Ela testa a
+publicação e a visualização para os territórios do catálogo, enquanto a
+classificação de notificações reais é exercitada separadamente.
 
 ## Estrutura
 
@@ -65,7 +74,6 @@ app/pipeline/                    código e documentação detalhada
   run_load.py                     SINAN até serving/PostgreSQL
   run_cnes.py                     lote CNES por escopo
   update_sinan.py                 atualização incremental
-migrations/                      Alembic e schema analytics
 observability/                   Prometheus, Grafana e alertas
 tests/                           testes unitários, nacionais e integração
 docker-compose.yml               ambiente local
@@ -115,16 +123,16 @@ python3.12 -m venv .venv
 python -m pip install -r requirements.txt -r requirements-dev.txt
 ```
 
-### 2. Banco e migrations
+### 2. Banco e configuração central
 
 ```bash
 mkdir -p data
+docker build -t nss-database:0001 ../NSS-database
 docker compose up -d db
 docker compose run --rm migrate
 ```
 
-`migrate` executa `alembic upgrade head`. A migration `0011` cria a role
-Grafana read-only quando `GRAFANA_DB_USER/PASSWORD` estão configurados.
+A imagem do repositório NSS-database provisiona as roles e aplica a configuração `0001`. Ela rejeita bancos legados sem histórico central. Defina as credenciais conforme o Compose antes da execução.
 
 ### 3. Release IBGE (quando houver escopo explícito)
 
@@ -174,7 +182,8 @@ O volume `./data:/data` mantém os artefatos no host. O fluxo equivalente é:
 
 ```bash
 mkdir -p data
-docker compose build pipeline migrate
+docker compose build pipeline
+docker build -t nss-database:0001 ../NSS-database
 docker compose up -d db
 docker compose run --rm migrate
 docker compose run --rm pipeline --disease DENG --year 2026 --columns=""
@@ -240,15 +249,7 @@ pg_restore --list "$backup_dir/situacao_saude.dump" >/dev/null
 sha256sum "$backup_dir/situacao_saude.dump" > "$backup_dir/SHA256SUMS"
 ```
 
-Após restore em outro servidor, reprovisione a role mesmo se Alembic já
-registrar `0011`:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.production.yml \
-  run --rm --no-deps \
-  -e DATABASE_URL="postgresql+psycopg2://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/$RESTORED_DATABASE" \
-  --entrypoint python migrate -m app.pipeline.observability.provision_grafana_role
-```
+Após restore, confira a propriedade dos objetos e as permissões das roles antes de liberar a aplicação. Um restore com `--no-owner` atribui objetos ao usuário que executa a restauração. Ensaie a transferência de propriedade para as roles migradoras e a reaplicação dos grants em um banco descartável antes de operar o destino definitivo.
 
 Consulte `IBGE_NATIONAL_ROLLOUT_RUNBOOK.md` para promoção IBGE, rollback,
 contact points e cutover.
@@ -285,7 +286,7 @@ coverage run --source=app --data-file=.coverage.integration \
 coverage report --data-file=.coverage.integration --precision=2
 ```
 
-O CI valida também Compose, migrations, role Grafana, Pushgateway, restore,
+O CI valida também Compose, configuração central, role Grafana, Pushgateway, restore,
 alertas e provisionamento; isso não gera cobertura Python de linhas. A métrica
 de mutação é separada da cobertura de linhas.
 
