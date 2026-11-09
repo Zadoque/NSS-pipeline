@@ -25,3 +25,7 @@ def upgrade() -> None:
             castrado                VARCHAR(20)     NOT NULL,
         )
     """)
+
+def downgrade() -> None:
+    op.execute("DROP SCHEMA analytics_animal CASCADE")
+    
