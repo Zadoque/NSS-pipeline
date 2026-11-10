@@ -332,3 +332,10 @@ flowchart LR
 ```
 
 `app/` contém o pipeline e seus contratos; `scripts/` contém importação/exportação territorial; `territories/` guarda fontes IBGE/OSM normalizadas; `tests/` cobre unidade e integração. O pipeline usa a imagem central do `NSS-database` e publica somente no lote vigente.
+# Ambiente e secrets
+
+O pipeline não mantém credenciais reais no repositório. Seu `.env.example`, se
+usado para desenvolvimento, contém somente placeholders. No servidor, as
+credenciais são fornecidas pelo `NSS-deployment` através de
+`/etc/nss/deployment.env` (modo `0600`); a pipeline recebe apenas as variáveis
+necessárias ao job e não lê `.env` versionado.
