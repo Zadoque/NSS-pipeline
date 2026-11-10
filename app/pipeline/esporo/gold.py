@@ -15,10 +15,10 @@ BASE_DIR = Path("/data")
 
 COLUMN_MAP = {
     "Data da Notificação": "data_notificacao",
-    "Espécie do animal": "especie",
+    "Espécie do animal": "especie_codigo",
     "Sexo do animal": "sexo_codigo",
     "Idade do Animal": "idade_faixa_codigo",
-    "Castrado": "castrado",
+    "Castrado": "castrado_codigo",
 }
 
 AGE_BAND_CODES = {
@@ -48,6 +48,24 @@ SEX_CODES = {
     "nao informado": "i",
 }
 
+CASTRATION_CODES = {
+    "nao": 1,
+    "nao castrado": 1,
+    "n": 1,
+    "sim": 2,
+    "castrado": 2,
+    "s": 2,
+    "i": 0,
+    "nao informado": 0,
+}
+
+SPECIES_CODES = {
+    "felino": 1,
+    "canino": 2,
+    "i": 0,
+    "nao informado": 0,
+}
+
 
 def _normalize_sex(value: object) -> str:
     normalized = unicodedata.normalize("NFKD", str(value).strip().casefold())
@@ -57,6 +75,28 @@ def _normalize_sex(value: object) -> str:
     code = SEX_CODES.get(normalized)
     if code is None:
         raise ValueError(f"Sexo animal não reconhecido: {value!r}")
+    return code
+
+
+def _normalize_castration(value: object) -> int:
+    normalized = unicodedata.normalize("NFKD", str(value).strip().casefold())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    if not normalized:
+        return 0
+    code = CASTRATION_CODES.get(normalized)
+    if code is None:
+        raise ValueError(f"Status de castração não reconhecido: {value!r}")
+    return code
+
+
+def _normalize_species(value: object) -> int:
+    normalized = unicodedata.normalize("NFKD", str(value).strip().casefold())
+    normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+    if not normalized:
+        return 0
+    code = SPECIES_CODES.get(normalized)
+    if code is None:
+        raise ValueError(f"Espécie animal não reconhecida: {value!r}")
     return code
 
 
@@ -71,11 +111,13 @@ def transform(source: Path) -> pd.DataFrame:
         gold["data_notificacao"], errors="raise"
     ).dt.date
 
-    for column in ("especie", "castrado"):
-        values = gold[column].astype("string").str.strip().replace("", pd.NA)
-        gold[column] = values.fillna("nao informado")
-
+    gold["especie_codigo"] = pd.array(
+        gold["especie_codigo"].map(_normalize_species), dtype="Int16"
+    )
     gold["sexo_codigo"] = gold["sexo_codigo"].map(_normalize_sex).astype("string")
+    gold["castrado_codigo"] = pd.array(
+        gold["castrado_codigo"].map(_normalize_castration), dtype="Int16"
+    )
 
     age_labels = (
         gold["idade_faixa_codigo"]
@@ -137,7 +179,9 @@ def transform_file(
         "source_silver_path": str(source),
         "rows": len(df.index),
         "idade_nao_informada_rows": int(df["idade_faixa_codigo"].eq(0).sum()),
+        "especie_nao_informada_rows": int(df["especie_codigo"].eq(0).sum()),
         "sexo_nao_informado_rows": int(df["sexo_codigo"].eq("i").sum()),
+        "castracao_nao_informada_rows": int(df["castrado_codigo"].eq(0).sum()),
         "columns": df.columns.tolist(),
     }
     write_json_atomic(metadata, directory / "metadata.json")
