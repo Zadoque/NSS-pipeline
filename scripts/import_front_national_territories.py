@@ -13,6 +13,11 @@ import json
 import shutil
 from pathlib import Path
 
+if __package__:
+    from .territory_geojson import normalize_neighborhoods, read_features, write_features
+else:
+    from territory_geojson import normalize_neighborhoods, read_features, write_features
+
 
 def _write_empty(path: Path) -> None:
     path.write_text('{"type":"FeatureCollection","features":[]}\n', encoding="utf-8")
@@ -70,7 +75,10 @@ def import_assets(front_root: Path, output: Path) -> dict[str, int]:
             raise FileNotFoundError(f"malha municipal ausente para {code}: {municipality_source}")
         neighborhood_source = front_root / "neighborhoods" / f"{code}.geojson"
         if neighborhood_source.is_file() and item.get("neighborhoodSource") != "OpenStreetMap":
-            shutil.copyfile(neighborhood_source, ibge / "neighborhoods.geojson")
+            write_features(
+                ibge / "neighborhoods.geojson",
+                normalize_neighborhoods(read_features(neighborhood_source), read_features(ibge / "districts.geojson")),
+            )
         else:
             _write_empty(ibge / "neighborhoods.geojson")
         ibge_count += 1
@@ -79,7 +87,10 @@ def import_assets(front_root: Path, output: Path) -> dict[str, int]:
             osm = output / "osm" / code
             osm.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ibge / "districts.geojson", osm / "districts.geojson")
-            shutil.copyfile(neighborhood_source, osm / "neighborhoods.geojson")
+            write_features(
+                osm / "neighborhoods.geojson",
+                normalize_neighborhoods(read_features(neighborhood_source), read_features(osm / "districts.geojson")),
+            )
             osm_count += 1
 
     manifest = {

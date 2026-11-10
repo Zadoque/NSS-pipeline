@@ -659,15 +659,15 @@ def test_territory_asset_registry_prefers_ibge_and_falls_back_to_official_rj(tmp
     root = tmp_path / "territories"
     fallback = root / "rj-official" / "3301009"
     fallback.mkdir(parents=True)
-    (fallback / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
-    (fallback / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+    (fallback / "districts.geojson").write_text('{"features": [{"properties": {"territoryId": "d"}, "geometry": {"type": "Polygon"}}]}', encoding="utf-8")
+    (fallback / "neighborhoods.geojson").write_text('{"features": [{"properties": {"territoryId": "n", "parentDistrictId": "d"}, "geometry": {"type": "Polygon"}}]}', encoding="utf-8")
 
     assert asset_directory("3301009", root=root) == fallback
 
     ibge = root / "rj" / "3301009"
     ibge.mkdir(parents=True)
-    (ibge / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
-    (ibge / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+    (ibge / "districts.geojson").write_text('{"features": [{"properties": {"territoryId": "d"}, "geometry": {"type": "Polygon"}}]}', encoding="utf-8")
+    (ibge / "neighborhoods.geojson").write_text('{"features": [{"properties": {"territoryId": "n", "parentDistrictId": "d"}, "geometry": {"type": "Polygon"}}]}', encoding="utf-8")
     assert asset_directory("3301009", root=root) == ibge
 
 
@@ -680,8 +680,8 @@ def test_territory_asset_registry_supports_national_precedence(tmp_path):
     ibge = root / "ibge" / "3550308"
     for directory in (osm, official, ibge):
         directory.mkdir(parents=True)
-        (directory / "districts.geojson").write_text('{"features": []}', encoding="utf-8")
-        (directory / "neighborhoods.geojson").write_text('{"features": [{}]}', encoding="utf-8")
+        (directory / "districts.geojson").write_text('{"features": [{"properties": {"territoryId": "d"}, "geometry": {"type": "Polygon"}}]}', encoding="utf-8")
+        (directory / "neighborhoods.geojson").write_text('{"features": [{"properties": {"territoryId": "n", "parentDistrictId": "d"}, "geometry": {"type": "Polygon"}}]}', encoding="utf-8")
 
     assert asset_directory("3550308", root=root) == ibge
     (ibge / "neighborhoods.geojson").write_text('{"features": []}', encoding="utf-8")
