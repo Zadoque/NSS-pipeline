@@ -27,5 +27,5 @@ def upgrade() -> None:
     """)
 
 def downgrade() -> None:
-    op.execute("DROP SCHEMA analytics_animal CASCADE")
-    
+    op.execute("DROP TABLE analytics_animal.fato_esporo")
+    op.execute("DROP SCHEMA analytics_animal")

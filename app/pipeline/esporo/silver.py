@@ -62,9 +62,27 @@ def transform(source: Path) -> pd.DataFrame:
     df = df[SELECTED_COLUMNS]
     df = tratamento_nome(df)
     
-    df[["Sexo do animal", 
-    "Idade do Animal", "Castrado"]] = df[[ "Sexo do animal", 
-    "Idade do Animal", "Castrado"]].fillna("nao informado")
+    data_original = df["Data da Notificação"]
+    data_parseada = pd.to_datetime(data_original, errors="coerce")
+    preenchida = data_original.notna() & data_original.astype("string").str.strip().ne("")
+    invalida = preenchida & data_parseada.isna()
+    if invalida.any():
+        raise ValueError(
+            f"{int(invalida.sum())} valor(es) inválido(s) em 'Data da Notificação'"
+        )
+    df["Data da Notificação"] = data_parseada.dt.date
+
+    df = df.drop(columns=["Nome do animal:", "nome_animal_original", "nome_animal"])
+
+    colunas_categoricas = [
+        "Espécie do animal",
+        "Sexo do animal",
+        "Idade do Animal",
+        "Castrado",
+    ]
+    for coluna in colunas_categoricas:
+        valores = df[coluna].astype("string").str.strip().replace("", pd.NA)
+        df[coluna] = valores.fillna("nao informado")
 
     return df
 

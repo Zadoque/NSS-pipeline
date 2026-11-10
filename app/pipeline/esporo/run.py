@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from .bronze import injestion_esporo
 from .silver import transform_file
+from .gold import transform_file as transform_gold_file
 
 BASE_DIR = Path("/data")
 logger = logging.getLogger(__name__)
@@ -19,6 +20,9 @@ def run(path: Path):
     silver = transform_file(bronze, run_at=run_at)
     logger.info("Silver concluída: %s", silver)
 
+    gold = transform_gold_file(silver, run_at=run_at)
+    logger.info("Gold concluída: %s", gold)
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="Pipeline Medallion ESPORO")
@@ -31,4 +35,4 @@ def main():
         raise SystemExit(1) from None
  
 if __name__ == "__main__":
-    main() 
+    main()
