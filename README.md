@@ -339,3 +339,6 @@ usado para desenvolvimento, contém somente placeholders. No servidor, as
 credenciais são fornecidas pelo `NSS-deployment` através de
 `/etc/nss/deployment.env` (modo `0600`); a pipeline recebe apenas as variáveis
 necessárias ao job e não lê `.env` versionado.
+
+Para teste isolado local: `cp .env.local.test .env`. Altere apenas a URL/porta
+do PostgreSQL se o serviço não estiver no Compose integrado.
