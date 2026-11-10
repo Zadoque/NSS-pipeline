@@ -82,7 +82,7 @@ def transform(source: Path) -> pd.DataFrame:
     ]
     for coluna in colunas_categoricas:
         valores = df[coluna].astype("string").str.strip().replace("", pd.NA)
-        df[coluna] = valores.fillna("nao informado")
+        df[coluna] = valores.fillna("i")
 
     return df
 

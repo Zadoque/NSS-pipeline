@@ -16,13 +16,28 @@ COLUMN_MAP = {
     "Data da Notificação": "data_notificacao",
     "Espécie do animal": "especie",
     "Sexo do animal": "sexo_animal",
-    "Idade do Animal": "idade_animal",
+    "Idade do Animal": "idade_faixa_codigo",
     "Castrado": "castrado",
+}
+
+AGE_BAND_CODES = {
+    "i": 0,
+    "nao informado": 0,
+    "não informado": 0,
+    "< 1 ano": 1,
+    "<1 ano": 1,
+    "1 - 3 anos": 2,
+    "1-3 anos": 2,
+    "4 - 6 anos": 3,
+    "4-6 anos": 3,
+    "7 - 10 anos": 4,
+    "7-10 anos": 4,
+    "> 10 anos": 5,
+    ">10 anos": 5,
 }
 
 
 def transform(source: Path) -> pd.DataFrame:
-    """Retorna uma linha por notificação com colunas no contrato PostgreSQL."""
     df = pd.read_parquet(source)
     missing = set(COLUMN_MAP) - set(df.columns)
     if missing:
@@ -33,9 +48,27 @@ def transform(source: Path) -> pd.DataFrame:
         gold["data_notificacao"], errors="raise"
     ).dt.date
 
-    for column in ("especie", "sexo_animal", "idade_animal", "castrado"):
+    for column in ("especie", "sexo_animal", "castrado"):
         values = gold[column].astype("string").str.strip().replace("", pd.NA)
         gold[column] = values.fillna("nao informado")
+
+    age_labels = (
+        gold["idade_faixa_codigo"]
+        .astype("string")
+        .str.strip()
+        .str.casefold()
+        .str.replace(r"\s*[-–]\s*", " - ", regex=True)
+        .str.replace(r"<\s*", "< ", regex=True)
+        .str.replace(r">\s*", "> ", regex=True)
+        .str.replace(r"\s+", " ", regex=True)
+        .replace("", pd.NA)
+        .fillna("i")
+    )
+    age_codes = age_labels.map(AGE_BAND_CODES)
+    unknown_labels = sorted(age_labels[age_codes.isna()].unique().tolist())
+    if unknown_labels:
+        raise ValueError(f"Faixas etárias não reconhecidas na Silver: {unknown_labels}")
+    gold["idade_faixa_codigo"] = pd.array(age_codes, dtype="Int16")
 
     return gold
 
@@ -78,6 +111,7 @@ def transform_file(
         "source_layer": "silver",
         "source_silver_path": str(source),
         "rows": len(df.index),
+        "idade_nao_informada_rows": int(df["idade_faixa_codigo"].eq(0).sum()),
         "columns": df.columns.tolist(),
     }
     write_json_atomic(metadata, directory / "metadata.json")
