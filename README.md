@@ -319,3 +319,16 @@ python -m app.pipeline.preflight
 - Frontend: `Zadoque/nss-front-end`
 - Backend: `ArtursPereira/Site-Sala-de-Situa-o-de-Saude-Java`
 - Deployment: `Zadoque/nss-deployment`
+
+## Arquitetura e estrutura
+
+```mermaid
+flowchart LR
+  S[Parquet SINAN/CNES] --> I[ingestion]
+  I --> G[gold transform]
+  G --> W[analytics writer]
+  W --> DB[(PostgreSQL analytics)]
+  DB --> API[Java API]
+```
+
+`app/` contém o pipeline e seus contratos; `scripts/` contém importação/exportação territorial; `territories/` guarda fontes IBGE/OSM normalizadas; `tests/` cobre unidade e integração. O pipeline usa a imagem central do `NSS-database` e publica somente no lote vigente.
