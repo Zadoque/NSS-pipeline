@@ -196,13 +196,21 @@ def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
 def test_esporo_run_passes_same_run_timestamp_to_silver(mocker, tmp_path):
     bronze = tmp_path / "bronze.parquet"
     silver = tmp_path / "silver.parquet"
+    gold = tmp_path / "gold.parquet"
     mocker.patch.object(esporo_run, "injestion_esporo", return_value=bronze)
     transform = mocker.patch.object(esporo_run, "transform_file", return_value=silver)
+    gold_transform = mocker.patch.object(
+        esporo_run, "transform_gold_file", return_value=gold
+    )
+    load = mocker.patch.object(esporo_run, "load_gold_to_postgres", return_value=2)
 
     esporo_run.run(tmp_path / "source.csv")
 
     assert transform.call_args.args == (bronze,)
     assert transform.call_args.kwargs["run_at"].tzinfo is UTC
+    assert gold_transform.call_args.args == (silver,)
+    assert gold_transform.call_args.kwargs["run_at"] == transform.call_args.kwargs["run_at"]
+    load.assert_called_once_with(gold)
 
 
 def test_write_bronze_esporo_writes_rows_and_columns(tmp_path, monkeypatch):

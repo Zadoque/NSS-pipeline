@@ -39,6 +39,49 @@ CNES/API ──────> Bronze ──> Silver ───┘
 O município da unidade CNES vem de `cd_mun_unidade` do próprio registro. O
 município epidemiológico da notificação não é fallback da FK da unidade.
 
+### Esporotricose animal
+
+1. `esporo.bronze` preserva o CSV original em Parquet com metadados do lote.
+2. `esporo.silver` trata os campos selecionados e não mantém o nome do animal.
+3. `esporo.gold` produz uma linha por notificação, padroniza os nomes de coluna,
+   codifica as categorias abaixo e escreve um Parquet pronto para consulta e
+   carga em `analytics_animal.fato_esporo`.
+4. `esporo.load` valida os códigos, substitui o snapshot histórico dentro de
+   uma transação e reconcilia a quantidade de linhas no PostgreSQL.
+
+#### Contrato da Gold ESPORO
+
+| Coluna Gold / PostgreSQL | Tipo | Código | Significado |
+|---|---|---:|---|
+| `data_notificacao` | `DATE` | — | Data da notificação sem horário |
+| `especie_codigo` | `SMALLINT` | 0 | Não informado (`i` na origem) |
+|  |  | 1 | Felino |
+|  |  | 2 | Canino |
+| `sexo_codigo` | `CHAR(1)` | `F` | Fêmea |
+|  |  | `M` | Macho |
+|  |  | `i` | Não informado |
+| `idade_faixa_codigo` | `SMALLINT` | 0 | Não informado (`i`) |
+|  |  | 1 | Menos de 1 ano |
+|  |  | 2 | De 1 a 3 anos |
+|  |  | 3 | De 4 a 6 anos |
+|  |  | 4 | De 7 a 10 anos |
+|  |  | 5 | Mais de 10 anos |
+| `castrado_codigo` | `SMALLINT` | 0 | Não informado (`i`) |
+|  |  | 1 | Não castrado |
+|  |  | 2 | Castrado |
+
+A Gold normaliza maiúsculas, minúsculas e acentos antes de codificar os valores.
+Categorias não reconhecidas causam erro e precisam ser revisadas; não são
+convertidas silenciosamente em “não informado”. A Silver mantém os rótulos
+textuais inesperados para permitir essa revisão. O `metadata.json` da Gold inclui o lote,
+ano de origem, caminho da Silver, quantidade de linhas e contagens de valores
+não informados para espécie, sexo, idade e castração.
+
+O artefato é escrito em
+`gold/serving/esporo/source_year=<ano>/ingestion_date=<data>/batch_id=<lote>/`.
+As migrations `0019`–`0022` alinham os tipos e códigos das colunas no
+PostgreSQL com este contrato.
+
 ## Contratos das camadas
 
 | Camada | Entrada | Saída | Regra |
