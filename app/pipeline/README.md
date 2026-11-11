@@ -46,6 +46,8 @@ município epidemiológico da notificação não é fallback da FK da unidade.
 3. `esporo.gold` produz uma linha por notificação, padroniza os nomes de coluna,
    codifica as categorias abaixo e escreve um Parquet pronto para consulta e
    carga em `analytics_animal.fato_esporo`.
+4. `esporo.load` valida os códigos, substitui o snapshot histórico dentro de
+   uma transação e reconcilia a quantidade de linhas no PostgreSQL.
 
 #### Contrato da Gold ESPORO
 
