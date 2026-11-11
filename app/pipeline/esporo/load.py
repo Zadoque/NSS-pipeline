@@ -8,7 +8,6 @@ import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from ..load import get_engine
 
 TABLE = "analytics_animal.fato_esporo"
 LOAD_COLUMNS = [
@@ -60,7 +59,11 @@ def load_gold_to_postgres(
         raise FileNotFoundError(f"Gold ESPORO não encontrada: {source}")
 
     frame = _read_and_validate_gold(source)
-    db_engine = engine or get_engine()
+    if engine is None:
+        from ..load import get_engine
+
+        engine = get_engine()
+    db_engine = engine
     columns_sql = ", ".join(LOAD_COLUMNS)
     values_sql = ", ".join(f":{column}" for column in LOAD_COLUMNS)
     insert = text(f"INSERT INTO {TABLE} ({columns_sql}) VALUES ({values_sql})")

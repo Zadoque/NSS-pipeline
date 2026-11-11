@@ -93,7 +93,9 @@ def test_transform_file_grava_colunas_sem_perder_registros(tmp_path, monkeypatch
     assert metadata["columns"] == resultado.columns.tolist()
     assert resultado["numero_notificacao"].dtype == "Int64"
     assert resultado["ano_notificacao_nome"].dtype == "Int64"
+    assert "Nome do animal:" not in resultado.columns
+    assert "nome_animal_original" not in resultado.columns
+    assert "nome_animal" not in resultado.columns
     if not vazio:
-        assert resultado["nome_animal"].tolist() == ["GARFIELD", "SHAYERA"]
         assert resultado["numero_notificacao"].tolist() == [126, 126]
         assert resultado["ano_notificacao_nome"].tolist() == [2025, 2025]
