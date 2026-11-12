@@ -130,6 +130,27 @@ def test_preflight_rejeita_imagem_mutavel_ou_invalida(pipeline_image):
         validate_production_environment(_environment(NSS_PIPELINE_IMAGE=pipeline_image))
 
 
+def test_preflight_permite_imagem_local_apenas_em_modo_explicito():
+    result = validate_production_environment(_environment(
+        NSS_PIPELINE_IMAGE="nss-pipeline:local",
+        NSS_PIPELINE_IMAGE_MODE="local-build",
+    ))
+
+    assert result["pipeline_image"] == "nss-pipeline:local"
+
+
+def test_preflight_rejeita_digest_em_modo_local():
+    with pytest.raises(ValueError, match="local-build deve usar uma tag local"):
+        validate_production_environment(_environment(
+            NSS_PIPELINE_IMAGE_MODE="local-build",
+        ))
+
+
+def test_preflight_rejeita_modo_de_imagem_desconhecido():
+    with pytest.raises(ValueError, match="NSS_PIPELINE_IMAGE_MODE deve ser digest ou local-build"):
+        validate_production_environment(_environment(NSS_PIPELINE_IMAGE_MODE="registry"))
+
+
 def test_preflight_reconcilia_todos_os_erros_com_separador_estavel():
     values = _environment(POSTGRES_PASSWORD="admin")
     values.pop("DATABASE_URL")
