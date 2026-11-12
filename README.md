@@ -332,6 +332,10 @@ flowchart LR
 ```
 
 `app/` contém o pipeline e seus contratos; `scripts/` contém importação/exportação territorial; `territories/` guarda fontes IBGE/OSM normalizadas; `tests/` cobre unidade e integração. O pipeline usa a imagem central do `NSS-database` e publica somente no lote vigente.
+
+O ciclo operacional detalhado, incluindo retomada CNES por checkpoint e as
+transições para Gold/PostgreSQL, está documentado como uma máquina de estados
+conceitual em [`app/pipeline/README.md`](app/pipeline/README.md).
 # Ambiente e secrets
 
 O pipeline não mantém credenciais reais no repositório. Seu `.env.example`, se

@@ -17,6 +17,40 @@ CNES/API ──────> Bronze ──> Silver ───┘
                                       └──> Gold serving ──> PostgreSQL
 ```
 
+### Máquina de estados conceitual
+
+O fluxo abaixo é um AFD operacional: cada execução observa um evento e
+avança para um único estado válido. `FAILED` representa uma falha que exige
+diagnóstico; `PARTIAL` é um resultado persistido da CNES que pode ser retomado
+por checkpoint, mas nunca pode ser promovido para serving.
+
+```mermaid
+stateDiagram-v2
+    [*] --> IBGE_MISSING
+    IBGE_MISSING --> IBGE_READY: refresh validado e publicado
+    IBGE_READY --> CNES_RUNNING: iniciar run_cnes
+    CNES_RUNNING --> CNES_COMPLETED: todos os municípios processados
+    CNES_RUNNING --> CNES_PARTIAL: municípios com falha
+    CNES_RUNNING --> FAILED: erro fatal/interrupção
+    CNES_PARTIAL --> CNES_RUNNING: retomar checkpoint
+    CNES_COMPLETED --> SINAN_RUNNING: iniciar update_sinan/run_load
+    SINAN_RUNNING --> SINAN_READY: Bronze/Silver/manifesto válidos
+    SINAN_RUNNING --> FAILED: fonte, validação ou transformação falhou
+    SINAN_READY --> GOLD_RUNNING: executar transformação Gold
+    GOLD_RUNNING --> GOLD_READY: reconciliação e métricas válidas
+    GOLD_RUNNING --> FAILED: contrato Gold rejeitado
+    GOLD_READY --> POSTGRES_PUBLISHED: carga transacional commitada
+    POSTGRES_PUBLISHED --> [*]
+    FAILED --> IBGE_MISSING: corrigir release e repetir
+    FAILED --> CNES_RUNNING: corrigir fonte/checkpoint e repetir
+    FAILED --> SINAN_RUNNING: corrigir fonte/manifesto e repetir
+```
+
+O diagrama é conceitual e não substitui os contratos de cada módulo. Os
+artefatos persistidos (`active.json`, checkpoints, `manifest.json`,
+`metadata.json` e publicações Gold) são as evidências que autorizam cada
+transição.
+
 ### SINAN
 
 1. `sinan.bronze` baixa o Parquet original do PySUS e registra a origem.
@@ -301,7 +335,9 @@ mutmut results
 
 - O ano é filtrado por `DT_NOTIFIC`, que pode divergir de `NU_ANO`.
 - Bronze é append-only e ainda não possui retenção automática.
-- CNES é manual; scheduler não está versionado neste repositório.
+- A execução CNES é disparada pelo deployment/NixOS; este repositório fornece
+  o executor, o checkpoint e os contratos, enquanto o scheduler fica no
+  repositório de configuração do servidor.
 - A API CNES pode ficar indisponível; retries não substituem reprocessamento.
 - Gold mantém grupos distintos em memória; capacidade nacional requer ensaio.
 - O alerta de ausência detecta séries que já publicaram métrica. Detectar uma
