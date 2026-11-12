@@ -4,6 +4,8 @@ import argparse
 import json
 import os
 import re
+from zipfile import ZipFile
+from threading import Lock
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -17,6 +19,8 @@ from ..reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 
 API_BASE = "https://apidadosabertos.saude.gov.br/cnes/estabelecimentos"
 BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
+_NATIONAL_CNES_LOCK = Lock()
+_NATIONAL_CNES: pd.DataFrame | None = None
 
 
 def _session_with_retries() -> requests.Session:
@@ -35,6 +39,78 @@ def _session_with_retries() -> requests.Session:
 def session_with_retries() -> requests.Session:
     """Cria uma sessão CNES reutilizável por uma execução do pipeline."""
     return _session_with_retries()
+
+
+def _normalize_code(value: object, width: int) -> str:
+    """Normaliza códigos CNES/IBGE sem perder zeros à esquerda."""
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if text.endswith(".0"):
+        text = text[:-2]
+    return text.zfill(width) if text.isdigit() else text
+
+
+def _load_national_cnes() -> pd.DataFrame:
+    """Baixa uma única cópia do cadastro nacional através do PySUS.
+
+    O cache é compartilhado pelos workers da execução. Isso evita 5.571
+    downloads e usa a mesma fotografia oficial para todos os municípios.
+    """
+    global _NATIONAL_CNES
+    if _NATIONAL_CNES is not None:
+        return _NATIONAL_CNES
+    with _NATIONAL_CNES_LOCK:
+        if _NATIONAL_CNES is not None:
+            return _NATIONAL_CNES
+        try:
+            import pysus
+        except ImportError as error:
+            raise RuntimeError("PySUS é obrigatório para a carga CNES") from error
+        pysus.set_cache(BASE_DIR / "pysus")
+        source = pysus.saude.cnes(download=False)
+        if isinstance(source, pd.DataFrame):
+            frame = source
+        else:
+            try:
+                downloaded = source.download()
+                archive = Path(downloaded.paths[0])
+                with ZipFile(archive) as bundle:
+                    csv_name = next(
+                        name for name in bundle.namelist()
+                        if name.lower().endswith(".csv")
+                    )
+                    with bundle.open(csv_name) as csv_file:
+                        frame = pd.read_csv(
+                            csv_file, sep=";", encoding="latin1", low_memory=False
+                        )
+            except (AttributeError, IndexError, StopIteration, OSError, ValueError, UnicodeError) as error:
+                raise RuntimeError(
+                    "não foi possível baixar ou ler o ZIP CNES pelo PySUS"
+                ) from error
+        if not isinstance(frame, pd.DataFrame) or frame.empty:
+            raise RuntimeError("PySUS CNES retornou um cadastro nacional vazio")
+        required = {"CO_CNES", "CO_IBGE"}
+        missing = sorted(required - set(frame.columns))
+        if missing:
+            raise ValueError(f"cadastro CNES PySUS sem colunas obrigatórias: {missing}")
+        rename = {
+            "CO_CNES": "codigo_cnes",
+            "CO_IBGE": "codigo_municipio",
+            "NO_RAZAO_SOCIAL": "nome_razao_social",
+            "NO_FANTASIA": "nome_fantasia",
+            "TP_UNIDADE": "codigo_tipo_unidade",
+            "NO_BAIRRO": "bairro_estabelecimento",
+            "NU_LATITUDE": "latitude_estabelecimento_decimo_grau",
+            "NU_LONGITUDE": "longitude_estabelecimento_decimo_grau",
+        }
+        frame = frame.rename(columns=rename)
+        frame["codigo_cnes"] = frame["codigo_cnes"].map(lambda value: _normalize_code(value, 7))
+        frame["codigo_municipio"] = frame["codigo_municipio"].map(
+            lambda value: _normalize_code(value, 6)
+        )
+        _NATIONAL_CNES = frame
+        return frame
 
 
 def _extract_page(payload: object) -> list[dict]:
@@ -70,38 +146,8 @@ def fetch_estabelecimentos(
         if not isinstance(codigo_municipio_7, str) or not re.fullmatch(r"[0-9]{7}", codigo_municipio_7):
             raise ValueError("CNES exige código municipal IBGE de 7 dígitos")
         codigo_municipio_6 = codigo_municipio_7[:6]
-    client = session or _session_with_retries()
-    owns_session = session is None
-    registros = []
-    offset = 0
-    previous_page_signature: str | None = None
-    try:
-        while True:
-            resp = client.get(
-                API_BASE,
-                params={"codigo_municipio": codigo_municipio_6, "limit": limit, "offset": offset},
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            pagina = _extract_page(resp.json())
-            if not pagina:
-                break
-            page_signature = json.dumps(
-                pagina, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
-            )
-            if page_signature == previous_page_signature:
-                raise RuntimeError(
-                    "API CNES repetiu uma página; ingestão interrompida para evitar loop"
-                )
-            previous_page_signature = page_signature
-            registros.extend(pagina)
-            # A API pode aplicar um teto menor que ``limit`` sem sinalizá-lo.
-            # Avançar pelo tamanho efetivo evita saltar registros nesse caso.
-            offset += len(pagina)
-        return pd.DataFrame(registros)
-    finally:
-        if owns_session:
-            client.close()
+    national = _load_national_cnes()
+    return national.loc[national["codigo_municipio"] == codigo_municipio_6].copy()
 
 
 def write_bronze_cnes(df: pd.DataFrame, municipio: str, run_at: datetime | None = None) -> Path:
@@ -120,7 +166,7 @@ def write_bronze_cnes(df: pd.DataFrame, municipio: str, run_at: datetime | None 
         "ingested_at": now.isoformat(),
         "rows": len(df),
         "columns": list(df.columns),
-        "source": "apiDadosAbertos",
+        "source": "PySUS SAUDE CNES",
     }
     write_json_atomic(metadata, directory / "metadata.json")
     return parquet
