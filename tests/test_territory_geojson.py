@@ -67,3 +67,22 @@ def test_normalization_keeps_declared_district():
     )
     result = normalize_neighborhoods([neighborhood], [district])
     assert result[0]["properties"]["parentDistrictId"] == "D1"
+
+
+def test_normalization_clips_neighborhood_to_parent_district():
+    district = _feature(
+        "D1",
+        "Distrito",
+        [(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)],
+        element_type="relation",
+    )
+    district["properties"] = {"territoryId": "D1"}
+    neighborhood = _feature(
+        "N1",
+        "Bairro",
+        [(-2, 2), (2, 2), (2, 4), (-2, 4), (-2, 2)],
+        element_type="relation",
+    )
+    result = normalize_neighborhoods([neighborhood], [district])
+    coordinates = result[0]["geometry"]["coordinates"][0]
+    assert min(point[0] for point in coordinates) == 0

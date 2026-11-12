@@ -8,7 +8,7 @@ import unicodedata
 from pathlib import Path
 
 from shapely import make_valid
-from shapely.geometry import shape
+from shapely.geometry import mapping, shape
 
 
 def read_features(path: Path) -> list[dict]:
@@ -125,5 +125,13 @@ def normalize_neighborhoods(features: list[dict], districts: list[dict]) -> list
                     props["parentDistrictId"] = max(overlaps)[1]
         if not props.get("territoryId") or not props.get("parentDistrictId"):
             raise ValueError(f"Bairro sem ID ou distrito compatível: {props}")
-        normalized.append({**feature, "properties": props})
+        geometry = make_valid(shape(feature["geometry"]))
+        clipped = make_valid(geometry.intersection(district_geometries[props["parentDistrictId"]]))
+        if clipped.is_empty or clipped.area <= 0:
+            raise ValueError(
+                f"Bairro sem área no distrito-pai: {props.get('territoryId')}"
+            )
+        normalized.append(
+            {**feature, "properties": props, "geometry": mapping(clipped)}
+        )
     return normalized
