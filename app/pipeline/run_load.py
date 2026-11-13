@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import time  # biblioteca time adicionado
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -10,6 +11,7 @@ from .sinan.gold import MUNICIPIOS_RJ, aggregate_file, normalize_municipality_co
 from .load import get_engine, load_gold_to_postgres
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
+from metrics_exporter import export_pipeline_execution_metrics
 
 
 def run_load(
@@ -22,44 +24,63 @@ def run_load(
     disease = disease.upper()
     run_at = datetime.now(UTC)
 
-    bronze_df = pd.read_parquet(source_path) if source_path is not None else fetch_sinan(disease, year)
-    if bronze_df.empty:
-        raise RuntimeError("PySUS retornou um DataFrame vazio")
+    # <--- 3. Início da cronometragem da execução
+    start_time = time.time()
+    status = 1  # 1 indica sucesso por padrão
 
-    bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
-    silver = transform_file(bronze, disease, year, run_at=run_at)
-
-    municipios = dict(MUNICIPIOS_RJ)
-    silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
-    if silver_scope.empty:
-        raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
-    expected_cases_total = int(
-        normalize_municipality_codes(silver_scope["ID_MUNICIP"], municipios)
-        .isin(municipios).sum()
-    )
-
-    gold_path = aggregate_file(
-        silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
-        municipios=municipios, run_at=run_at, target="serving",
-    )
-
-    gold_df = pd.read_parquet(gold_path)
-    batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
-
-    engine = get_engine()
     try:
-        load_gold_to_postgres(
-            engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
-            expected_cases_total=expected_cases_total, snapshot_complete=True,
-            source_extracted_at=run_at, allow_empty=allow_empty,
-        )
-    finally:
-        engine.dispose()
+        bronze_df = pd.read_parquet(source_path) if source_path is not None else fetch_sinan(disease, year)
+        if bronze_df.empty:
+            raise RuntimeError("PySUS retornou um DataFrame vazio")
 
-    print(f"Bronze: {bronze}")
-    print(f"Silver: {silver}")
-    print(f"Gold:   {gold_path}")
-    print(f"Postgres: snapshot publicado (disease={disease}, year={year}, batch_id={batch_id}, cases={expected_cases_total})")
+        bronze = write_bronze(bronze_df, disease, year, run_at=run_at)
+        silver = transform_file(bronze, disease, year, run_at=run_at)
+
+        municipios = dict(MUNICIPIOS_RJ)
+        silver_scope = pd.read_parquet(silver, columns=["ID_MUNICIP"])
+        if silver_scope.empty:
+            raise RuntimeError("Silver sem notificações válidas: publicação bloqueada")
+        expected_cases_total = int(
+            normalize_municipality_codes(silver_scope["ID_MUNICIP"], municipios)
+            .isin(municipios).sum()
+        )
+
+        gold_path = aggregate_file(
+            silver, disease, year, selected_columns=CANONICAL_GOLD_COLUMNS,
+            municipios=municipios, run_at=run_at, target="serving",
+        )
+
+        gold_df = pd.read_parquet(gold_path)
+        batch_id = run_at.strftime("%Y%m%dT%H%M%SZ")
+
+        engine = get_engine()
+        try:
+            load_gold_to_postgres(
+                engine, gold_df, disease, batch_id, year=year, municipios=list(municipios),
+                expected_cases_total=expected_cases_total, snapshot_complete=True,
+                source_extracted_at=run_at, allow_empty=allow_empty,
+            )
+        finally:
+            engine.dispose()
+
+        print(f"Bronze: {bronze}")
+        print(f"Silver: {silver}")
+        print(f"Gold:   {gold_path}")
+        print(f"Postgres: snapshot publicado (disease={disease}, year={year}, batch_id={batch_id}, cases={expected_cases_total})")
+
+    except Exception as e:
+        status = 0  # <--- 4. Se der qualquer falha no fluxo, marca como 0 (Falha)
+        raise e
+
+    finally:
+        # <--- 5. O bloco 'finally' SEMPRE roda (dando sucesso ou erro) e exporta a duração total
+        duration_seconds = round(time.time() - start_time, 2)
+        export_pipeline_execution_metrics(
+            disease=disease,
+            year=year,
+            status=status,
+            duration_seconds=duration_seconds
+        )
 
 
 def main() -> None:

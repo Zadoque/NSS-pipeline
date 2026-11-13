@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 from prometheus_client import CollectorRegistry, Gauge, pushadd_to_gateway
 
@@ -20,6 +21,40 @@ def export_layer_metrics(layer: str, disease: str, year: int, rows: int, dropped
         registry=registry
     )
 
+def export_pipeline_execution_metrics(disease: str, year: int, status: int, duration_seconds: float) -> None:
+    """Envia métricas operacionais de execução, SLA e saúde da pipeline."""
+    registry = CollectorRegistry()
+
+    g_status = Gauge(
+        'sinan_pipeline_status',
+        'Status da última execução da pipeline (1=Sucesso, 0=Falha)',
+        ['disease', 'year'],
+        registry=registry
+    )
+    g_last_exec = Gauge(
+        'sinan_pipeline_last_execution_timestamp_seconds',
+        'Timestamp do término da última execução da pipeline',
+        ['disease', 'year'],
+        registry=registry
+    )
+    g_duration = Gauge(
+        'sinan_pipeline_duration_seconds',
+        'Duração total da execução da pipeline em segundos',
+        ['disease', 'year'],
+        registry=registry
+    )
+
+    g_status.labels(disease=disease.upper(), year=str(year)).set(status)
+    g_last_exec.labels(disease=disease.upper(), year=str(year)).set(time.time())
+    g_duration.labels(disease=disease.upper(), year=str(year)).set(duration_seconds)
+
+    pushadd_to_gateway(
+        PUSHGATEWAY_URL,
+        job=f'sinan_etl_{disease.lower()}_{year}',
+        grouping_key={'layer': 'pipeline_execution'},
+        registry=registry
+    )
+
 def export_gold_business_metrics(df_gold: pd.DataFrame, disease: str, year: int) -> None:
     """Envia as agregacoes epidemiologicas da camada Gold para o Pushgateway."""
     if df_gold.empty:
@@ -34,7 +69,6 @@ def export_gold_business_metrics(df_gold: pd.DataFrame, disease: str, year: int)
         registry=registry
     )
 
-    # Agrupa por dimensão relevante para não sobrecarregar o Prometheus com cardinalidade excessiva
     aggregated = df_gold.groupby(
         ['disease', 'year', 'nm_mun', 'sex', 'age_band', 'not_week'], 
         dropna=False
