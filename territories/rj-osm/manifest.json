@@ -1,0 +1,11 @@
+{
+  "source": "OpenStreetMap",
+  "license": "ODbL-1.0",
+  "overpassTimestamp": "2026-11-05T20:14:59Z",
+  "queryTags": [
+    "place=neighbourhood|suburb|quarter",
+    "boundary=administrative/admin_level=10"
+  ],
+  "municipalities": 43,
+  "neighborhoodFeatures": 1078
+}

@@ -3,7 +3,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from app.pipeline.sinan.silver import transform
+from app.pipeline.sinan.silver import _quote_column, transform
+from app.pipeline.load import DISEASE_NAMES
 
 
 def _sinan_bruto(**overrides) -> pd.DataFrame:
@@ -34,6 +35,14 @@ def test_transform_filtra_pelo_ano_de_notificacao():
     assert (result["DT_NOTIFIC"].dt.year == 2026).all()
 
 
+@pytest.mark.parametrize("disease", sorted(DISEASE_NAMES))
+def test_transformador_silver_aceita_todos_os_grupos_pysus(disease):
+    result = transform(_sinan_bruto(), year=2026)
+
+    assert not result.empty
+    assert disease in DISEASE_NAMES
+
+
 def test_transform_preserva_codigo_municipal_sinan_sem_inventar_zero():
     result = transform(
         _sinan_bruto(ID_MUNICIP=["330100", "330100", "330100"]), year=2026
@@ -45,6 +54,11 @@ def test_transform_levanta_erro_quando_falta_coluna_obrigatoria():
     df = _sinan_bruto().drop(columns=["ID_MUNICIP"])
     with pytest.raises(ValueError, match="Colunas obrigatórias"):
         transform(df, year=2026)
+
+
+def test_transform_aceita_grupo_sem_semana_epidemiologica():
+    result = transform(_sinan_bruto().drop(columns=["SEM_NOT"]), year=2026)
+    assert len(result) == 2
 
 
 def test_transform_dedup_usa_nu_notific_quando_presente(recwarn):
@@ -68,3 +82,7 @@ def test_transform_remove_duplicata_exata_no_fallback():
     with pytest.warns(UserWarning):
         result = transform(df, year=2026)
     assert len(result) == 2  # as duas linhas de 2026 originais, sem a duplicata
+
+
+def test_quote_column_escapa_aspas_duplas_para_sql():
+    assert _quote_column('coluna"com"aspas') == '"coluna""com""aspas"'

@@ -1,0 +1,10 @@
+{
+  "source": "IBGE Malha de Setores Censit\u00e1rios / Divis\u00f5es Intramunicipais 2022",
+  "districts": "RJ_distritos_CD2022.zip",
+  "neighborhoods": "RJ_bairros_CD2022.zip",
+  "municipalities": 92,
+  "municipalitiesWithOfficialNeighborhoods": 31,
+  "municipalitiesWithoutOfficialNeighborhoods": 61,
+  "districtFeatures": 300,
+  "neighborhoodFeatures": 1509
+}

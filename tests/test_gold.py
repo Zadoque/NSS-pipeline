@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
+import pyarrow as pa
 # pyrefly: ignore [missing-import]
 import pytest
 
-from app.pipeline.sinan.gold import aggregate
+from app.pipeline.sinan.gold import (
+    _merge_counts,
+    _gold_input_schema,
+    _read_source_metadata,
+    _validate_source_matches,
+    decode_sinan_age_years,
+    aggregate,
+    normalize_municipality_codes,
+    resolve_catalog_municipality_codes,
+)
 
 MUNICIPIOS_TESTE = {"1234567": "Cidade Teste"}
 
@@ -23,7 +35,7 @@ def _silver_minima(**overrides) -> pd.DataFrame:
     return pd.DataFrame(base)
 
 
-@pytest.mark.parametrize("coluna", ["NM_UF", "CS_SEXO", "ANO_NASC", "SEM_NOT"])
+@pytest.mark.parametrize("coluna", ["NM_UF"])
 def test_aggregate_levanta_erro_quando_falta_coluna_obrigatoria(coluna):
     df = _silver_minima().drop(columns=[coluna])
     with pytest.raises(ValueError, match="Colunas Silver ausentes"):
@@ -74,6 +86,186 @@ def test_aggregate_mapeia_codigo_sinan_para_ibge_canonico(sinan_code, ibge_code)
     assert set(result["cd_mun"]) == {ibge_code}
 
 
+def test_aggregate_usa_uf_canonica_do_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(ID_MUNICIP=["330100"] * 3, SG_UF_NOT=["33"] * 3),
+        "DENG", municipios=catalog, catalog=catalog,
+    )
+    assert result.loc[0, "cd_uf"] == "33"
+    assert result.loc[0, "nm_uf"] == "Rio de Janeiro"
+
+
+def test_aggregate_com_catalogo_sem_municipios_processa_todo_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+            Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(
+            ID_MUNICIP=["330100", "355030", "330100"],
+            SG_UF_NOT=["33", "35", "33"],
+            NM_UF=["Rio de Janeiro", "São Paulo", "Rio de Janeiro"],
+        ),
+        "DENG",
+        catalog=catalog,
+    )
+
+    assert set(result["cd_mun"]) == {"3301009", "3550308"}
+    assert result["cases_total"].sum() == 3
+
+
+def test_aggregate_prefere_uf_canonica_quando_fonte_diverge():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(
+            ID_MUNICIP=["330100"] * 3,
+            SG_UF_NOT=["35"] * 3,
+            NM_UF=["São Paulo"] * 3,
+        ),
+        "DENG", municipios=catalog, catalog=catalog,
+    )
+
+    assert result.empty
+    assert "cd_uf" in result.columns
+
+
+def test_normalize_municipality_codes_aceita_catalogo_imbutavel():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+
+    result = normalize_municipality_codes(
+        pd.Series(["330100", "3301009", "9999999"]), catalog
+    )
+
+    assert result.tolist() == ["3301009", "3301009", "9999999"]
+
+
+def test_aggregate_rejeita_codigo_completo_invalido_e_uf_divergente_com_catalogo():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    result = aggregate(
+        _silver_minima(
+            ID_MUNICIP=["3301008", "330100", "3301008"],
+            SG_UF_NOT=["33", "35", "33"],
+        ),
+        "DENG", municipios=catalog, catalog=catalog,
+    )
+    assert result.empty
+
+
+def test_resolve_catalog_municipality_codes_preserves_index_and_contract():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    values = pd.Series(["330100", "3301008", None], index=[10, 20, 30])
+    ufs = pd.Series(["33", "33", pd.NA], index=[10, 20, 30])
+
+    result = resolve_catalog_municipality_codes(values, catalog, ufs)
+
+    assert result.index.tolist() == [10, 20, 30]
+    assert str(result.dtype) == "string"
+    assert result.tolist() == ["3301009", pd.NA, pd.NA]
+    assert resolve_catalog_municipality_codes(pd.Series(["330100"]), catalog).tolist() == ["3301009"]
+
+
+def test_resolve_catalog_municipality_codes_normalizes_missing_declared_uf():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025)],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+
+    result = resolve_catalog_municipality_codes(
+        pd.Series(["330100"]), catalog, pd.Series([pd.NA], dtype="string")
+    )
+
+    assert result.tolist() == ["3301009"]
+
+
+def test_resolution_metrics_separa_escopo_e_codigo_invalido():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.sinan.gold import _resolution_metrics
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+            Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    metrics = _resolution_metrics(pd.Series(["330100", "3550308", "9999999"]), {"3301009": "Campos"}, catalog)
+    assert metrics == {
+        "scope_matched_rows": 1,
+        "invalid_municipality_rows": 1,
+        "out_of_scope_rows": 1,
+        "uf_mismatch_rows": 0,
+        "cnes_mismatch_rows": 0,
+    }
+
+
+def test_resolution_metrics_conta_todas_as_linhas_de_cada_status():
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+    from app.pipeline.sinan.gold import _resolution_metrics
+
+    catalog = InMemoryMunicipalityCatalog(
+        [
+            Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio de Janeiro", 2025),
+            Municipality("3550308", "355030", "São Paulo", "35", "SP", "São Paulo", 2025),
+        ],
+        CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
+    )
+    metrics = _resolution_metrics(
+        pd.Series(["330100", "330100", "3550308", "3550308", "9999999", "9999999", "330100", "330100"]),
+        {"3301009": "Campos"}, catalog,
+        pd.Series([None, None, None, None, None, None, "35", "35"], dtype="string"),
+    )
+
+    assert metrics == {
+        "scope_matched_rows": 2,
+        "invalid_municipality_rows": 4,
+        "out_of_scope_rows": 2,
+        "uf_mismatch_rows": 2,
+        "cnes_mismatch_rows": 2,
+    }
+
+
 def test_aggregate_inclui_disease_como_primeira_coluna():
     df = _silver_minima()
     result = aggregate(df, disease="deng", municipios=MUNICIPIOS_TESTE)
@@ -100,6 +292,7 @@ def test_aggregate_cnes_nao_duplica_colunas_territoriais_nem_cria_sufixos():
     cnes_lookup = pd.DataFrame(
         {
             "cd_unidade": ["0729884"],
+            "cd_mun": ["3550308"],
             "nm_unidade": ["UBS DEMO"],
             "razao_social_unidade": ["UBS DEMO LTDA"],
             "tp_unidade": [2],
@@ -122,6 +315,7 @@ def test_aggregate_cnes_nao_duplica_colunas_territoriais_nem_cria_sufixos():
     assert result["notification_district_id"].eq("CG_DIST_SEDE").any()
     assert result["notification_neighborhood_id"].eq("CG_LOC_SEDE_CENTRO").any()
     assert result["nm_unidade"].eq("UBS DEMO").any()
+    assert result.loc[result["ID_UNIDADE"].eq("0729884"), "cd_mun_unidade"].eq("3550308").all()
 
 
 def test_aggregate_rejeita_unidade_cnes_duplicada_antes_de_contar_casos():
@@ -136,3 +330,128 @@ def test_aggregate_rejeita_unidade_cnes_duplicada_antes_de_contar_casos():
             silver, "DENG", selected_columns=["unidade_notificacao"],
             municipios=MUNICIPIOS_TESTE, cnes_lookup=lookup,
         )
+
+
+def test_decode_sinan_age_years_interpreta_unidades_e_tipo_separado():
+    encoded = pd.Series(["1001", "2002", "3012", "4050", "x", None])
+    result = decode_sinan_age_years(encoded)
+
+    assert result.iloc[0] == pytest.approx(1 / (24 * 365.25))
+    assert result.iloc[1] == pytest.approx(2 / 365.25)
+    assert result.iloc[2] == pytest.approx(1)
+    assert result.iloc[3] == pytest.approx(50)
+    assert result.iloc[4:].isna().all()
+
+    overridden = decode_sinan_age_years(
+        pd.Series(["0010", "0010", "0010"]),
+        pd.Series(["4", "2", "9"]),
+    )
+    assert overridden.iloc[0] == pytest.approx(10)
+    assert overridden.iloc[1] == pytest.approx(10 / 365.25)
+    assert pd.isna(overridden.iloc[2])
+
+
+def test_normalize_municipality_codes_remove_zero_a_esquerda():
+    result = normalize_municipality_codes(
+        pd.Series(["0330100", "330100", "9999999"]),
+        {"3301009": "Campos"},
+    )
+    assert result.tolist() == ["3301009", "3301009", "9999999"]
+
+
+def test_merge_counts_soma_grupos_iguais_e_preserva_grupos_distintos():
+    total = pd.DataFrame({"sex": ["F"], "cases_total": [2]})
+    partial = pd.DataFrame({"sex": ["F", "M"], "cases_total": [3, 1]})
+
+    result = _merge_counts(total, partial).sort_values("sex").reset_index(drop=True)
+
+    pd.testing.assert_frame_equal(
+        result,
+        pd.DataFrame({"sex": ["F", "M"], "cases_total": [5, 1]}),
+    )
+
+
+def test_merge_counts_nao_cria_categorias_sem_casos():
+    total = pd.DataFrame({
+        "sex": pd.Categorical(["F"], categories=["F", "M"]),
+        "cases_total": [2],
+    })
+    partial = pd.DataFrame({
+        "sex": pd.Categorical(["F"], categories=["F", "M"]),
+        "cases_total": [3],
+    })
+
+    result = _merge_counts(total, partial)
+
+    assert result["sex"].tolist() == ["F"]
+    assert result["cases_total"].tolist() == [5]
+
+
+def test_gold_input_schema_projeta_dimensoes_obrigatorias_e_preserva_metadata():
+    source_schema = pa.schema(
+        [
+            pa.field("DT_NOTIFIC", pa.string()),
+            pa.field("ID_MUNICIP", pa.string()),
+            pa.field("SG_UF_NOT", pa.string()),
+            pa.field("NM_UF", pa.string()),
+            pa.field("CS_SEXO", pa.string()),
+            pa.field("ANO_NASC", pa.int64()),
+            pa.field("SEM_NOT", pa.int64()),
+            pa.field("ID_UNIDADE", pa.string()),
+            pa.field("NU_IDADE_N", pa.string()),
+            pa.field("TP_IDADE", pa.string()),
+            pa.field("CLASSI_FIN", pa.string()),
+            pa.field("IGNORADA", pa.string()),
+        ],
+        metadata={b"source": b"silver"},
+    )
+
+    result = _gold_input_schema(source_schema, ["classificacao_final"])
+
+    assert result.names == [
+        "DT_NOTIFIC", "ID_MUNICIP", "SG_UF_NOT", "NM_UF", "CS_SEXO",
+        "ANO_NASC", "ID_UNIDADE", "NU_IDADE_N", "TP_IDADE", "CLASSI_FIN",
+    ]
+    assert result.metadata == {b"source": b"silver"}
+
+
+@pytest.mark.parametrize(
+    ("metadata", "disease", "year"),
+    [({"disease": "ZIKA", "source_year": 2026}, "DENG", 2026),
+     ({"disease": "DENG", "source_year": 2025}, "DENG", 2026)],
+)
+def test_validate_source_matches_rejeita_doenca_ou_ano_inconsistente(metadata, disease, year):
+    with pytest.raises(ValueError):
+        _validate_source_matches(metadata, disease, year, Path("silver.parquet"))
+
+
+def test_read_source_metadata_rejeita_json_que_nao_e_objeto(tmp_path):
+    source = tmp_path / "silver.parquet"
+    source.with_name("metadata.json").write_text("[]", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="metadata.json deve conter um objeto"):
+        _read_source_metadata(source)
+
+
+def test_aggregate_sem_cnes_publica_status_de_unidade_nao_mapeada():
+    result = aggregate(_silver_minima(), "DENG", municipios=MUNICIPIOS_TESTE)
+
+    assert set(result["notification_territory_status"]) == {"UNMAPPED_NOTIFICATION_UNIT"}
+
+
+def test_aggregate_nao_cria_grupo_para_dimensao_nao_groupable():
+    df = _silver_minima(
+        DT_NOTIFIC=pd.to_datetime(["2026-01-05"] * 3),
+        NU_NOTIFIC=["1", "2", "3"],
+        ID_MUNICIP=["1234567"] * 3,
+        CS_SEXO=["F"] * 3,
+        ANO_NASC=[2000] * 3,
+        SEM_NOT=[202601] * 3,
+    )
+    result = aggregate(
+        df, "DENG", selected_columns=["notificacao_id"],
+        municipios=MUNICIPIOS_TESTE,
+    )
+
+    assert len(result) == 1
+    assert "NU_NOTIFIC" not in result.columns

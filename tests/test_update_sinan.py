@@ -1,7 +1,24 @@
 from pathlib import Path
 
 from app.pipeline.sinan.source import RemoteSinanFile
-from app.pipeline.update_sinan import update_one
+from app.pipeline.sinan.source import SinanSourceUnavailable
+import json
+
+import pytest
+
+from app.pipeline.update_sinan import (
+    TRACKED_DISEASES, _load_manifest, _parse_years, _save_manifest,
+    main, update, update_one,
+)
+
+
+def test_catalogo_operacional_cobre_todos_os_grupos_sinan_do_pysus():
+    from pysus.api.ftp.databases import SINAN
+
+    pysus_groups = set(SINAN.model_fields["group_definitions"].default)
+
+    assert pysus_groups
+    assert set(TRACKED_DISEASES) == pysus_groups
 
 
 def test_update_one_skips_same_size(tmp_path, monkeypatch):
@@ -44,3 +61,332 @@ def test_update_one_downloads_and_runs_when_size_changes(tmp_path, monkeypatch):
     assert result == "FMAC:2026: updated (6 bytes)"
     assert loaded == [("FMAC", 2026, remote.local_path, True)]
     assert manifest["FMAC:2026"]["status"] == "UPDATED"
+
+
+def test_update_one_reprocessa_quando_release_ibge_muda(tmp_path, monkeypatch):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
+    remote = RemoteSinanFile("DENG", 2026, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "b" * 64),
+    )
+    manifest = {
+        "DENG:2026": {
+            "remoteSizeBytes": 4,
+            "ibgeCatalogId": "ibge-dtb-2024",
+            "ibgeCatalogSha256": "a" * 64,
+        },
+    }
+    loaded = []
+    monkeypatch.setattr("app.pipeline.update_sinan.is_changed", lambda item: False)
+    monkeypatch.setattr("app.pipeline.update_sinan.download_remote_file", lambda item: item.local_path)
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.run_load",
+        lambda disease, year, **options: loaded.append((disease, year, options)),
+    )
+
+    result = update_one(remote, manifest, catalog=catalog)
+
+    assert result == "DENG:2026: updated (4 bytes)"
+    assert loaded[0][2]["catalog"] is catalog
+    assert manifest["DENG:2026"]["ibgeCatalogId"] == "ibge-dtb-2025"
+    assert manifest["DENG:2026"]["ibgeCatalogSha256"] == "b" * 64
+
+
+@pytest.mark.parametrize(
+    ("manifest_catalog_id", "manifest_catalog_sha256"),
+    [("ibge-dtb-2024", "b" * 64), ("ibge-dtb-2025", "a" * 64)],
+)
+def test_update_one_reprocessa_quando_uma_identidade_ibge_diverge(
+    tmp_path, monkeypatch, manifest_catalog_id, manifest_catalog_sha256,
+):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
+    remote = RemoteSinanFile("DENG", 2026, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "b" * 64),
+    )
+    manifest = {
+        "DENG:2026": {
+            "remoteSizeBytes": 4,
+            "ibgeCatalogId": manifest_catalog_id,
+            "ibgeCatalogSha256": manifest_catalog_sha256,
+        },
+    }
+    loaded = []
+    monkeypatch.setattr("app.pipeline.update_sinan.is_changed", lambda item: False)
+    monkeypatch.setattr("app.pipeline.update_sinan.download_remote_file", lambda item: item.local_path)
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.run_load",
+        lambda disease, year, **options: loaded.append((disease, year, options)),
+    )
+
+    result = update_one(remote, manifest, catalog=catalog)
+
+    assert result == "DENG:2026: updated (4 bytes)"
+    assert loaded[0][2]["catalog"] is catalog
+
+
+def test_update_one_nao_reprocessa_quando_release_ibge_e_arquivo_sao_iguais(
+    tmp_path, monkeypatch,
+):
+    from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
+    from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
+
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path)
+    remote = RemoteSinanFile("DENG", 2026, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    catalog = InMemoryMunicipalityCatalog(
+        [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
+        CatalogMetadata("ibge-dtb-2025", 2025, "fixture", "fixture://dtb", "2026-01-01T00:00:00Z", "b" * 64),
+    )
+    manifest = {
+        "DENG:2026": {
+            "remoteSizeBytes": 4,
+            "ibgeCatalogId": "ibge-dtb-2025",
+            "ibgeCatalogSha256": "b" * 64,
+        },
+    }
+    monkeypatch.setattr("app.pipeline.update_sinan.is_changed", lambda item: False)
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.run_load",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("não deveria reprocessar")),
+    )
+
+    result = update_one(remote, manifest, catalog=catalog)
+
+    assert result == "DENG:2026: unchanged (4 bytes)"
+    assert manifest["DENG:2026"]["status"] == "UNCHANGED"
+
+
+@pytest.mark.parametrize("raw,expected", [(None, None), ("2026, 2024,2026", [2024, 2026])])
+def test_parse_years_normalizes_and_defaults_to_current_year(raw, expected, monkeypatch):
+    if expected is None:
+        monkeypatch.setattr("app.pipeline.update_sinan.datetime", type("Clock", (), {"now": staticmethod(lambda _: type("Year", (), {"year": 2026})())}))
+        assert _parse_years(raw) == [2026]
+    else:
+        assert _parse_years(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["1999", "10000", "abc", "2000,"])
+def test_parse_years_rejects_invalid_values(raw):
+    with pytest.raises((ValueError, OverflowError)):
+        _parse_years(raw)
+
+
+@pytest.mark.parametrize("raw", ["2000", "9999", "2000, 9999, 2000"])
+def test_parse_years_aceita_limites_e_remove_duplicatas(raw):
+    assert _parse_years(raw) == ([2000, 9999] if "," in raw else [int(raw)])
+
+
+def test_manifest_round_trip_and_invalid_payload(tmp_path):
+    path = tmp_path / "manifest.json"
+    manifest = {"DENG:2026": {"status": "UPDATED"}}
+
+    _save_manifest(path, manifest)
+
+    assert _load_manifest(path) == manifest
+    path.write_text(json.dumps(["not-an-object"]), encoding="utf-8")
+    with pytest.raises(ValueError, match="objeto por recorte"):
+        _load_manifest(path)
+
+
+@pytest.mark.parametrize("payload", [[], {"DENG:2026": []}, {"DENG:2026": None}])
+def test_load_manifest_rejeita_payload_sem_objetos_por_recorte(tmp_path, payload):
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="objeto por recorte"):
+        _load_manifest(path)
+
+
+def test_save_manifest_nao_deixa_temporario_previsivel(tmp_path):
+    path = tmp_path / "manifest.json"
+
+    _save_manifest(path, {"DENG:2026": {"status": "UPDATED"}})
+
+    assert path.exists()
+    assert not (tmp_path / "manifest.tmp").exists()
+    assert not list(tmp_path.glob(".manifest.json.*.tmp"))
+
+
+def test_update_inspects_each_slice_and_persists_manifest(tmp_path, mocker, monkeypatch):
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path / "source")
+    remote = RemoteSinanFile("DENG", 2026, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    inspect = mocker.patch("app.pipeline.update_sinan.inspect_remote_file", return_value=remote)
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"DENG:2026": {"remoteSizeBytes": 4}}), encoding="utf-8")
+
+    results = update(["DENG"], [2026], manifest_path)
+
+    assert results == ["DENG:2026: unchanged (4 bytes)"]
+    inspect.assert_called_once_with("DENG", 2026)
+    assert _load_manifest(manifest_path)["DENG:2026"]["status"] == "UNCHANGED"
+
+
+def test_update_registra_fonte_indisponivel_e_continua_outros_grupos(
+    tmp_path, mocker, monkeypatch,
+):
+    monkeypatch.setattr("app.pipeline.sinan.source.SOURCE_DIR", tmp_path / "source")
+    remote = RemoteSinanFile("CHIK", 2024, "remote", 4)
+    remote.local_path.parent.mkdir(parents=True)
+    remote.local_path.write_bytes(b"1234")
+    inspect = mocker.patch(
+        "app.pipeline.update_sinan.inspect_remote_file",
+        side_effect=[SinanSourceUnavailable("sem Parquet"), remote],
+    )
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"CHIK:2024": {"remoteSizeBytes": 4}}), encoding="utf-8"
+    )
+
+    results = update(["DENG", "CHIK"], [2024], manifest_path)
+
+    assert results == ["DENG:2024: unavailable", "CHIK:2024: unchanged (4 bytes)"]
+    manifest = _load_manifest(manifest_path)
+    assert manifest["DENG:2024"]["status"] == "UNAVAILABLE"
+    assert manifest["CHIK:2024"]["status"] == "UNCHANGED"
+    assert inspect.call_count == 2
+
+
+def test_main_encaminha_diseases_years_manifesto_e_catalogo(monkeypatch, tmp_path):
+    import sys
+    import app.pipeline.reference.ibge.storage as storage
+
+    catalog = object()
+    captured = {}
+    loaded_roots = []
+    monkeypatch.setattr(
+        storage, "load_active_catalog", lambda root: loaded_roots.append(root) or catalog
+    )
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda diseases, years, manifest, catalog=None, **kwargs: captured.update(
+            diseases=diseases, years=years, manifest=manifest, catalog=catalog
+        ),
+    )
+    monkeypatch.setattr(
+        sys, "argv", [
+            "update_sinan", "--diseases", "deng,chik", "--years", "2024,2026",
+            "--manifest", str(tmp_path / "manifest.json"),
+            "--catalog-root", str(tmp_path / "ibge"),
+        ],
+    )
+
+    main()
+
+    assert captured == {
+        "diseases": ["DENG", "CHIK"],
+        "years": [2024, 2026],
+        "manifest": tmp_path / "manifest.json",
+        "catalog": catalog,
+    }
+    assert loaded_roots == [tmp_path / "ibge"]
+
+
+def test_main_aplica_defaults_sem_catalogo(monkeypatch):
+    import sys
+
+    captured = {}
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda diseases, years, manifest, catalog=None, **kwargs: captured.update(
+            diseases=diseases, years=years, manifest=manifest, catalog=catalog
+        ),
+    )
+    monkeypatch.setattr(sys, "argv", ["update_sinan"])
+
+    main()
+
+    assert captured["diseases"] == list(TRACKED_DISEASES)
+    assert captured["manifest"] == Path("/data/source/sinan/manifest.json")
+    assert captured["catalog"] is None
+
+
+def test_main_nao_carrega_catalogo_sem_argumento(monkeypatch):
+    import sys
+    import app.pipeline.reference.ibge.storage as storage
+
+    monkeypatch.setattr(
+        storage, "load_active_catalog", lambda _root: pytest.fail("catálogo não deveria ser carregado")
+    )
+    monkeypatch.setattr("app.pipeline.update_sinan.update", lambda *args, **kwargs: None)
+    monkeypatch.setattr(sys, "argv", ["update_sinan"])
+
+    main()
+
+
+def test_main_rejeita_doenca_nao_acompanhada(monkeypatch, capsys):
+    import sys
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", "DENG,INVALID"])
+
+    with pytest.raises(SystemExit, match="Doenças não acompanhadas: INVALID"):
+        main()
+
+
+def test_main_rejeita_lista_de_doencas_vazia(monkeypatch, capsys):
+    import sys
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", ""])
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 2
+    assert "Informe ao menos uma doença em --diseases" in capsys.readouterr().err
+
+
+def test_main_sai_com_codigo_um_quando_atualizacao_falha(monkeypatch):
+    import sys
+
+    monkeypatch.setattr("app.pipeline.update_sinan.update", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("falha")))
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", "DENG"])
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 1
+
+
+def test_main_sai_com_codigo_tres_quando_fonte_fica_indisponivel(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda *args, **kwargs: ["INFL:2024: unavailable"],
+    )
+    monkeypatch.setattr(sys, "argv", ["update_sinan", "--diseases", "INFL", "--years", "2024"])
+
+    with pytest.raises(SystemExit) as error:
+        main()
+
+    assert error.value.code == 3
+
+
+def test_main_permite_descoberta_com_fonte_indisponivel(monkeypatch):
+    import sys
+
+    monkeypatch.setattr(
+        "app.pipeline.update_sinan.update",
+        lambda *args, **kwargs: ["INFL:2024: unavailable"],
+    )
+    monkeypatch.setattr(
+        sys, "argv", [
+            "update_sinan", "--diseases", "INFL", "--years", "2024",
+            "--allow-unavailable",
+        ],
+    )
+
+    main()

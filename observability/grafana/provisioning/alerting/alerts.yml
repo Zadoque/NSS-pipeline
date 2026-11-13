@@ -1,0 +1,85 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: NSS Pipeline
+    folder: NSS Pipeline
+    interval: 1m
+    rules:
+      - uid: nss-pipeline-stage-failure
+        title: NSS Pipeline — etapa com falha
+        condition: A
+        for: 5m
+        noDataState: NoData
+        execErrState: Error
+        annotations:
+          summary: "A etapa {{ $labels.layer }} da pipeline {{ $labels.pipeline }} falhou"
+          description: "A última execução de {{ $labels.disease }} / {{ $labels.year }} terminou com status de falha."
+        labels:
+          severity: critical
+          service: nss-pipeline
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: nss-prometheus
+            model:
+              editorMode: code
+              expr: nss_pipeline_stage_status == 0
+              instant: true
+              intervalMs: 15000
+              maxDataPoints: 43200
+              refId: A
+
+      - uid: nss-pipeline-dropped-rows
+        title: NSS Pipeline — anomalias de qualidade
+        condition: A
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: "A pipeline encontrou descartes anômalos"
+          description: "{{ $value }} linhas foram descartadas por anomalias de qualidade em {{ $labels.layer }} / {{ $labels.disease }} {{ $labels.year }}."
+        labels:
+          severity: warning
+          service: nss-pipeline
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: nss-prometheus
+            model:
+              editorMode: code
+              expr: nss_pipeline_anomalous_dropped_rows > 0
+              instant: true
+              intervalMs: 15000
+              maxDataPoints: 43200
+              refId: A
+
+      - uid: nss-pipeline-stale
+        title: NSS Pipeline — ausência de execução recente
+        condition: A
+        for: 15m
+        noDataState: Alerting
+        execErrState: Error
+        annotations:
+          summary: "A NSS Pipeline tem uma série sem execução recente"
+          description: "A série {{ $labels.layer }} / {{ $labels.disease }} {{ $labels.year }} não executa há mais de 24 horas; verifique o scheduler e o Pushgateway."
+        labels:
+          severity: critical
+          service: nss-pipeline
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: nss-prometheus
+            model:
+              editorMode: code
+              expr: absent(nss_pipeline_stage_last_execution_timestamp_seconds) or max by (pipeline, layer, disease, year) (time() - nss_pipeline_stage_last_execution_timestamp_seconds) > 86400
+              instant: true
+              intervalMs: 15000
+              maxDataPoints: 43200
+              refId: A
