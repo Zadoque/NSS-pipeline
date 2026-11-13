@@ -10,10 +10,6 @@ import pandas as pd
 # pyrefly: ignore [missing-import]
 import pytest
 # pyrefly: ignore [missing-import]
-from alembic import command
-# pyrefly: ignore [missing-import]
-from alembic.config import Config
-# pyrefly: ignore [missing-import]
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
@@ -37,34 +33,18 @@ def postgres_engine():
             "Ver README (seção de testes) para configurar o banco de testes."
         )
 
-    # A fixture reseta o schema: nunca aceitar URL de desenvolvimento/produção.
     if not (make_url(database_url).database or "").endswith("_test"):
         raise RuntimeError("TEST_DATABASE_URL deve apontar para banco com sufixo _test")
     engine = create_engine(database_url)
-
-    # Este banco não é descartável (é um serviço Postgres persistente, não
-    # um container efêmero) — reseta o schema manualmente antes de rodar
-    # as migrations, para garantir estado limpo independente de execuções
-    # anteriores.
-    with engine.begin() as conn:
-        conn.execute(text("DROP SCHEMA IF EXISTS analytics CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
-
-    # env.py lê DATABASE_URL do ambiente, não do Config do Alembic —
-    # setar aqui garante que a migration rode contra o banco de TESTE,
-    # não o de desenvolvimento.
-    previous_url = os.environ.get("DATABASE_URL")
     try:
-        os.environ["DATABASE_URL"] = database_url
-        command.upgrade(Config("alembic.ini"), "head")
+        with engine.connect() as conn:
+            version = conn.execute(text(
+                "SELECT version FROM nss_schema.version WHERE component = 'analytics'"
+            )).scalar_one()
+        assert version == "0001", "Prepare o PostgreSQL de teste com a imagem NSS-database"
+        yield engine
     finally:
-        if previous_url is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = previous_url
-
-    yield engine
-    engine.dispose()
+        engine.dispose()
 
 
 @pytest.fixture(autouse=True)

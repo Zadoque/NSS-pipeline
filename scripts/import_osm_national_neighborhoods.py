@@ -17,6 +17,21 @@ from shapely.geometry import LineString, Point, Polygon, shape
 from shapely.ops import polygonize, unary_union
 from shapely.strtree import STRtree
 
+if __package__:
+    from .territory_geojson import (
+        deduplicate_neighborhoods,
+        normalize_neighborhoods,
+        read_features,
+        write_features,
+    )
+else:
+    from territory_geojson import (
+        deduplicate_neighborhoods,
+        normalize_neighborhoods,
+        read_features,
+        write_features,
+    )
+
 DEFAULT_URLS = (
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass-api.de/api/interpreter",
@@ -71,23 +86,29 @@ def _download(uf: str, urls: tuple[str, ...]) -> dict:
     raise RuntimeError(f"Overpass indisponível para {uf}: {last_error}")
 
 
-def _municipalities(front_root: Path, uf: str):
+def _municipalities(front_root: Path, output: Path, uf: str):
     catalog = json.loads((front_root / "municipalities.index.json").read_text())
     rows = []
     for item in catalog["items"]:
         if item["uf"] != uf:
             continue
-        path = front_root / "municipalities" / f"{item['code']}.geojson"
-        if not path.is_file():
+        districts = output / "ibge" / str(item["code"]) / "districts.geojson"
+        if not districts.is_file():
             continue
-        payload = json.loads(path.read_text())
-        geometry = unary_union([shape(feature["geometry"]) for feature in payload["features"]])
+        geometry = unary_union([shape(feature["geometry"]) for feature in read_features(districts)])
         rows.append((str(item["code"]), item["name"], geometry))
     return rows
 
 
-def import_state(payload: dict, *, front_root: Path, output: Path, uf: str) -> int:
-    municipalities = _municipalities(front_root, uf)
+def import_state(
+    payload: dict,
+    *,
+    front_root: Path,
+    output: Path,
+    uf: str,
+    deduplication_report: list[dict] | None = None,
+) -> int:
+    municipalities = _municipalities(front_root, output, uf)
     geometries = [row[2] for row in municipalities]
     tree = STRtree(geometries)
     grouped: dict[str, list[dict]] = {}
@@ -113,7 +134,7 @@ def import_state(payload: dict, *, front_root: Path, output: Path, uf: str) -> i
                 break
         if municipality is None:
             continue
-        code, municipality_name, _ = municipality
+        code, _, _ = municipality
         grouped.setdefault(code, []).append({
             "type": "Feature",
             "properties": {
@@ -121,7 +142,6 @@ def import_state(payload: dict, *, front_root: Path, output: Path, uf: str) -> i
                 "name": name,
                 "type": "NEIGHBORHOOD_OR_LOCALITY",
                 "municipalityCode": code,
-                "parentDistrictId": f"IBGE_MUN_{code}",
                 "geometryStatus": "POLYGON_OSM",
                 "source": "OpenStreetMap",
                 "sourceLicense": "ODbL-1.0",
@@ -134,11 +154,14 @@ def import_state(payload: dict, *, front_root: Path, output: Path, uf: str) -> i
         destination = output / "osm" / code
         destination.mkdir(parents=True, exist_ok=True)
         ibge_districts = output / "ibge" / code / "districts.geojson"
-        if ibge_districts.is_file():
-            (destination / "districts.geojson").write_text(ibge_districts.read_text())
-        (destination / "neighborhoods.geojson").write_text(
-            json.dumps({"type": "FeatureCollection", "features": features}, ensure_ascii=False)
-        )
+        districts = read_features(ibge_districts)
+        normalized = normalize_neighborhoods(features, districts)
+        normalized, discarded = deduplicate_neighborhoods(normalized)
+        if deduplication_report is not None:
+            for item in discarded:
+                deduplication_report.append({"uf": uf, "municipalityCode": code, **item})
+        (destination / "districts.geojson").write_text(ibge_districts.read_text())
+        write_features(destination / "neighborhoods.geojson", normalized)
     return sum(len(features) for features in grouped.values())
 
 
@@ -152,12 +175,19 @@ def main() -> None:
     catalog = json.loads((args.front_root / "municipalities.index.json").read_text())
     ufs = sorted(args.ufs or {item["uf"] for item in catalog["items"]})
     checkpoint = json.loads(args.checkpoint.read_text()) if args.checkpoint.is_file() else {"completed": {}}
+    deduplication_report: list[dict] = []
     for uf in ufs:
         if uf in checkpoint["completed"]:
             print(f"{uf}: já concluído", flush=True)
             continue
         payload = _download(uf, DEFAULT_URLS)
-        features = import_state(payload, front_root=args.front_root, output=args.output, uf=uf)
+        features = import_state(
+            payload,
+            front_root=args.front_root,
+            output=args.output,
+            uf=uf,
+            deduplication_report=deduplication_report,
+        )
         checkpoint["completed"][uf] = {
             "features": features,
             "timestamp": payload.get("osm3s", {}).get("timestamp_osm_base"),
@@ -166,6 +196,10 @@ def main() -> None:
         args.checkpoint.write_text(json.dumps(checkpoint, ensure_ascii=False, indent=2) + "\n")
         print(f"{uf}: {features} polígonos", flush=True)
         time.sleep(2)
+    (args.output / "osm-deduplication-report.json").write_text(
+        json.dumps(deduplication_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":

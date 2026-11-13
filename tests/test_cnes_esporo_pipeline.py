@@ -1,4 +1,5 @@
 import json
+from zipfile import ZipFile
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -102,78 +103,71 @@ def test_transform_cnes_file_publishes_metadata(tmp_path, monkeypatch):
     assert metadata["dropped_rows"] == 0
 
 
-def test_fetch_estabelecimentos_paginates_until_empty(mocker):
-    responses = [
-        mocker.Mock(json=lambda: {"estabelecimentos": [{"id": 1}]}),
-        mocker.Mock(json=lambda: {"estabelecimentos": [{"id": 2}]}),
-        mocker.Mock(json=lambda: {"estabelecimentos": []}),
-    ]
-    for response in responses:
-        response.raise_for_status = mocker.Mock()
-    session = mocker.Mock()
-    session.get.side_effect = responses
-    mocker.patch.object(cnes_bronze, "_session_with_retries", return_value=session)
+def test_fetch_estabelecimentos_usa_cnes_nacional_pysus_e_normaliza_zero(
+    mocker, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(cnes_bronze, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(cnes_bronze, "_NATIONAL_CNES", None)
+    pysus = mocker.Mock()
+    pysus.saude.cnes.return_value = pd.DataFrame(
+        {
+            "CO_CNES": [729884, 6829538, 9999999],
+            "CO_IBGE": [330100, 330100, 330500],
+            "NO_FANTASIA": ["BEDALAB", "BEDALAB", "Outro"],
+            "NO_BAIRRO": ["Centro", "Pelinca", "Centro"],
+        }
+    )
+    mocker.patch.dict("sys.modules", {"pysus": pysus})
 
-    result = cnes_bronze.fetch_estabelecimentos("3301009", limit=1)
+    result = cnes_bronze.fetch_estabelecimentos("3301009")
 
-    assert result.to_dict("records") == [{"id": 1}, {"id": 2}]
-    assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 1, 2]
-    assert all(call.kwargs["timeout"] == 60 for call in session.get.call_args_list)
-
-
-def test_fetch_estabelecimentos_respeita_teto_da_api_sem_pular_registros(mocker):
-    responses = [
-        mocker.Mock(json=lambda: {"estabelecimentos": [{"id": value} for value in range(20)]}),
-        mocker.Mock(json=lambda: {"estabelecimentos": [{"id": 20}]}),
-        mocker.Mock(json=lambda: {"estabelecimentos": []}),
-    ]
-    for response in responses:
-        response.raise_for_status = mocker.Mock()
-    session = mocker.Mock()
-    session.get.side_effect = responses
-    mocker.patch.object(cnes_bronze, "_session_with_retries", return_value=session)
-
-    result = cnes_bronze.fetch_estabelecimentos("3301009", limit=250)
-
-    assert result["id"].tolist() == list(range(21))
-    assert [call.kwargs["params"]["offset"] for call in session.get.call_args_list] == [0, 20, 21]
+    assert result["codigo_cnes"].tolist() == ["0729884", "6829538"]
+    assert result["codigo_municipio"].tolist() == ["330100", "330100"]
+    pysus.saude.cnes.assert_called_once_with(download=False)
 
 
-@pytest.mark.parametrize(
-    "payload, message",
-    [
-        ([], "JSON deve ser um objeto"),
-        ({}, "estabelecimentos deve ser uma lista"),
-        ({"estabelecimentos": ["não é registro"]}, "cada estabelecimento deve ser um objeto"),
-    ],
-)
-def test_fetch_estabelecimentos_rejeita_schema_de_resposta_invalido(mocker, payload, message):
-    response = mocker.Mock(json=lambda: payload)
-    response.raise_for_status = mocker.Mock()
-    session = mocker.Mock()
-    session.get.return_value = response
+def test_fetch_estabelecimentos_reutiliza_snapshot_nacional(mocker, tmp_path, monkeypatch):
+    monkeypatch.setattr(cnes_bronze, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(cnes_bronze, "_NATIONAL_CNES", None)
+    pysus = mocker.Mock()
+    pysus.saude.cnes.return_value = pd.DataFrame(
+        {"CO_CNES": [1], "CO_IBGE": [330100]}
+    )
+    mocker.patch.dict("sys.modules", {"pysus": pysus})
 
-    with pytest.raises(ValueError, match=message):
-        cnes_bronze.fetch_estabelecimentos("3301009", session=session)
+    cnes_bronze.fetch_estabelecimentos("3301009")
+    cnes_bronze.fetch_estabelecimentos("3302403")
 
-    response.raise_for_status.assert_called_once_with()
+    pysus.saude.cnes.assert_called_once()
 
 
-def test_fetch_estabelecimentos_interrompe_pagina_repetida(mocker):
-    page = {"estabelecimentos": [{"id": 1}]}
-    responses = [mocker.Mock(json=lambda: page), mocker.Mock(json=lambda: page)]
-    for response in responses:
-        response.raise_for_status = mocker.Mock()
-    session = mocker.Mock()
-    session.get.side_effect = responses
+def test_fetch_estabelecimentos_le_csv_zip_baixado_pelo_pysus(mocker, tmp_path, monkeypatch):
+    monkeypatch.setattr(cnes_bronze, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(cnes_bronze, "_NATIONAL_CNES", None)
+    cache = tmp_path / "pysus"
+    archive_dir = cache / "downloads" / "saude" / "cnes"
+    archive_dir.mkdir(parents=True)
+    archive = archive_dir / "CNES Estabelecimentos.csv"
+    payload = (
+        "CO_CNES;CO_IBGE;NO_FANTASIA;NO_BAIRRO\n"
+        "729884;330100;BEDALAB;Centro\n"
+    ).encode("latin1")
+    with ZipFile(archive, "w") as bundle:
+        bundle.writestr("cnes_estabelecimentos.csv", payload)
 
-    with pytest.raises(RuntimeError, match="repetiu uma página"):
-        cnes_bronze.fetch_estabelecimentos("3301009", session=session)
+    pysus = mocker.Mock()
+    source = mocker.Mock()
+    source.download.return_value.paths = [archive]
+    pysus.saude.cnes.return_value = source
+    mocker.patch.dict("sys.modules", {"pysus": pysus})
 
-    assert session.get.call_count == 2
+    result = cnes_bronze.fetch_estabelecimentos("3301009")
+
+    assert result.iloc[0]["codigo_cnes"] == "0729884"
+    assert result.iloc[0]["bairro_estabelecimento"] == "Centro"
 
 
-def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
+def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker, tmp_path, monkeypatch):
     from app.pipeline.reference.ibge.catalog import InMemoryMunicipalityCatalog
     from app.pipeline.reference.ibge.models import CatalogMetadata, Municipality
 
@@ -181,16 +175,17 @@ def test_fetch_estabelecimentos_uses_validated_catalog_crosswalk(mocker):
         [Municipality("3301009", "330100", "Campos", "33", "RJ", "Rio", 2025)],
         CatalogMetadata("test", 2025, "fixture", "fixture://", "2026-01-01T00:00:00Z", "hash"),
     )
-    response = mocker.Mock()
-    response.json.return_value = {"estabelecimentos": []}
-    response.raise_for_status = mocker.Mock()
-    session = mocker.Mock()
-    session.get.return_value = response
-    mocker.patch.object(cnes_bronze, "_session_with_retries", return_value=session)
+    monkeypatch.setattr(cnes_bronze, "BASE_DIR", tmp_path)
+    monkeypatch.setattr(cnes_bronze, "_NATIONAL_CNES", None)
+    pysus = mocker.Mock()
+    pysus.saude.cnes.return_value = pd.DataFrame(
+        {"CO_CNES": [1], "CO_IBGE": [330100]}
+    )
+    mocker.patch.dict("sys.modules", {"pysus": pysus})
 
     cnes_bronze.fetch_estabelecimentos("3301009", catalog=catalog)
 
-    assert session.get.call_args.kwargs["params"]["codigo_municipio"] == "330100"
+    assert pysus.saude.cnes.call_count == 1
 
 
 def test_esporo_run_passes_same_run_timestamp_to_silver(mocker, tmp_path):
