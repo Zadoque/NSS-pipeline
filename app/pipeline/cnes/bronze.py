@@ -112,6 +112,18 @@ def _load_national_cnes() -> pd.DataFrame:
         frame["codigo_municipio"] = frame["codigo_municipio"].map(
             lambda value: _normalize_code(value, 6)
         )
+        candidate_path = Path(__file__).resolve().parents[3] / "territories" / "reference" / "cnes_google_candidates.csv"
+        if candidate_path.exists():
+            candidates = pd.read_csv(candidate_path, dtype="string")
+            required_candidates = {"codigo_cnes", "codigo_municipio", "nome_fantasia"}
+            if not required_candidates.issubset(candidates.columns):
+                raise ValueError(f"candidatos CNES externos sem colunas obrigatórias: {sorted(required_candidates - set(candidates.columns))}")
+            candidates["codigo_cnes"] = candidates["codigo_cnes"].map(lambda value: _normalize_code(value, 7))
+            candidates["codigo_municipio"] = candidates["codigo_municipio"].map(lambda value: _normalize_code(value, 6))
+            # Web evidence only fills codes absent from the official snapshot;
+            # it never overwrites an official CNES row or creates coordinates.
+            frame = pd.concat([frame, candidates], ignore_index=True, sort=False)
+            frame = frame.drop_duplicates(subset=["codigo_cnes"], keep="first")
         _NATIONAL_CNES = frame
         return frame
 
