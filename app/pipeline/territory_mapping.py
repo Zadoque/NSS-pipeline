@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from math import isfinite
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
 from shapely import STRtree, points
@@ -19,6 +20,21 @@ from shapely.geometry import Point, shape
 UNMAPPED = "UNMAPPED_NOTIFICATION_UNIT"
 DISTRICT_ONLY = "NOTIFICATION_DISTRICT_ONLY"
 NEIGHBORHOOD = "NOTIFICATION_NEIGHBORHOOD"
+NEIGHBORHOOD_NAME_ONLY = "NOTIFICATION_NEIGHBORHOOD_NAME_ONLY"
+
+
+def name_only_neighborhood_id(municipality_code: str, name: object) -> str | None:
+    normalized = " ".join(str(name or "").split())
+    if not normalized or normalized.casefold() in {"nan", "<na>", "none"}:
+        return None
+    encoded = quote(normalized, safe="-_.~")
+    # The analytics column is VARCHAR(100). Keep the readable name for normal
+    # CNES values and a deterministic suffix when an unusually long name is
+    # encountered, preventing truncation collisions.
+    if len(encoded) > 70:
+        import hashlib
+        encoded = f"{encoded[:54]}-{hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:12]}"
+    return f"CNES_BAIRRO:{municipality_code}:{encoded}"
 
 
 class TerritoryMapper:
@@ -101,5 +117,16 @@ def enrich_cnes_territories(df: pd.DataFrame, assets_dir: Path) -> pd.DataFrame:
     longitude = out.get("longitude", pd.Series(None, index=out.index))
     latitude = out.get("latitude", pd.Series(None, index=out.index))
     classifications = mapper.classify_many(zip(longitude, latitude))
+    municipality_code = assets_dir.name
+    neighborhood_names = out.get("bairro_cnes", pd.Series(None, index=out.index))
+    for position, (district_id, neighborhood_id, status) in enumerate(classifications):
+        if neighborhood_id is None:
+            fallback_id = name_only_neighborhood_id(municipality_code, neighborhood_names.iloc[position])
+            if fallback_id is not None:
+                classifications[position] = (
+                    district_id,
+                    fallback_id,
+                    NEIGHBORHOOD_NAME_ONLY,
+                )
     out[columns] = pd.DataFrame(classifications, index=out.index, columns=columns)
     return out

@@ -24,14 +24,16 @@ def test_transform_cnes_normalizes_codes_and_keeps_last_duplicate():
 
     result = cnes_silver.transform_cnes(source)
 
-    assert result.to_dict("records") == [
-        {
-            "cd_unidade": "0000012",
-            "nm_unidade": "atual",
-            "codigo_municipio": "3301009",
-            "tp_unidade": 2,
-        }
-    ]
+    assert result.loc[1, [
+        "cd_unidade", "nm_unidade", "codigo_municipio", "tp_unidade",
+    ]].to_dict() == {
+        "cd_unidade": "0000012",
+        "nm_unidade": "atual",
+        "codigo_municipio": "3301009",
+        "tp_unidade": 2,
+    }
+    assert result.loc[1, "coordinate_source"] == "UNRESOLVED"
+    assert result.loc[1, "geocoding_status"] == "NOT_REQUESTED"
 
 
 def test_transform_cnes_resolves_canonical_municipality_with_catalog():
@@ -69,6 +71,56 @@ def test_transform_cnes_sinaliza_municipio_retornado_fora_do_solicitado():
 
     assert pd.isna(result.loc[0, "cd_mun"])
     assert result.loc[0, "municipality_resolution_status"] == "OUT_OF_SCOPE"
+
+
+def test_transform_cnes_preserva_endereco_da_api_legada():
+    result = cnes_silver.transform_cnes(
+        pd.DataFrame(
+            {
+                "codigo_cnes": [12],
+                "codigo_municipio": [3301009],
+                "codigo_cep_estabelecimento": ["28035100"],
+                "endereco_estabelecimento": ["Rua do Teste"],
+                "numero_estabelecimento": ["20"],
+            }
+        )
+    )
+
+    assert result.loc[0, ["cep", "logradouro", "numero"]].to_dict() == {
+        "cep": "28035100",
+        "logradouro": "Rua do Teste",
+        "numero": "20",
+    }
+
+
+def test_transform_cnes_aceita_coordenada_de_fernando_de_noronha():
+    result = cnes_silver.transform_cnes(
+        pd.DataFrame(
+            {
+                "codigo_cnes": [12],
+                "codigo_municipio": [260545],
+                "latitude_estabelecimento_decimo_grau": [-3.85],
+                "longitude_estabelecimento_decimo_grau": [-32.42],
+            }
+        )
+    )
+
+    assert result.loc[0, "coordinate_source"] == "CNES"
+
+
+def test_transform_cnes_trata_coordenada_nullable_ausente_como_nao_resolvida():
+    result = cnes_silver.transform_cnes(
+        pd.DataFrame(
+            {
+                "codigo_cnes": [12],
+                "codigo_municipio": [330100],
+                "latitude_estabelecimento_decimo_grau": pd.Series([pd.NA], dtype="Float64"),
+                "longitude_estabelecimento_decimo_grau": pd.Series([pd.NA], dtype="Float64"),
+            }
+        )
+    )
+
+    assert result.loc[0, "coordinate_source"] == "UNRESOLVED"
 
 
 def test_fetch_estabelecimentos_rejeita_limit_invalido(monkeypatch):

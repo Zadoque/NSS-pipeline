@@ -208,6 +208,25 @@ python -m app.pipeline.run_cnes --catalog-root data/reference/ibge \
 rejeita mudança no escopo, release, page size, timeout ou workers. Sem opção,
 a primeira falha aborta. Municípios concluídos não são consultados novamente.
 
+Para preencher somente coordenadas CNES ausentes ou inválidas, informe uma
+instância Nominatim **auto-hospedada**:
+
+```bash
+python -m app.pipeline.run_cnes --catalog-root data/reference/ibge \
+  --all-brazil --geocoder-url http://nominatim:8080 \
+  --geocoder-cache /data/reference/cnes-geocoding.sqlite
+```
+
+O endereço combina logradouro, número, bairro, município, UF e CEP. A
+coordenada retornada só é aceita quando há um único ponto distinto dentro da
+malha municipal versionada. Coordenadas CNES válidas nunca são consultadas ou
+sobrescritas. O Silver preserva `latitude_cnes`/`longitude_cnes`, registra a
+posição enriquecida separadamente, sua fonte, confiança, provedor, data e
+status, e mantém `latitude`/`longitude` como coordenada efetiva para os mapas.
+O cache SQLite evita consultas repetidas. O endpoint público do OpenStreetMap
+é recusado por essa carga nacional; sem `--geocoder-url`, não há acesso a
+geocodificador e os casos pendentes permanecem `NOT_REQUESTED`.
+
 ### Atualização incremental: `update_sinan.py`
 
 ```bash

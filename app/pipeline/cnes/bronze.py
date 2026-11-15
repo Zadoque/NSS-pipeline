@@ -103,6 +103,9 @@ def _load_national_cnes() -> pd.DataFrame:
             "NO_BAIRRO": "bairro_estabelecimento",
             "NU_LATITUDE": "latitude_estabelecimento_decimo_grau",
             "NU_LONGITUDE": "longitude_estabelecimento_decimo_grau",
+            "CO_CEP": "cep_estabelecimento",
+            "NO_LOGRADOURO": "logradouro_estabelecimento",
+            "NU_ENDERECO": "numero_estabelecimento",
         }
         frame = frame.rename(columns=rename)
         frame["codigo_cnes"] = frame["codigo_cnes"].map(lambda value: _normalize_code(value, 7))

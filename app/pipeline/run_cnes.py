@@ -20,6 +20,12 @@ import fcntl
 
 from .atomic_io import write_json_atomic, write_parquet_atomic
 from .cnes.bronze import fetch_estabelecimentos, session_with_retries, write_bronze_cnes
+from .cnes.geocoding import (
+    Geocoder,
+    NominatimGeocoder,
+    enrich_missing_coordinates,
+    load_municipality_geometry,
+)
 from .cnes.silver import transform_cnes
 from .territory_mapping import enrich_cnes_territories
 from .territory_assets import asset_directory
@@ -44,6 +50,12 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _geocoder_identity(geocoder: Geocoder | None) -> str | None:
+    if geocoder is None:
+        return None
+    return str(getattr(geocoder, "identity", geocoder.name))
+
+
 def _consolidated_municipalities(path: Path) -> list[str]:
     """Lê a cobertura efetiva do Parquet sem materializar o lote em pandas."""
     if "cd_mun" not in pq.ParquetFile(path).schema.names:
@@ -62,6 +74,25 @@ def _consolidated_municipalities(path: Path) -> list[str]:
     finally:
         connection.close()
     return [row[0] for row in rows]
+
+
+def _geocoding_status_counts(path: Path) -> dict[str, int]:
+    if "geocoding_status" not in pq.ParquetFile(path).schema.names:
+        return {}
+    connection = duckdb.connect()
+    try:
+        rows = connection.execute(
+            """
+            SELECT coalesce(CAST(geocoding_status AS VARCHAR), 'MISSING'), count(*)
+            FROM read_parquet(?)
+            GROUP BY 1
+            ORDER BY 1
+            """,
+            [str(path)],
+        ).fetchall()
+    finally:
+        connection.close()
+    return {status: int(count) for status, count in rows}
 
 
 def _validate_checkpoint_completed(completed: object, municipios: dict[str, str]) -> dict:
@@ -252,6 +283,7 @@ def _run_cnes(
     checkpoint_path: Path | None = None,
     continue_on_error: bool = False,
     workers: int = 1,
+    geocoder: Geocoder | None = None,
 ) -> Path:
     stage_started = monotonic()
     if not isinstance(page_size, int) or isinstance(page_size, bool) or page_size <= 0:
@@ -291,6 +323,7 @@ def _run_cnes(
             "cnes_request_timeout": request_timeout,
             "continue_on_error": continue_on_error,
             "cnes_workers": workers,
+            "cnes_geocoder": _geocoder_identity(geocoder),
         }
         actual = {
             key: (
@@ -387,6 +420,20 @@ def _run_cnes(
                     silver, catalog=catalog, municipality_code7=cod_municipio,
                 )
                 territory_assets = asset_directory(cod_municipio, root=TERRITORY_ASSETS_DIR)
+                municipality_geometry = (
+                    load_municipality_geometry(territory_assets)
+                    if territory_assets is not None
+                    else None
+                )
+                municipality = catalog.get_municipality(cod_municipio) if catalog else None
+                silver = enrich_missing_coordinates(
+                    silver,
+                    geocoder=geocoder,
+                    municipality_geometry=municipality_geometry,
+                    municipality_name=municipios[cod_municipio],
+                    uf_abbr=municipality.uf_abbr if municipality else None,
+                    attempted_at=run_at,
+                )
                 if territory_assets is not None:
                     silver = enrich_cnes_territories(silver, territory_assets)
                 else:
@@ -423,6 +470,7 @@ def _run_cnes(
                         "cnes_request_timeout": request_timeout,
                         "continue_on_error": continue_on_error,
                         "cnes_workers": workers,
+                        "cnes_geocoder": _geocoder_identity(geocoder),
                         "completed": completed,
                         "failed": failed,
                     },
@@ -451,10 +499,12 @@ def _run_cnes(
         "cnes_request_timeout": request_timeout,
         "continue_on_error": continue_on_error,
         "cnes_workers": workers,
+        "cnes_geocoder": _geocoder_identity(geocoder),
         "failed_municipalities": failed,
         "columns": pq.ParquetFile(parquet).schema.names,
         "parquet_sha256": _sha256_file(parquet),
         "municipios_com_registros": _consolidated_municipalities(parquet),
+        "geocoding_status_counts": _geocoding_status_counts(parquet),
     }
     metadata["municipios_sem_registros"] = sorted(
         set(municipios) - set(metadata["municipios_com_registros"])
@@ -486,6 +536,7 @@ def _run_cnes(
                 "cnes_request_timeout": request_timeout,
                 "continue_on_error": continue_on_error,
                 "cnes_workers": workers,
+                "cnes_geocoder": _geocoder_identity(geocoder),
                 "completed": completed,
                 "failed": failed,
                 "output_path": str(parquet),
@@ -507,6 +558,7 @@ def run_cnes(
     checkpoint_path: Path | None = None,
     continue_on_error: bool = False,
     workers: int = 1,
+    geocoder: Geocoder | None = None,
 ) -> Path:
     """Executa CNES e publica falha fatal no Pushgateway quando necessário."""
     stage_started = monotonic()
@@ -526,6 +578,7 @@ def run_cnes(
             checkpoint_path=checkpoint_path,
             continue_on_error=continue_on_error,
             workers=workers,
+            geocoder=geocoder,
         )
     except Exception:
         try:
@@ -574,6 +627,20 @@ def main() -> None:
         "--workers", type=int, default=1,
         help="Requisições CNES simultâneas; padrão 1 para preservar o modo legado",
     )
+    parser.add_argument(
+        "--geocoder-url",
+        help="URL de uma instância Nominatim própria; ausente desativa o enriquecimento",
+    )
+    parser.add_argument(
+        "--geocoder-cache", type=Path,
+        default=BASE_DIR / "reference" / "cnes-geocoding.sqlite",
+        help="Cache SQLite persistente das consultas de endereço",
+    )
+    parser.add_argument("--geocoder-timeout", type=float, default=20.0)
+    parser.add_argument(
+        "--geocoder-user-agent", default="nss-pipeline-cnes/1.0",
+        help="Identificação enviada à instância Nominatim própria",
+    )
     args = parser.parse_args()
     try:
         catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
@@ -597,6 +664,13 @@ def main() -> None:
             continue_on_error=args.continue_on_error,
             workers=args.workers,
         )
+        if args.geocoder_url:
+            run_kwargs["geocoder"] = NominatimGeocoder(
+                args.geocoder_url,
+                cache_path=args.geocoder_cache,
+                user_agent=args.geocoder_user_agent,
+                timeout=args.geocoder_timeout,
+            )
         if args.checkpoint is not None:
             run_kwargs["checkpoint_path"] = args.checkpoint
         run_cnes(**run_kwargs)
