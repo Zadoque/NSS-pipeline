@@ -69,7 +69,7 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 def configurar_logging(pipeline:str) -> None:
-    log_dir = Path("data/logs") / pipeline
+    log_dir = BASE_DIR / "logs" / pipeline
     log_dir.mkdir(parents=True, exist_ok=True)
 
     run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
