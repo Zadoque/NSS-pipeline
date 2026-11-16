@@ -138,6 +138,21 @@ def _upsert(
     conn.execute(stmt, rows)
 
 
+def _insert_immutable(
+    conn: Connection, table: str, rows: list[dict], conflict_cols: list[str],
+) -> None:
+    """Insere uma trilha de auditoria sem permitir mutação de um batch."""
+    if not rows:
+        return
+    cols = list(rows[0].keys())
+    stmt = text(f"""
+        INSERT INTO {table} ({", ".join(cols)})
+        VALUES ({", ".join(':' + col for col in cols)})
+        ON CONFLICT ({", ".join(conflict_cols)}) DO NOTHING
+    """)
+    conn.execute(stmt, rows)
+
+
 def _clean_code_series(series: pd.Series, default: str) -> pd.Series:
     return series.astype("string").str.strip().replace("", pd.NA).fillna(default)
 
@@ -554,6 +569,30 @@ def _validate_snapshot(
     return fact_df, facts, scope
 
 
+def _metadata_snapshot(
+    fact_df: pd.DataFrame, *, disease_codigo: str, year: int, batch_id: str,
+    source_extracted_at: datetime, published_at: datetime,
+) -> dict:
+    """Deriva o catálogo do mesmo DataFrame Gold já validado para publicação."""
+    months = sorted({int(month) for month in fact_df["month"].tolist()})
+    status = fact_df["notification_territory_status"].astype("string").fillna(
+        "UNMAPPED_NOTIFICATION_UNIT"
+    )
+    municipality_only = bool(
+        fact_df.empty
+        or status.isin({"UNMAPPED_NOTIFICATION_UNIT", "UNAVAILABLE"}).all()
+    )
+    return {
+        "disease_codigo": disease_codigo,
+        "ano": year,
+        "batch_id": batch_id,
+        "available_months": months,
+        "municipality_only": municipality_only,
+        "source_extracted_at": source_extracted_at,
+        "published_at": published_at,
+    }
+
+
 def _scope_statement(sql: str):
     return text(sql).bindparams(bindparam("municipios", expanding=True))
 
@@ -656,6 +695,29 @@ def load_gold_to_postgres(
         upsert_dim_unidade_saude(conn, fact_df)
         upsert_dim_classificacao(conn, fact_df)
         upsert_dim_evolucao(conn, fact_df)
+        # Um escopo BRAZIL é autoritativo: municípios que desapareceram da
+        # fonte deixam de ser fatos ativos. Publicações antigas continuam na
+        # trilha de auditoria. Escopos parciais não removem dados fora deles.
+        if geographic_scope_type == "BRAZIL":
+            stale_result = conn.execute(_scope_statement("""
+                SELECT cd_mun
+                FROM analytics.pipeline_current_publication
+                WHERE disease_codigo = :disease AND ano = :year
+                  AND cd_mun NOT IN :municipios
+            """), params)
+            stale = stale_result.scalars().all() if stale_result is not None else []
+            if stale:
+                stale_params = {"disease": disease_codigo, "year": year, "stale": stale}
+                conn.execute(_scope_statement("""
+                    DELETE FROM analytics.fato_casos
+                    WHERE disease_codigo = :disease AND ano = :year
+                      AND cd_mun IN :stale
+                """), stale_params)
+                conn.execute(_scope_statement("""
+                    DELETE FROM analytics.pipeline_current_publication
+                    WHERE disease_codigo = :disease AND ano = :year
+                      AND cd_mun IN :stale
+                """), stale_params)
         conn.execute(_scope_statement("""
             DELETE FROM analytics.fato_casos
             WHERE disease_codigo = :disease AND ano = :year AND cd_mun IN :municipios
@@ -713,6 +775,26 @@ def load_gold_to_postgres(
                 "ibge_catalog_sha256": ibge_catalog.metadata.sha256 if ibge_catalog else None,
                 **quality,
             }],
+            conflict_cols=["disease_codigo", "ano", "batch_id"],
+        )
+        metadata = _metadata_snapshot(
+            fact_df,
+            disease_codigo=disease_codigo,
+            year=year,
+            batch_id=batch_id,
+            source_extracted_at=source_extracted_at,
+            published_at=publication_added_at,
+        )
+        _upsert(
+            conn,
+            "analytics.pipeline_metadata_current",
+            [metadata],
+            conflict_cols=["disease_codigo", "ano"],
+        )
+        _insert_immutable(
+            conn,
+            "analytics.pipeline_metadata_history",
+            [metadata],
             conflict_cols=["disease_codigo", "ano", "batch_id"],
         )
     export_publication_metadata_metrics(
