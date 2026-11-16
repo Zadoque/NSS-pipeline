@@ -69,6 +69,44 @@ def age_band(
         result = result.mask(condition.fillna(False), label)
     return result
 
+
+def normalize_notification_week(
+    week: pd.Series,
+    notification_date: pd.Series,
+) -> pd.Series:
+    """Normaliza SEM_NOT e recupera valores corrompidos pela data de notificação.
+
+    SINAN costuma publicar a semana no formato reduzido AASS (por exemplo,
+    ``2321``), mas alguns lotes trazem valores truncados ou com corrupção de
+    texto. Quando o valor não representa uma semana válida, a data de
+    notificação é a fonte de fallback. A função só rejeita a linha quando
+    também não há uma data válida para calcular a semana.
+    """
+    raw = week.astype("string").str.strip().replace("", pd.NA)
+    numeric = pd.to_numeric(raw, errors="coerce")
+    normalized = numeric.copy()
+    reduced = numeric.between(1000, 9999) & numeric.mod(100).between(1, 53)
+    normalized.loc[reduced] = (
+        (2000 + numeric.loc[reduced] // 100) * 100 + numeric.loc[reduced] % 100
+    )
+    valid = normalized.eq(0) | (
+        normalized.ge(100001) & normalized.mod(100).between(1, 53)
+    )
+    dates = pd.to_datetime(notification_date, errors="coerce")
+    fallback = dates.dt.isocalendar()
+    can_fallback = (~valid) & dates.notna()
+    unrecoverable = (~valid) & dates.isna()
+    if unrecoverable.any():
+        raise ValueError(
+            "SEM_NOT inválido e DT_NOTIFIC ausente ou inválida; "
+            "não foi possível calcular a semana epidemiológica"
+        )
+    normalized.loc[can_fallback] = (
+        dates.loc[can_fallback].dt.year * 100
+        + fallback.loc[can_fallback, "week"].astype("int64")
+    )
+    return normalized.astype("Int64")
+
 BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 DEFAULT_BATCH_SIZE = 50_000
 GoldTarget = Literal["ad_hoc", "serving"]
@@ -253,7 +291,7 @@ def aggregate(
         work.get("NU_IDADE_N"), work.get("TP_IDADE"),
     )
     week = work.get("SEM_NOT", pd.Series(pd.NA, index=work.index, dtype="object"))
-    work["not_week"] = pd.to_numeric(week, errors="coerce").astype("Int64")
+    work["not_week"] = normalize_notification_week(week, work["DT_NOTIFIC"])
 
     group_cols = [
         "year", "month", "cd_uf", "NM_UF", "cd_mun", "nm_mun", "sex",
