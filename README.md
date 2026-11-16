@@ -21,6 +21,15 @@ CNES/API ──────> Bronze ──> Silver ──────┘  dimens
 - **Silver:** schema canônico, normalização, filtro temporal e deduplicação.
 - **Gold:** agregação por doença/ano/mês/UF/município e dimensões opcionais.
 - **Serving:** Gold validada e carregada transacionalmente no PostgreSQL.
+
+Durante a mesma transação de serving, a pipeline calcula e publica o catálogo
+pequeno `analytics.pipeline_metadata_current` e registra a versão imutável em
+`analytics.pipeline_metadata_history`. Meses disponíveis e
+`municipality_only` vêm do mesmo snapshot Gold validado. Em uma publicação com
+escopo `BRAZIL`, municípios que desapareceram da fonte são removidos do estado
+ativo; as linhas antigas permanecem somente em `pipeline_publications` e no
+histórico de metadata para auditoria. Escopos parciais não removem municípios
+fora do recorte declarado.
 - **IBGE:** identidade municipal, UFs, crosswalk 6↔7 dígitos e releases com
   manifesto, SHA-256 e promoção atômica.
 - **CNES:** dimensão independente, reutilizável por várias doenças e anos.
