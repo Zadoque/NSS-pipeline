@@ -207,7 +207,11 @@ def _prepare_fact_frame(gold_df: pd.DataFrame, disease_codigo: str, batch_id: st
     # Novas dimensões adicionadas em CANONICAL_GOLD_COLUMNS
     sex_column = "CS_SEXO" if "CS_SEXO" in df.columns else "sex"
     df["cd_sexo"] = _clean_code_series(df[sex_column], "I") if sex_column in df.columns else "I"
-    week_column = "SEM_NOT" if "SEM_NOT" in df.columns else "not_week"
+    # A Gold mantém SEM_NOT bruto para compatibilidade, mas também publica
+    # not_week já normalizado com fallback por DT_NOTIFIC. Priorize o valor
+    # normalizado quando ambos estiverem presentes; caso contrário, a carga
+    # reprocessa e rejeita justamente o valor corrompido que a Gold recuperou.
+    week_column = "not_week" if "not_week" in df.columns else "SEM_NOT"
     df["semana_notif"] = (
         _normalize_sem_not(df[week_column], df["year"]).astype("int32")
         if week_column in df.columns else 0

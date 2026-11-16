@@ -89,9 +89,10 @@ def normalize_notification_week(
     normalized.loc[reduced] = (
         (2000 + numeric.loc[reduced] // 100) * 100 + numeric.loc[reduced] % 100
     )
-    valid = normalized.eq(0) | (
-        normalized.ge(100001) & normalized.mod(100).between(1, 53)
-    )
+    valid = (
+        normalized.eq(0)
+        | (normalized.ge(100001) & normalized.mod(100).between(1, 53))
+    ).fillna(False)
     dates = pd.to_datetime(notification_date, errors="coerce")
     fallback = dates.dt.isocalendar()
     can_fallback = (~valid) & dates.notna()
