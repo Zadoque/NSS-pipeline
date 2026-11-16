@@ -597,6 +597,10 @@ def _scope_statement(sql: str):
     return text(sql).bindparams(bindparam("municipios", expanding=True))
 
 
+def _expanding_statement(sql: str, parameter: str):
+    return text(sql).bindparams(bindparam(parameter, expanding=True))
+
+
 def _register_catalog_release(conn: Connection, catalog) -> None:
     if catalog is None:
         return
@@ -708,16 +712,16 @@ def load_gold_to_postgres(
             stale = stale_result.scalars().all() if stale_result is not None else []
             if stale:
                 stale_params = {"disease": disease_codigo, "year": year, "stale": stale}
-                conn.execute(_scope_statement("""
+                conn.execute(_expanding_statement("""
                     DELETE FROM analytics.fato_casos
                     WHERE disease_codigo = :disease AND ano = :year
                       AND cd_mun IN :stale
-                """), stale_params)
-                conn.execute(_scope_statement("""
+                """, "stale"), stale_params)
+                conn.execute(_expanding_statement("""
                     DELETE FROM analytics.pipeline_current_publication
                     WHERE disease_codigo = :disease AND ano = :year
                       AND cd_mun IN :stale
-                """), stale_params)
+                """, "stale"), stale_params)
         conn.execute(_scope_statement("""
             DELETE FROM analytics.fato_casos
             WHERE disease_codigo = :disease AND ano = :year AND cd_mun IN :municipios
