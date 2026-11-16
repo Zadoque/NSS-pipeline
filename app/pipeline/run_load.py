@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
+import json
 from time import monotonic
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
-import pyarrow.parquet as pq
 
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
 from .sinan.gold import (
@@ -18,6 +17,7 @@ from .sinan.gold import (
 )
 from .load import get_engine, load_gold_to_postgres
 from .observability import export_stage_metrics
+from .load_observability import export_failure, parquet_rows, stage_metadata
 from .sinan.silver import transform_file
 from .sinan.bronze import fetch_sinan, write_bronze
 from .reference.ibge.models import MunicipalityCatalog
@@ -39,42 +39,18 @@ _GOLD_QUALITY_METRICS = (
 
 
 def _metric_parquet_rows(path: Path) -> int:
-    try:
-        return int(pq.ParquetFile(path).metadata.num_rows)
-    except (OSError, ValueError):
-        logger.debug("Não foi possível ler contagem auxiliar de métricas: %s", path)
-        return 0
+    return parquet_rows(path, logger=logger)
 
 
 def _metric_metadata(path: Path) -> dict:
-    try:
-        value = json.loads(path.with_name("metadata.json").read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return value if isinstance(value, dict) else {}
+    return stage_metadata(path)
 
 
 def _export_stage_failure(*, layer: str, disease: str, year: int, started: float, extra=None) -> None:
-    """Registra falhas fatais sem substituir a exceção original.
-
-    O Pushgateway é observabilidade best effort, mas o estado de falha precisa
-    ser publicado antes de propagar o erro. Caso contrário, o último valor
-    persistido pode continuar indicando sucesso e o alerta do Grafana não
-    detectar uma interrupção real da etapa.
-    """
-    try:
-        export_stage_metrics(
-            pipeline="sinan",
-            layer=layer,
-            disease=disease,
-            year=year,
-            rows=0,
-            duration_seconds=monotonic() - started,
-            status="failure",
-            extra=extra,
-        )
-    except Exception:  # noqa: BLE001 - nunca mascarar a falha operacional original
-        logger.warning("Falha ao registrar erro da etapa %s", layer, exc_info=True)
+    export_failure(
+        exporter=export_stage_metrics, logger=logger, layer=layer,
+        disease=disease, year=year, started=started, extra=extra,
+    )
 
 def run_load(
     disease: str,
@@ -313,35 +289,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    parser = _build_parser()
-    args = parser.parse_args()
-    try:
-        catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
-        if (args.municipios or args.ufs or args.all_brazil) and catalog is None:
-            raise ValueError("seleção geográfica exige --catalog-root")
-        scope = None
-        if catalog is not None:
-            scope_kwargs = {
-                "municipalities": args.municipios.split(",") if args.municipios else None,
-                "ufs": args.ufs.split(",") if args.ufs else None,
-                "all_brazil": args.all_brazil,
-            }
-            if args.all_brazil:
-                scope_kwargs["require_national"] = True
-            scope = select_scope(catalog, **scope_kwargs)
-        load_options = {}
-        if args.allow_uf_mismatch:
-            load_options["allow_uf_mismatch"] = True
-        run_load(
-            args.disease, args.year, allow_empty=args.allow_empty,
-            catalog=catalog, geographic_scope=scope,
-            cnes_batch_id=args.cnes_batch_id,
-            **load_options,
-        )
-    except Exception:
-        logger.exception("Falha na carga SINAN disease=%s year=%s", args.disease, args.year)
-        raise SystemExit(1) from None
+    from .run_load_cli import main as run_cli
+    run_cli()
 
 
 if __name__ == "__main__":

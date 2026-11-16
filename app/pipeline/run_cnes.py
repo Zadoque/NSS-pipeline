@@ -598,85 +598,8 @@ def run_cnes(
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    parser = argparse.ArgumentParser(
-        description="Ingere estabelecimentos CNES para um escopo geográfico"
-    )
-    parser.add_argument("--catalog-root", type=Path, help="Diretório local de releases IBGE")
-    scope = parser.add_mutually_exclusive_group()
-    scope.add_argument("--municipios", help="Códigos municipais separados por vírgula")
-    scope.add_argument("--ufs", help="UFs ou códigos de UF separados por vírgula")
-    scope.add_argument("--all-brazil", action="store_true", help="Seleciona todos os municípios da release IBGE")
-    parser.add_argument(
-        "--page-size", type=int, default=DEFAULT_CNES_PAGE_SIZE,
-        help=f"Quantidade de registros por página da API CNES (padrão: {DEFAULT_CNES_PAGE_SIZE})",
-    )
-    parser.add_argument(
-        "--request-timeout", type=float, default=DEFAULT_CNES_REQUEST_TIMEOUT,
-        help=f"Timeout de cada requisição CNES em segundos (padrão: {DEFAULT_CNES_REQUEST_TIMEOUT:g})",
-    )
-    parser.add_argument(
-        "--checkpoint", type=Path,
-        help="Arquivo JSON para retomar a ingestão CNES após falha ou interrupção",
-    )
-    parser.add_argument(
-        "--continue-on-error", action="store_true",
-        help="Processa o lote inteiro e registra erros por município no checkpoint",
-    )
-    parser.add_argument(
-        "--workers", type=int, default=1,
-        help="Requisições CNES simultâneas; padrão 1 para preservar o modo legado",
-    )
-    parser.add_argument(
-        "--geocoder-url",
-        help="URL de uma instância Nominatim própria; ausente desativa o enriquecimento",
-    )
-    parser.add_argument(
-        "--geocoder-cache", type=Path,
-        default=BASE_DIR / "reference" / "cnes-geocoding.sqlite",
-        help="Cache SQLite persistente das consultas de endereço",
-    )
-    parser.add_argument("--geocoder-timeout", type=float, default=20.0)
-    parser.add_argument(
-        "--geocoder-user-agent", default="nss-pipeline-cnes/1.0",
-        help="Identificação enviada à instância Nominatim própria",
-    )
-    args = parser.parse_args()
-    try:
-        catalog = load_active_catalog(args.catalog_root) if args.catalog_root else None
-        if (args.municipios or args.ufs or args.all_brazil) and catalog is None:
-            raise ValueError("seleção geográfica exige --catalog-root")
-        geographic_scope = None
-        if catalog is not None:
-            scope_kwargs = {
-                "municipalities": args.municipios.split(",") if args.municipios else None,
-                "ufs": args.ufs.split(",") if args.ufs else None,
-                "all_brazil": args.all_brazil,
-            }
-            if args.all_brazil:
-                scope_kwargs["require_national"] = True
-            geographic_scope = select_scope(catalog, **scope_kwargs)
-        run_kwargs = dict(
-            catalog=catalog,
-            geographic_scope=geographic_scope,
-            page_size=args.page_size,
-            request_timeout=args.request_timeout,
-            continue_on_error=args.continue_on_error,
-            workers=args.workers,
-        )
-        if args.geocoder_url:
-            run_kwargs["geocoder"] = NominatimGeocoder(
-                args.geocoder_url,
-                cache_path=args.geocoder_cache,
-                user_agent=args.geocoder_user_agent,
-                timeout=args.geocoder_timeout,
-            )
-        if args.checkpoint is not None:
-            run_kwargs["checkpoint_path"] = args.checkpoint
-        run_cnes(**run_kwargs)
-    except Exception:
-        logger.exception("Falha na pipeline CNES")
-        raise SystemExit(1) from None
+    from .run_cnes_cli import main as run_cli
+    run_cli()
 
 
 if __name__ == "__main__":
