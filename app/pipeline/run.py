@@ -68,9 +68,26 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cnes-batch-id", help="Lote CNES fixado para o enriquecimento da Gold")
     return parser
 
+def configurar_logging(pipeline:str) -> None:
+    log_dir = Path("data/logs") / pipeline
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    log_file = log_dir / f"{run_id}.log"
+
+    formato = "%(asctime)s %(levelname)s %(name)s %(message)s"
+    logging.basicConfig(
+        level=logging.INFO,
+        format=formato,
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(log_file, encoding="utf_8"),
+        ],
+        force=True,
+    )
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    configurar_logging("sinan")
     parser = _build_parser()
     args = parser.parse_args()
     selected = [c.strip() for c in args.columns.split(",") if c.strip()]
