@@ -6,15 +6,15 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import json
 from pathlib import Path
-import re
 import sqlite3
 from typing import Protocol
 from urllib.parse import urlparse
 
 import pandas as pd
 import requests
-from shapely.geometry import Point, shape
-from shapely.ops import unary_union
+from shapely.geometry import Point
+
+from .geocoding_query import build_address_query, load_municipality_geometry
 
 
 @dataclass(frozen=True)
@@ -136,48 +136,6 @@ class NominatimGeocoder:
                 continue
             candidates.append(GeocodingCandidate(latitude, longitude, confidence))
         return candidates
-
-
-def load_municipality_geometry(assets_dir: Path):
-    """Monta o limite municipal pela união dos distritos oficiais/versionados."""
-    path = Path(assets_dir) / "districts.geojson"
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    geometries = [
-        shape(feature["geometry"])
-        for feature in payload.get("features", [])
-        if feature.get("geometry")
-    ]
-    if not geometries:
-        raise ValueError(f"malha municipal sem distritos: {path}")
-    return unary_union(geometries)
-
-
-def _text(value: object) -> str:
-    if value is None or pd.isna(value):
-        return ""
-    return re.sub(r"\s+", " ", str(value).strip())
-
-
-def _normalize_cep(value: object) -> str:
-    text = _text(value)
-    if re.fullmatch(r"\d+\.0+", text):
-        text = text.split(".", 1)[0]
-    digits = re.sub(r"\D", "", text)
-    return digits.zfill(8) if 0 < len(digits) <= 8 else digits
-
-
-def build_address_query(row: pd.Series, *, municipality_name: str, uf_abbr: str | None) -> str | None:
-    cep = _normalize_cep(row.get("cep"))
-    street = _text(row.get("logradouro"))
-    if len(cep) != 8 or not street:
-        return None
-    street_number = _text(row.get("numero"))
-    street_address = ", ".join(part for part in (street, street_number) if part)
-    parts = [street_address, _text(row.get("bairro_cnes")), municipality_name]
-    if uf_abbr:
-        parts.append(uf_abbr)
-    parts.extend((cep, "Brasil"))
-    return ", ".join(part for part in parts if part)
 
 
 def enrich_missing_coordinates(
