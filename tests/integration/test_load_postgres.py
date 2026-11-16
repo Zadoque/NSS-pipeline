@@ -54,11 +54,14 @@ def _limpar_fato_entre_testes(postgres_engine):
     sem precisar recriar o schema inteiro a cada um (lento)."""
     yield
     with postgres_engine.begin() as conn:
-        conn.execute(text(
-            "TRUNCATE analytics.fato_casos, analytics.pipeline_publications, "
-            "analytics.pipeline_current_publication, analytics.pipeline_metadata_current, "
-            "analytics.pipeline_metadata_history"
-        ))
+        for table in (
+            "analytics.fato_casos",
+            "analytics.pipeline_publications",
+            "analytics.pipeline_current_publication",
+            "analytics.pipeline_metadata_current",
+            "analytics.pipeline_metadata_history",
+        ):
+            conn.execute(text(f"DELETE FROM {table}"))
 
 
 def _gold_exemplo(cases_total: int = 5) -> pd.DataFrame:
