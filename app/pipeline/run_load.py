@@ -32,6 +32,8 @@ from .scope import (
 
 logger = logging.getLogger(__name__)
 
+BASE_DIR = Path("/data")
+
 _GOLD_QUALITY_METRICS = (
     "source_rows", "resolved_rows", "discarded_rows", "aggregation_reduction",
     "invalid_municipality_rows", "out_of_scope_rows", "uf_mismatch_rows",
@@ -310,6 +312,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Canoniza o município pelo código IBGE e publica linhas com UF declarada inconsistente, preservando a métrica",
     )
     return parser
+
+def configurar_logging(pipeline:str) -> None:
+    log_dir = BASE_DIR / "logs" / pipeline
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    run_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    log_file = log_dir / f"{run_id}.log"
+
+    formato = "%(asctime)s %(levelname)s %(name)s %(message)s"
+    logging.basicConfig(
+        level=logging.INFO,
+        format=formato,
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(log_file, encoding="utf_8"),
+        ],
+        force=True,
+    )
 
 
 def main() -> None:
