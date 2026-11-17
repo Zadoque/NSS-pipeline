@@ -2,6 +2,7 @@ from __future__ import annotations
  
 import argparse
 import logging
+import os
 from datetime import UTC, datetime
 from pathlib import Path
  
@@ -13,7 +14,7 @@ from .reference.ibge.models import MunicipalityCatalog
 from .reference.ibge.storage import load_active_catalog
 from .scope import GeographicScope, select_scope, validate_scope_catalog
  
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.getenv("NSS_DATA_DIR", "/data"))
 logger = logging.getLogger(__name__)
  
  

@@ -33,7 +33,9 @@ def test_run_rejeita_escopo_de_catalogo_diferente(mocker):
     fetch.assert_not_called()
 
 
-def test_main_exige_catalogo_nacional_para_all_brazil(mocker, tmp_path):
+def test_main_exige_catalogo_nacional_para_all_brazil(mocker, tmp_path, monkeypatch):
+    monkeypatch.setenv("NSS_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(runner, "BASE_DIR", tmp_path)
     catalog = mocker.Mock()
     scope = mocker.Mock()
     mocker.patch.object(runner, "load_active_catalog", return_value=catalog)
