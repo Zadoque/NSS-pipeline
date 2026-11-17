@@ -10,6 +10,8 @@ from pathlib import Path
 import pandas as pd
 import pyarrow.parquet as pq
 
+import os
+
 from .sinan.columns import CANONICAL_GOLD_COLUMNS
 from .sinan.gold import (
     aggregate_file,
@@ -32,7 +34,7 @@ from .scope import (
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path("/data")
+BASE_DIR = Path(os.getenv("NSS_DATA_DIR", "/data"))
 
 _GOLD_QUALITY_METRICS = (
     "source_rows", "resolved_rows", "discarded_rows", "aggregation_reduction",
