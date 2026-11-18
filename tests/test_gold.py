@@ -14,6 +14,7 @@ from app.pipeline.sinan.gold import (
     _validate_source_matches,
     decode_sinan_age_years,
     aggregate,
+    normalize_notification_week,
     normalize_municipality_codes,
     resolve_catalog_municipality_codes,
 )
@@ -62,6 +63,20 @@ def test_aggregate_soma_casos_por_mes_e_municipio():
     assert (result["year"] == 2026).all()
     assert (result["month"] == 1).all()
     assert (result["cd_mun"] == "1234567").all()
+
+
+def test_normalize_notification_week_faz_fallback_para_dt_notific():
+    result = normalize_notification_week(
+        pd.Series(["20", "2321", "o,516"]),
+        pd.Series(pd.to_datetime(["2023-01-02", "2023-05-22", "2025-04-14"])),
+    )
+
+    assert list(result) == [202301, 202321, 202516]
+
+
+def test_normalize_notification_week_rejeita_sem_data_de_fallback():
+    with pytest.raises(ValueError, match="DT_NOTIFIC ausente ou inválida"):
+        normalize_notification_week(pd.Series(["o,516"]), pd.Series([pd.NaT]))
 
 
 @pytest.mark.parametrize(

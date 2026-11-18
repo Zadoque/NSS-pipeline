@@ -8,6 +8,7 @@ from app.pipeline.sinan.gold import age_band, decode_sinan_age_years
 from app.pipeline.territory_mapping import (
     DISTRICT_ONLY,
     NEIGHBORHOOD,
+    NEIGHBORHOOD_NAME_ONLY,
     UNMAPPED,
     TerritoryMapper,
     enrich_cnes_territories,
@@ -115,4 +116,24 @@ def test_enrich_cnes_territories_preserves_index_and_adds_contract_columns(tmp_p
     assert result.index.tolist() == [7]
     assert result.loc[7, "notification_district_id"] == "D1"
     assert result.loc[7, "notification_neighborhood_id"] is None
-    assert result.loc[7, "notification_territory_status"] == DISTRICT_ONLY
+
+
+def test_enrich_cnes_territories_falls_back_to_cnes_neighborhood_name(tmp_path):
+    assets = tmp_path / "3106200"
+    assets.mkdir()
+    square = [(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)]
+    for filename, features in (
+        ("districts.geojson", [_feature("D1", square)]),
+        ("neighborhoods.geojson", []),
+    ):
+        (assets / filename).write_text(
+            json.dumps(_geojson(features)), encoding="utf-8"
+        )
+    source = pd.DataFrame({
+        "longitude": [20], "latitude": [20], "bairro_cnes": ["Tijuca"],
+    })
+
+    result = enrich_cnes_territories(source, assets)
+
+    assert result.loc[0, "notification_neighborhood_id"] == "CNES_BAIRRO:3106200:Tijuca"
+    assert result.loc[0, "notification_territory_status"] == NEIGHBORHOOD_NAME_ONLY

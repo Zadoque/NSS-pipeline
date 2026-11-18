@@ -12,6 +12,35 @@ from ..reference.ibge.models import MunicipalityCatalog, ResolutionStatus
 
 BASE_DIR = Path(os.environ.get("PIPELINE_DATA_DIR", "/data"))
 
+BRAZIL_LATITUDE_RANGE = (-34.0, 6.0)
+# Inclui os municípios insulares, em especial Fernando de Noronha (~-32.4).
+BRAZIL_LONGITUDE_RANGE = (-74.0, -28.0)
+
+
+def _copy_legacy_address_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Aceita também Bronze anterior à normalização dos nomes de endereço."""
+    out = df.copy()
+    aliases = {
+        "CO_CEP": "cep_estabelecimento",
+        "NO_LOGRADOURO": "logradouro_estabelecimento",
+        "NU_ENDERECO": "numero_estabelecimento",
+        "codigo_cep_estabelecimento": "cep_estabelecimento",
+        "endereco_estabelecimento": "logradouro_estabelecimento",
+    }
+    for legacy, canonical in aliases.items():
+        if canonical not in out.columns and legacy in out.columns:
+            out[canonical] = out[legacy]
+    return out
+
+
+def valid_brazil_coordinate_mask(df: pd.DataFrame) -> pd.Series:
+    latitude = pd.to_numeric(df.get("latitude_cnes"), errors="coerce")
+    longitude = pd.to_numeric(df.get("longitude_cnes"), errors="coerce")
+    return (
+        latitude.between(*BRAZIL_LATITUDE_RANGE)
+        & longitude.between(*BRAZIL_LONGITUDE_RANGE)
+    ).fillna(False)
+
 
 def transform_cnes(
     df: pd.DataFrame,
@@ -19,11 +48,14 @@ def transform_cnes(
     catalog: MunicipalityCatalog | None = None,
     municipality_code7: str | None = None,
 ) -> pd.DataFrame:
+    df = _copy_legacy_address_columns(df)
     columns = [
         "codigo_cnes", "nome_fantasia", "nome_razao_social",
         "codigo_municipio", "codigo_tipo_unidade",
         "bairro_estabelecimento", "latitude_estabelecimento_decimo_grau",
         "longitude_estabelecimento_decimo_grau",
+        "cep_estabelecimento", "logradouro_estabelecimento",
+        "numero_estabelecimento",
     ]
     out = df[[column for column in columns if column in df.columns]].copy()
 
@@ -51,15 +83,36 @@ def transform_cnes(
         out["municipality_resolution_status"] = "VALID_LEGACY_SCOPE"
 
     out = out.drop_duplicates(subset=["codigo_cnes"], keep="last")
-    return out.rename(columns={
+    out = out.rename(columns={
         "codigo_cnes": "cd_unidade",
         "nome_fantasia": "nm_unidade",
         "nome_razao_social": "razao_social_unidade",
         "codigo_tipo_unidade": "tp_unidade",
         "bairro_estabelecimento": "bairro_cnes",
-        "latitude_estabelecimento_decimo_grau": "latitude",
-        "longitude_estabelecimento_decimo_grau": "longitude",
+        "latitude_estabelecimento_decimo_grau": "latitude_cnes",
+        "longitude_estabelecimento_decimo_grau": "longitude_cnes",
+        "cep_estabelecimento": "cep",
+        "logradouro_estabelecimento": "logradouro",
+        "numero_estabelecimento": "numero",
     })
+    for column in ("latitude_cnes", "longitude_cnes"):
+        if column not in out:
+            out[column] = pd.NA
+    valid = valid_brazil_coordinate_mask(out)
+    out["latitude"] = pd.to_numeric(out["latitude_cnes"], errors="coerce").where(valid)
+    out["longitude"] = pd.to_numeric(out["longitude_cnes"], errors="coerce").where(valid)
+    out["latitude_geocoded"] = pd.Series(pd.NA, index=out.index, dtype="Float64")
+    out["longitude_geocoded"] = pd.Series(pd.NA, index=out.index, dtype="Float64")
+    out["coordinate_source"] = pd.Series(
+        valid.map({True: "CNES", False: "UNRESOLVED"}), dtype="string"
+    )
+    out["geocoding_status"] = pd.Series(
+        valid.map({True: "CNES_VALID", False: "NOT_REQUESTED"}), dtype="string"
+    )
+    out["geocoding_provider"] = pd.Series(pd.NA, index=out.index, dtype="string")
+    out["geocoding_confidence"] = pd.Series(pd.NA, index=out.index, dtype="Float64")
+    out["geocoded_at"] = pd.Series(pd.NA, index=out.index, dtype="string")
+    return out
 
 
 def transform_cnes_file(

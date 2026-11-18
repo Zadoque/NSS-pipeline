@@ -38,6 +38,7 @@ _KNOWN_LOCAL_PASSWORDS = frozenset({
 _IMMUTABLE_IMAGE_REFERENCE = re.compile(
     r"@sha256:[0-9a-fA-F]{64}$"
 )
+_PIPELINE_IMAGE_MODES = frozenset({"digest", "local-build"})
 
 
 def validate_production_environment(
@@ -76,13 +77,19 @@ def validate_production_environment(
         )
 
     pipeline_image = values.get("NSS_PIPELINE_IMAGE", "").strip()
-    if pipeline_image and (
+    pipeline_image_mode = values.get("NSS_PIPELINE_IMAGE_MODE", "digest").strip()
+    if pipeline_image_mode not in _PIPELINE_IMAGE_MODES:
+        errors.append(
+            "NSS_PIPELINE_IMAGE_MODE deve ser digest ou local-build"
+        )
+    elif pipeline_image_mode == "digest" and pipeline_image and (
         any(character.isspace() for character in pipeline_image)
         or not _IMMUTABLE_IMAGE_REFERENCE.search(pipeline_image)
     ):
-        errors.append(
-            "NSS_PIPELINE_IMAGE deve usar digest OCI SHA-256"
-        )
+        errors.append("NSS_PIPELINE_IMAGE deve usar digest OCI SHA-256")
+    elif pipeline_image_mode == "local-build" and pipeline_image:
+        if any(character.isspace() for character in pipeline_image) or "@" in pipeline_image:
+            errors.append("NSS_PIPELINE_IMAGE em local-build deve usar uma tag local")
 
     if errors:
         raise ValueError("preflight de produção falhou: " + "; ".join(errors))

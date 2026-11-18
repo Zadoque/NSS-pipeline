@@ -7,7 +7,6 @@ odfpy>=1.4
 requests
 shapely
 pyshp
-alembic
 psycopg2-binary
 sqlalchemy
 prometheus-client>=0.20,<1

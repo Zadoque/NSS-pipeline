@@ -17,6 +17,40 @@ CNES/API ──────> Bronze ──> Silver ───┘
                                       └──> Gold serving ──> PostgreSQL
 ```
 
+### Máquina de estados conceitual
+
+O fluxo abaixo é um AFD operacional: cada execução observa um evento e
+avança para um único estado válido. `FAILED` representa uma falha que exige
+diagnóstico; `PARTIAL` é um resultado persistido da CNES que pode ser retomado
+por checkpoint, mas nunca pode ser promovido para serving.
+
+```mermaid
+stateDiagram-v2
+    [*] --> IBGE_MISSING
+    IBGE_MISSING --> IBGE_READY: refresh validado e publicado
+    IBGE_READY --> CNES_RUNNING: iniciar run_cnes
+    CNES_RUNNING --> CNES_COMPLETED: todos os municípios processados
+    CNES_RUNNING --> CNES_PARTIAL: municípios com falha
+    CNES_RUNNING --> FAILED: erro fatal/interrupção
+    CNES_PARTIAL --> CNES_RUNNING: retomar checkpoint
+    CNES_COMPLETED --> SINAN_RUNNING: iniciar update_sinan/run_load
+    SINAN_RUNNING --> SINAN_READY: Bronze/Silver/manifesto válidos
+    SINAN_RUNNING --> FAILED: fonte, validação ou transformação falhou
+    SINAN_READY --> GOLD_RUNNING: executar transformação Gold
+    GOLD_RUNNING --> GOLD_READY: reconciliação e métricas válidas
+    GOLD_RUNNING --> FAILED: contrato Gold rejeitado
+    GOLD_READY --> POSTGRES_PUBLISHED: carga transacional commitada
+    POSTGRES_PUBLISHED --> [*]
+    FAILED --> IBGE_MISSING: corrigir release e repetir
+    FAILED --> CNES_RUNNING: corrigir fonte/checkpoint e repetir
+    FAILED --> SINAN_RUNNING: corrigir fonte/manifesto e repetir
+```
+
+O diagrama é conceitual e não substitui os contratos de cada módulo. Os
+artefatos persistidos (`active.json`, checkpoints, `manifest.json`,
+`metadata.json` e publicações Gold) são as evidências que autorizam cada
+transição.
+
 ### SINAN
 
 1. `sinan.bronze` baixa o Parquet original do PySUS e registra a origem.
@@ -217,6 +251,25 @@ python -m app.pipeline.run_cnes --catalog-root data/reference/ibge \
 rejeita mudança no escopo, release, page size, timeout ou workers. Sem opção,
 a primeira falha aborta. Municípios concluídos não são consultados novamente.
 
+Para preencher somente coordenadas CNES ausentes ou inválidas, informe uma
+instância Nominatim **auto-hospedada**:
+
+```bash
+python -m app.pipeline.run_cnes --catalog-root data/reference/ibge \
+  --all-brazil --geocoder-url http://nominatim:8080 \
+  --geocoder-cache /data/reference/cnes-geocoding.sqlite
+```
+
+O endereço combina logradouro, número, bairro, município, UF e CEP. A
+coordenada retornada só é aceita quando há um único ponto distinto dentro da
+malha municipal versionada. Coordenadas CNES válidas nunca são consultadas ou
+sobrescritas. O Silver preserva `latitude_cnes`/`longitude_cnes`, registra a
+posição enriquecida separadamente, sua fonte, confiança, provedor, data e
+status, e mantém `latitude`/`longitude` como coordenada efetiva para os mapas.
+O cache SQLite evita consultas repetidas. O endpoint público do OpenStreetMap
+é recusado por essa carga nacional; sem `--geocoder-url`, não há acesso a
+geocodificador e os casos pendentes permanecem `NOT_REQUESTED`.
+
 ### Atualização incremental: `update_sinan.py`
 
 ```bash
@@ -344,7 +397,9 @@ mutmut results
 
 - O ano é filtrado por `DT_NOTIFIC`, que pode divergir de `NU_ANO`.
 - Bronze é append-only e ainda não possui retenção automática.
-- CNES é manual; scheduler não está versionado neste repositório.
+- A execução CNES é disparada pelo deployment/NixOS; este repositório fornece
+  o executor, o checkpoint e os contratos, enquanto o scheduler fica no
+  repositório de configuração do servidor.
 - A API CNES pode ficar indisponível; retries não substituem reprocessamento.
 - Gold mantém grupos distintos em memória; capacidade nacional requer ensaio.
 - O alerta de ausência detecta séries que já publicaram métrica. Detectar uma

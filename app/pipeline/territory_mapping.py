@@ -9,14 +9,32 @@ oficiais versionados em ``territories/``.
 from __future__ import annotations
 
 import json
+from math import isfinite
 from pathlib import Path
+from urllib.parse import quote
 
 import pandas as pd
+from shapely import STRtree, points
 from shapely.geometry import Point, shape
 
 UNMAPPED = "UNMAPPED_NOTIFICATION_UNIT"
 DISTRICT_ONLY = "NOTIFICATION_DISTRICT_ONLY"
 NEIGHBORHOOD = "NOTIFICATION_NEIGHBORHOOD"
+NEIGHBORHOOD_NAME_ONLY = "NOTIFICATION_NEIGHBORHOOD_NAME_ONLY"
+
+
+def name_only_neighborhood_id(municipality_code: str, name: object) -> str | None:
+    normalized = " ".join(str(name or "").split())
+    if not normalized or normalized.casefold() in {"nan", "<na>", "none"}:
+        return None
+    encoded = quote(normalized, safe="-_.~")
+    # The analytics column is VARCHAR(100). Keep the readable name for normal
+    # CNES values and a deterministic suffix when an unusually long name is
+    # encountered, preventing truncation collisions.
+    if len(encoded) > 70:
+        import hashlib
+        encoded = f"{encoded[:54]}-{hashlib.sha1(normalized.encode('utf-8')).hexdigest()[:12]}"
+    return f"CNES_BAIRRO:{municipality_code}:{encoded}"
 
 
 class TerritoryMapper:
@@ -56,14 +74,59 @@ class TerritoryMapper:
         return district_id, neighborhood_id, NEIGHBORHOOD if neighborhood_id else DISTRICT_ONLY
 
 
+    def classify_many(self, coordinates) -> list[tuple[str | None, str | None, str]]:
+        coordinates = list(coordinates)
+        result = [(None, None, UNMAPPED)] * len(coordinates)
+        valid = []
+        for index, (longitude, latitude) in enumerate(coordinates):
+            try:
+                x, y = float(longitude), float(latitude)
+            except (TypeError, ValueError):
+                continue
+            if isfinite(x) and isfinite(y):
+                valid.append((index, x, y))
+        if not valid or not self.districts:
+            return result
+
+        row_ids, xs, ys = zip(*valid)
+        locations = points(xs, ys)
+        district_tree = STRtree([geometry for _, geometry in self.districts])
+        districts = {}
+        # A mesma ordem do GeoJSON usada por classify() resolve sobreposições.
+        for point_id, match_id in sorted(zip(*district_tree.query(locations, predicate="covered_by"))):
+            districts.setdefault(point_id, self.districts[match_id][0]["territoryId"])
+        for point_id, district in districts.items():
+            result[row_ids[point_id]] = (district, None, DISTRICT_ONLY)
+
+        if self.neighborhoods:
+            neighborhood_tree = STRtree([geometry for _, geometry in self.neighborhoods])
+            for point_id, match_id in sorted(zip(*neighborhood_tree.query(locations, predicate="covered_by"))):
+                district = districts.get(point_id)
+                props = self.neighborhoods[match_id][0]
+                if district is not None and props.get("parentDistrictId") == district:
+                    row_id = row_ids[point_id]
+                    if result[row_id][1] is None:
+                        result[row_id] = (district, props["territoryId"], NEIGHBORHOOD)
+        return result
+
+
 def enrich_cnes_territories(df: pd.DataFrame, assets_dir: Path) -> pd.DataFrame:
     mapper = TerritoryMapper(assets_dir)
     out = df.copy()
-    classifications = [
-        mapper.classify(row.get("longitude"), row.get("latitude"))
-        for _, row in out.iterrows()
-    ]
-    out[["notification_district_id", "notification_neighborhood_id", "notification_territory_status"]] = pd.DataFrame(
-        classifications, index=out.index
-    )
+    columns = ["notification_district_id", "notification_neighborhood_id", "notification_territory_status"]
+    longitude = out.get("longitude", pd.Series(None, index=out.index))
+    latitude = out.get("latitude", pd.Series(None, index=out.index))
+    classifications = mapper.classify_many(zip(longitude, latitude))
+    municipality_code = assets_dir.name
+    neighborhood_names = out.get("bairro_cnes", pd.Series(None, index=out.index))
+    for position, (district_id, neighborhood_id, status) in enumerate(classifications):
+        if neighborhood_id is None:
+            fallback_id = name_only_neighborhood_id(municipality_code, neighborhood_names.iloc[position])
+            if fallback_id is not None:
+                classifications[position] = (
+                    district_id,
+                    fallback_id,
+                    NEIGHBORHOOD_NAME_ONLY,
+                )
+    out[columns] = pd.DataFrame(classifications, index=out.index, columns=columns)
     return out

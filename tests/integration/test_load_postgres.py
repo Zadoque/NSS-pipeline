@@ -10,10 +10,6 @@ import pandas as pd
 # pyrefly: ignore [missing-import]
 import pytest
 # pyrefly: ignore [missing-import]
-from alembic import command
-# pyrefly: ignore [missing-import]
-from alembic.config import Config
-# pyrefly: ignore [missing-import]
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
@@ -37,34 +33,18 @@ def postgres_engine():
             "Ver README (seção de testes) para configurar o banco de testes."
         )
 
-    # A fixture reseta o schema: nunca aceitar URL de desenvolvimento/produção.
     if not (make_url(database_url).database or "").endswith("_test"):
         raise RuntimeError("TEST_DATABASE_URL deve apontar para banco com sufixo _test")
     engine = create_engine(database_url)
-
-    # Este banco não é descartável (é um serviço Postgres persistente, não
-    # um container efêmero) — reseta o schema manualmente antes de rodar
-    # as migrations, para garantir estado limpo independente de execuções
-    # anteriores.
-    with engine.begin() as conn:
-        conn.execute(text("DROP SCHEMA IF EXISTS analytics CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
-
-    # env.py lê DATABASE_URL do ambiente, não do Config do Alembic —
-    # setar aqui garante que a migration rode contra o banco de TESTE,
-    # não o de desenvolvimento.
-    previous_url = os.environ.get("DATABASE_URL")
     try:
-        os.environ["DATABASE_URL"] = database_url
-        command.upgrade(Config("alembic.ini"), "head")
+        with engine.connect() as conn:
+            version = conn.execute(text(
+                "SELECT version FROM nss_schema.version WHERE component = 'analytics'"
+            )).scalar_one()
+        assert version == "0002", "Prepare o PostgreSQL de teste com a imagem NSS-database"
+        yield engine
     finally:
-        if previous_url is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = previous_url
-
-    yield engine
-    engine.dispose()
+        engine.dispose()
 
 
 @pytest.fixture(autouse=True)
@@ -74,7 +54,14 @@ def _limpar_fato_entre_testes(postgres_engine):
     sem precisar recriar o schema inteiro a cada um (lento)."""
     yield
     with postgres_engine.begin() as conn:
-        conn.execute(text("TRUNCATE analytics.fato_casos, analytics.pipeline_publications, analytics.pipeline_current_publication"))
+        for table in (
+            "analytics.fato_casos",
+            "analytics.pipeline_publications",
+            "analytics.pipeline_current_publication",
+            "analytics.pipeline_metadata_current",
+            "analytics.pipeline_metadata_history",
+        ):
+            conn.execute(text(f"DELETE FROM {table}"))
 
 
 def _gold_exemplo(cases_total: int = 5) -> pd.DataFrame:
@@ -265,6 +252,80 @@ def test_snapshot_substitui_contagem_em_vez_de_duplicar(postgres_engine):
 
     assert len(rows) == 1
     assert rows[0].cases_total == 8
+
+
+def test_metadata_republicacao_reflete_meses_e_preserva_historico(postgres_engine):
+    first = _gold_exemplo(5)
+    _publish(postgres_engine, first, batch_id="metadata-b1")
+    second = pd.concat([_gold_exemplo(3), _gold_exemplo(7)], ignore_index=True)
+    second.loc[1, "month"] = 2
+    _publish(
+        postgres_engine, second, batch_id="metadata-b2",
+        source_extracted_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+    third = second.iloc[[1]].copy()
+    third["cases_total"] = 4
+    _publish(
+        postgres_engine, third, batch_id="metadata-b3",
+        source_extracted_at=datetime(2026, 1, 3, tzinfo=UTC),
+    )
+
+    with postgres_engine.connect() as conn:
+        current = conn.execute(text(
+            "SELECT batch_id, available_months FROM analytics.pipeline_metadata_current "
+            "WHERE disease_codigo = 'DENG' AND ano = 2026"
+        )).one()
+        history = conn.execute(text(
+            "SELECT batch_id FROM analytics.pipeline_metadata_history "
+            "WHERE disease_codigo = 'DENG' AND ano = 2026 ORDER BY batch_id"
+        )).scalars().all()
+
+    assert current.batch_id == "metadata-b3"
+    assert list(current.available_months) == [2]
+    assert history == ["metadata-b1", "metadata-b2", "metadata-b3"]
+
+
+def test_metadata_recalcula_municipality_only(postgres_engine):
+    unmapped = _gold_exemplo()
+    unmapped["notification_territory_status"] = "UNMAPPED_NOTIFICATION_UNIT"
+    _publish(postgres_engine, unmapped, batch_id="metadata-scope-1")
+    mapped = _gold_exemplo()
+    mapped["notification_territory_status"] = "NOTIFICATION_DISTRICT_ONLY"
+    _publish(
+        postgres_engine, mapped, batch_id="metadata-scope-2",
+        source_extracted_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+
+    with postgres_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT municipality_only FROM analytics.pipeline_metadata_current "
+            "WHERE disease_codigo = 'DENG' AND ano = 2026"
+        )).scalar_one() is False
+
+
+def test_escopo_brasil_remove_municipio_desaparecido_do_snapshot_ativo(postgres_engine):
+    other = _gold_exemplo(2)
+    other["cd_mun"] = "3302403"
+    other["nm_mun"] = "Macaé"
+    _publish(
+        postgres_engine, pd.concat([_gold_exemplo(), other], ignore_index=True),
+        batch_id="metadata-scope-b1", municipios=["3301009", "3302403"],
+        geographic_scope_type="BRAZIL",
+    )
+    _publish(
+        postgres_engine, _gold_exemplo(4), batch_id="metadata-scope-b2",
+        municipios=["3301009"], geographic_scope_type="BRAZIL",
+        source_extracted_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )
+
+    with postgres_engine.connect() as conn:
+        assert conn.execute(text(
+            "SELECT count(*) FROM analytics.fato_casos WHERE cd_mun = '3302403'"
+        )).scalar_one() == 0
+        assert conn.execute(text(
+            "SELECT count(*) FROM analytics.pipeline_current_publication "
+            "WHERE cd_mun = '3302403'"
+        )).scalar_one() == 0
 
 
 def test_load_gold_to_postgres_popula_unidade_saude_quando_presente(postgres_engine):

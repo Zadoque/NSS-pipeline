@@ -13,6 +13,21 @@ import json
 import shutil
 from pathlib import Path
 
+if __package__:
+    from .territory_geojson import (
+        deduplicate_neighborhoods,
+        normalize_neighborhoods,
+        read_features,
+        write_features,
+    )
+else:
+    from territory_geojson import (
+        deduplicate_neighborhoods,
+        normalize_neighborhoods,
+        read_features,
+        write_features,
+    )
+
 
 def _write_empty(path: Path) -> None:
     path.write_text('{"type":"FeatureCollection","features":[]}\n', encoding="utf-8")
@@ -48,6 +63,7 @@ def import_assets(front_root: Path, output: Path) -> dict[str, int]:
     )
     ibge_count = 0
     osm_count = 0
+    deduplication_report: list[dict] = []
     for item in catalog["items"]:
         code = str(item["code"])
         ibge = output / "ibge" / code
@@ -70,7 +86,16 @@ def import_assets(front_root: Path, output: Path) -> dict[str, int]:
             raise FileNotFoundError(f"malha municipal ausente para {code}: {municipality_source}")
         neighborhood_source = front_root / "neighborhoods" / f"{code}.geojson"
         if neighborhood_source.is_file() and item.get("neighborhoodSource") != "OpenStreetMap":
-            shutil.copyfile(neighborhood_source, ibge / "neighborhoods.geojson")
+            normalized = normalize_neighborhoods(
+                read_features(neighborhood_source), read_features(ibge / "districts.geojson")
+            )
+            normalized, discarded = deduplicate_neighborhoods(normalized)
+            for entry in discarded:
+                deduplication_report.append({"municipalityCode": code, **entry})
+            write_features(
+                ibge / "neighborhoods.geojson",
+                normalized,
+            )
         else:
             _write_empty(ibge / "neighborhoods.geojson")
         ibge_count += 1
@@ -79,7 +104,16 @@ def import_assets(front_root: Path, output: Path) -> dict[str, int]:
             osm = output / "osm" / code
             osm.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(ibge / "districts.geojson", osm / "districts.geojson")
-            shutil.copyfile(neighborhood_source, osm / "neighborhoods.geojson")
+            normalized = normalize_neighborhoods(
+                read_features(neighborhood_source), read_features(osm / "districts.geojson")
+            )
+            normalized, discarded = deduplicate_neighborhoods(normalized)
+            for entry in discarded:
+                deduplication_report.append({"municipalityCode": code, **entry})
+            write_features(
+                osm / "neighborhoods.geojson",
+                normalized,
+            )
             osm_count += 1
 
     manifest = {
@@ -87,9 +121,14 @@ def import_assets(front_root: Path, output: Path) -> dict[str, int]:
         "ibgeMunicipalities": ibge_count,
         "osmMunicipalities": osm_count,
         "precedence": ["ibge", "official", "osm"],
+        "deduplicatedFeatures": len(deduplication_report),
     }
     (output / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (output / "osm-deduplication-report.json").write_text(
+        json.dumps(deduplication_report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
     )
     return manifest
 

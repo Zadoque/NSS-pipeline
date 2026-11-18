@@ -12,19 +12,27 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/${POSTGRES_DB:-situacao_saude}
+      DATABASE_URL: postgresql+psycopg2://${NSS_ANALYTICS_WRITER_USER:-nss_pipeline_writer}:${NSS_ANALYTICS_WRITER_PASSWORD:-pipeline-local}@db:5432/${POSTGRES_DB:-situacao_saude}
       TEST_DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/situacao_saude_test
       PROMETHEUS_PUSHGATEWAY_URL: ${PROMETHEUS_PUSHGATEWAY_URL:-http://pushgateway:9091}
 
   migrate:
-    build: .
+    image: ${NSS_DATABASE_IMAGE:-nss-database:0001}
     depends_on:
       db:
         condition: service_healthy
-    entrypoint: ["alembic"]
-    command: ["upgrade", "head"]
     environment:
-      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-nss}:${POSTGRES_PASSWORD:-nss}@db:5432/${POSTGRES_DB:-situacao_saude}
+      NSS_DATABASE_COMPONENTS: analytics
+      POSTGRES_HOST: db
+      POSTGRES_ADMIN_USER: ${POSTGRES_USER:-nss}
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_PASSWORD:-nss}
+      POSTGRES_DB: ${POSTGRES_DB:-situacao_saude}
+      ANALYTICS_READER_USER: ${NSS_ANALYTICS_READER_USER:-nss_pipeline_reader}
+      ANALYTICS_READER_PASSWORD: ${NSS_ANALYTICS_READER_PASSWORD:-reader-local}
+      ANALYTICS_WRITER_USER: ${NSS_ANALYTICS_WRITER_USER:-nss_pipeline_writer}
+      ANALYTICS_WRITER_PASSWORD: ${NSS_ANALYTICS_WRITER_PASSWORD:-pipeline-local}
+      ANALYTICS_MIGRATOR_USER: ${NSS_ANALYTICS_MIGRATOR_USER:-nss_pipeline_migrator}
+      ANALYTICS_MIGRATOR_PASSWORD: ${NSS_ANALYTICS_MIGRATOR_PASSWORD:-migrator-local}
       GRAFANA_DB_USER: ${GRAFANA_DB_USER:-grafana_ro}
       GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:-grafana_ro}
 

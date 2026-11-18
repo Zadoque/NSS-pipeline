@@ -24,6 +24,10 @@ def main() -> None:
         if not source.is_file():
             continue
         destination = args.front_root / "neighborhoods" / f"{code}.geojson"
+        if destination.is_file() and item.get("neighborhoodSource") != "OpenStreetMap":
+            existing = json.loads(destination.read_text(encoding="utf-8"))
+            if existing.get("features"):
+                continue
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
         item["neighborhoodSource"] = "OpenStreetMap"

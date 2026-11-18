@@ -48,6 +48,27 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt -r requirements-dev.txt
 
+      - uses: actions/checkout@v7
+        with:
+          repository: Zadoque/NSS-database
+          ref: b3b49f6a3700d693d79eedf003eedb0517631c7f
+          path: nss-database-contract
+
+      - name: Construir a imagem do NSS-database
+        run: docker build -t nss-database:0001 nss-database-contract
+
+      - name: Preparar PostgreSQL de integração
+        run: |
+          docker run --rm --network host \
+            -e NSS_DATABASE_COMPONENTS=analytics -e POSTGRES_HOST=127.0.0.1 \
+            -e POSTGRES_ADMIN_USER=test_user -e POSTGRES_ADMIN_PASSWORD=test_pass \
+            -e POSTGRES_DB=situacao_saude_test \
+            -e ANALYTICS_READER_USER=test_reader -e ANALYTICS_READER_PASSWORD=test_reader_pw \
+            -e ANALYTICS_WRITER_USER=test_writer -e ANALYTICS_WRITER_PASSWORD=test_writer_pw \
+            -e ANALYTICS_MIGRATOR_USER=test_migrator -e ANALYTICS_MIGRATOR_PASSWORD=test_migrator_pw \
+            -e GRAFANA_DB_USER=test_grafana -e GRAFANA_DB_PASSWORD=test_grafana_pw \
+            nss-database:0001
+
       - name: Rodar testes de integração
         env:
           TEST_DATABASE_URL: postgresql+psycopg2://test_user:test_pass@localhost:5432/situacao_saude_test
@@ -64,10 +85,26 @@ jobs:
       GRAFANA_DB_USER: ci_grafana_ro
       GRAFANA_DB_PASSWORD: ci_grafana_db_secret_2026
       PROMETHEUS_PUSHGATEWAY_URL: http://pushgateway:9091
-      DATABASE_URL: postgresql+psycopg2://ci_user:ci_db_secret_2026@db:5432/situacao_saude
+      DATABASE_URL: postgresql+psycopg2://ci_writer:ci_writer_secret@db:5432/situacao_saude
+      NSS_DATABASE_IMAGE: nss-database:0001
+      NSS_ANALYTICS_READER_USER: ci_reader
+      NSS_ANALYTICS_READER_PASSWORD: ci_reader_secret
+      NSS_ANALYTICS_WRITER_USER: ci_writer
+      NSS_ANALYTICS_WRITER_PASSWORD: ci_writer_secret
+      NSS_ANALYTICS_MIGRATOR_USER: ci_migrator
+      NSS_ANALYTICS_MIGRATOR_PASSWORD: ci_migrator_secret
       NSS_PIPELINE_IMAGE: nss-pipeline:${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
+
+      - uses: actions/checkout@v7
+        with:
+          repository: Zadoque/NSS-database
+          ref: b3b49f6a3700d693d79eedf003eedb0517631c7f
+          path: nss-database-contract
+
+      - name: Construir a imagem do NSS-database
+        run: docker build -t nss-database:0001 nss-database-contract
 
       - name: Validar configuração do Compose
         run: docker compose --profile observability config --quiet
@@ -185,11 +222,14 @@ jobs:
             -U restore_admin -d situacao_saude < "$backup_path"
           special_password='a'\''b\c$$d'
           docker run --rm --network "$network" \
-            -e DATABASE_URL="postgresql+psycopg2://restore_admin:restore_admin_secret@$restore_container:5432/situacao_saude" \
-            -e GRAFANA_DB_USER=restore_grafana_ro \
-            -e GRAFANA_DB_PASSWORD="$special_password" \
-            --entrypoint python "$NSS_PIPELINE_IMAGE" \
-            -m app.pipeline.observability.provision_grafana_role
+            -e NSS_DATABASE_COMPONENTS=analytics -e POSTGRES_HOST="$restore_container" \
+            -e POSTGRES_ADMIN_USER=restore_admin -e POSTGRES_ADMIN_PASSWORD=restore_admin_secret \
+            -e POSTGRES_DB=situacao_saude \
+            -e ANALYTICS_READER_USER=restore_reader -e ANALYTICS_READER_PASSWORD=restore_reader_secret \
+            -e ANALYTICS_WRITER_USER=restore_writer -e ANALYTICS_WRITER_PASSWORD=restore_writer_secret \
+            -e ANALYTICS_MIGRATOR_USER=restore_migrator -e ANALYTICS_MIGRATOR_PASSWORD=restore_migrator_secret \
+            -e GRAFANA_DB_USER=restore_grafana_ro -e GRAFANA_DB_PASSWORD="$special_password" \
+            nss-database:0001
           docker run --rm --network "$network" \
             -e PGPASSWORD="$special_password" postgres:16 \
             psql -h "$restore_container" -U restore_grafana_ro -d situacao_saude \
@@ -206,7 +246,7 @@ jobs:
           docker rm -f "$restore_container" >/dev/null
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d nss_restore \
-            -c 'SELECT version_num FROM alembic_version;' \
+            -c 'SELECT version FROM nss_schema.version;' \
             -c 'SELECT count(*) FROM analytics.dim_municipio;'
           docker compose -f docker-compose.yml -f docker-compose.production.yml \
             exec -T db dropdb -U "$POSTGRES_USER" nss_restore

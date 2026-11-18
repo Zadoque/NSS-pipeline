@@ -1,10 +1,11 @@
 {
   "source": "NSS-front-end public/maps/national",
   "ibgeMunicipalities": 5571,
-  "osmMunicipalities": 1324,
+  "osmMunicipalities": 1320,
   "precedence": [
     "ibge",
     "official",
     "osm"
-  ]
+  ],
+  "deduplicatedFeatures": 594
 }

@@ -90,6 +90,14 @@ def test_prepare_fact_frame_preserva_lote_e_aliases_da_gold():
     assert fact_df.loc[0, "age_band"] == "adulto"
 
 
+def test_prepare_fact_frame_prioriza_semana_normalizada_da_gold():
+    df = _gold_minima(SEM_NOT=["o,516"], not_week=[202516])
+
+    fact_df = _prepare_fact_frame(df, disease_codigo="ACGR", batch_id="lote-9")
+
+    assert fact_df.loc[0, "semana_notif"] == 202516
+
+
 def test_prepare_fact_frame_preserva_classificacao_e_evolucao_e_default_sexo():
     df = _gold_minima(CLASSI_FIN=["10"], EVOLUCAO=["2"], CS_SEXO=[""])
 

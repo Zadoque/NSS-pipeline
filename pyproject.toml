@@ -18,6 +18,8 @@ only_mutate = [
     "app/pipeline/sinan/gold.py",
     "app/pipeline/load.py",
     "app/pipeline/territory_mapping.py",
+    "app/pipeline/cnes/geocoding.py",
+    "app/pipeline/cnes/silver.py",
     "app/pipeline/esporo/silver.py",
     "app/pipeline/update_sinan.py",
     "app/pipeline/run_cnes.py",
